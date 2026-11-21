@@ -37,6 +37,18 @@
   #menu.pause .foot, #menu.pause .tag { display: none; }
   #tear { position: fixed; inset: 0; z-index: 11; pointer-events: none; display: none; mix-blend-mode: screen; }
   #tear i { position: absolute; left: -10vw; right: -10vw; background: linear-gradient(90deg, rgba(95,164,158,.0), rgba(180,230,225,.5) 30%, rgba(255,60,60,.35) 60%, rgba(0,0,0,0)); }
+  /* ---------- cheat console ---------- */
+  #devcon { position: fixed; left: 14px; right: 14px; bottom: 14px; max-width: 760px; z-index: 30; background: rgba(3,7,9,.9); border-left: 3px solid #5fa49e; font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: #cfd6d3; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+  #devcon[hidden] { display: none; }
+  #devcon .log { max-height: 42vh; overflow-y: auto; padding: 10px 14px 4px; }
+  #devcon .log .cmd { color: #5fa49e; }
+  #devcon .log .err { color: #e07a6e; }
+  #devcon .log .dim { color: rgba(207,214,211,.45); }
+  #devcon .log .k { color: #e9ecea; }
+  #devcon .row { display: flex; gap: 8px; padding: 6px 14px 10px; border-top: 1px solid rgba(95,164,158,.25); }
+  #devcon .row span { color: #5fa49e; }
+  #devcon input { all: unset; flex: 1; color: #fff; caret-color: #5fa49e; }
+  body.nohud #crosshair, body.nohud #hud, body.nohud #hint { display: none !important; }
   body.inmenu #crosshair, body.inmenu #hud, body.inmenu #hint { display: none !important; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 2px #000; pointer-events: none; }
   #hud { position: fixed; left: 14px; top: 12px; color: #fff; font: bold 14px 'Courier New', monospace; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; line-height: 1.5; }
@@ -60,7 +72,7 @@
     <div id="loading">Loading building…</div>
   </div>
   <div id="panel" hidden></div>
-  <div class="foot">Headphones recommended<br>Prototype build</div>
+  <div class="foot">Headphones recommended<br>` opens the console<br>Prototype build</div>
 </div>
 <div id="tear"></div>
 <div id="crosshair"></div>

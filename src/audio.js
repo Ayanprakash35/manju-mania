@@ -1,12 +1,12 @@
 // Procedural horror ambience (Web Audio, no sound files): low drone, fluorescent hum, footsteps,
 // door creaks and the occasional distant bang somewhere in the building. Starts on the first click.
 export class HorrorAudio {
-  constructor() { this.muted = false; this.ctx = null; this.stepT = 0; this.nextBang = 25 + Math.random() * 30; }
+  constructor() { this.muted = false; this.volume = 1; this.ctx = null; this.stepT = 0; this.nextBang = 25 + Math.random() * 30; }
 
   start() {
     if (this.ctx) { this.ctx.resume(); return; }
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    this.master = ctx.createGain(); this.master.gain.value = this.muted ? 0 : 0.55; this.master.connect(ctx.destination);
+    this.master = ctx.createGain(); this.master.gain.value = this.muted ? 0 : 0.55 * this.volume; this.master.connect(ctx.destination);
     // noise buffer reused for everything
     const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
@@ -26,7 +26,7 @@ export class HorrorAudio {
     this.humGain = ctx.createGain(); this.humGain.gain.value = 0.0; hum.connect(hf); hf.connect(this.humGain); this.humGain.connect(this.master); hum.start();
   }
 
-  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.55; }
+  setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.55 * this.volume; }
 
   tick() {          // menu blip: a short filtered click
     const ctx = this.ctx; if (!ctx) return;

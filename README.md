@@ -8,6 +8,26 @@ First-person horror game (work in progress) set in a hostel building, built from
 
 Click the screen to start. WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
 
+## Cheat console (src/console.js)
+Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
+
+| Command | What it does |
+|---|---|
+| `help [cmd]` | list commands |
+| `freeze` / `unfreeze` | stop the world (lights, scares, doors, mist); you can still move |
+| `timescale 0.3` | slow motion (1 normal, up to 5) |
+| `tp <place> [floor]` / `tp x y z` | teleport; `places` lists spots (start, courtyard, lobby, north/south/east/west corridors, stairs, stairs2, wells, outside, roof) |
+| `pos` | your position |
+| `fly [on/off]`, `speed 2`, `respawn` | movement |
+| `scare <name>` | figure, follower, blackout, lightDies, doorCreak, doorSlam, knock, whisper |
+| `scares off/on`, `tension 0.8` | random scares, how soon the next one comes |
+| `summon [dist]`, `banish` | put the figure in front of you / make it vanish |
+| `torch on/off/3`, `lights on/off/flicker`, `bright on` | lighting |
+| `fog 0.02` / `fog off` / `fog auto` | fog override |
+| `retro`, `fov 75`, `sound off`, `volume 0.5`, `hud off` | display and sound |
+| `doors open/close` | every room door at once |
+| `pause`, `menu` | pause menu / back to the title |
+
 ## Title menu (src/menu.js)
 Glitched wordmark and menu (new game / controls / settings); Esc opens it as a pause menu. Behind it the live
 scene plays slow camera shots cut with glitch tears, with the torch cutting in and out.

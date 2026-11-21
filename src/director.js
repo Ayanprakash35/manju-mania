@@ -65,7 +65,7 @@ export class Director {
     this.tension = Math.min(1, Math.max(0, this.tension + dt * (inside ? 0.012 : -0.004) + (torchOn ? 0 : dt * 0.01)));
     this.updateFigure(dt);
     this.updateFollower(moving);
-    this.next -= dt * (0.6 + this.tension * 1.4);
+    if (!this.paused) this.next -= dt * (0.6 + this.tension * 1.4);
     if (this.next <= 0 && !this.fig) {
       this.fire(inside);
       this.next = rnd(22, 45);
@@ -83,6 +83,15 @@ export class Director {
       if (this[e]?.()) { this.recent = [e, ...this.recent].slice(0, 3); this.tension *= 0.35; return e; }
     }
     return null;
+  }
+  summon(d) {           // console: put the figure in front of you, at a given distance if asked
+    if (this.fig) this.vanish(false);
+    const p = d ? this.figureSpot(Math.max(2, d - 1), d + 1) : this.figureSpot();
+    if (p) { this.figure_place(p); return true; }
+    if (!d) return false;
+    const f = this.fwd(), c = this.camera.position;               // no clear spot: just put it there
+    this.figure_place(new THREE.Vector3(c.x + f.x * d, c.y - 1.43, c.z + f.z * d));
+    return true;
   }
   force(name) { return this.fire(this.indoors(), name); }   // debug: __game.director.force('figure')
 

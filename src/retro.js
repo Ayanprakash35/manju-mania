@@ -126,7 +126,8 @@ function patch(mat, { wallBand = false } = {}) {
 export function setupRetro(renderer, scene, camera) {
   const tex = {};
   const getTex = (k) => (tex[k] ||= TEX[k]());
-  const originals = new Map();          // mesh -> original material (for the toggle)
+  const originals = new Map();
+  const tubes = [];                     // tube-light materials (console: lights on/off)          // mesh -> original material (for the toggle)
 
   // building / doors / props: swap to retro materials
   function apply(root) {
@@ -142,7 +143,7 @@ export function setupRetro(renderer, scene, camera) {
         o.userData.retro = patch(new THREE.MeshLambertMaterial({ map: getTex(kind), side: m.side }), { wallBand: kind === 'wall' });
       } else {
         const r = patch(new THREE.MeshLambertMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveIntensity: m.emissiveIntensity ?? 1 }));
-        if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xc8d2e0); r.emissiveIntensity = 0.12; }   // tube lights
+        if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xc8d2e0); r.emissiveIntensity = 0.12; tubes.push(r); }   // tube lights
         o.userData.retro = r;
       }
       o.material = enabled ? o.userData.retro : m;
@@ -212,5 +213,6 @@ export function setupRetro(renderer, scene, camera) {
     renderer.setRenderTarget(rt); renderer.render(scene, camera);
     renderer.setRenderTarget(null); renderer.render(postScene, postCam);
   }
-  return { apply, render, setEnabled, fill, get enabled() { return enabled; } };
+  const setTubes = (v) => { for (const t of tubes) t.emissiveIntensity = v ?? 0.12; };
+  return { apply, render, setEnabled, setTubes, fill, get enabled() { return enabled; } };
 }
