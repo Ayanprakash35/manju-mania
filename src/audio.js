@@ -27,6 +27,7 @@ export class HorrorAudio {
   }
 
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.55 * this.volume; }
+  setHum(v = 0) { if (this.humGain) this.humGain.gain.value = v; }
 
   tick() {          // menu blip: a short filtered click
     const ctx = this.ctx; if (!ctx) return;
