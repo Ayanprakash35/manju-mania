@@ -96,6 +96,7 @@ const keys = {};
 function respawn() {
   player.position.copy(SPAWN).y += PLAYER.radius + PLAYER.segment - 1.6 + 0.1;
   vel.set(0, 0, 0);
+  flying = false; onGround = false;
   camera.position.copy(player.position).y += PLAYER.eye;
   camera.lookAt(SPAWN_LOOK);
 }
@@ -103,6 +104,7 @@ function respawn() {
 addEventListener('keydown', (e) => {
   if (state !== 'play' || devcon?.open) return;
   keys[e.code] = true;
+  if (e.repeat) return;
   if (e.code === 'KeyF') { flying = !flying; vel.set(0, 0, 0); }
   if (e.code === 'KeyR') respawn();
   if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
@@ -118,7 +120,7 @@ let state = 'menu', ready = false, fresh = false;
 const menu = new Menu({
   newGame: () => { if (!ready) return; audio.start(); controls.lock(); fresh = true; },   // play starts once the pointer is locked
   resume: () => { audio.start(); controls.lock(); },
-  quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; },
+  quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; director.reset(); audio.setHum(0); },
   setRetro: (v) => retro.setEnabled(v), retro: () => retro.enabled,
   setSound: (v) => audio.setMuted(!v), sound: () => !audio.muted,
   tick: () => audio.tick(),
@@ -131,11 +133,11 @@ controls.addEventListener('lock', () => {
 });
 document.addEventListener('pointerlockerror', () => {
   fresh = false;
-  if (state === 'play' && !devcon?.open) { state = 'pause'; menu.open('pause'); document.body.classList.add('inmenu'); }   // couldn't re-capture the mouse
+  if (state === 'play' && !devcon?.open) { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); }   // couldn't re-capture the mouse
 });
 controls.addEventListener('unlock', () => {
   for (const k in keys) keys[k] = false;
-  if (state === 'play' && !devcon?.open) { state = 'pause'; menu.open('pause'); document.body.classList.add('inmenu'); }
+  if (state === 'play' && !devcon?.open) { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); }
 });
 
 // attract-mode camera: slow shots around the building, cut with a glitch
@@ -200,6 +202,8 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   const merged = mergePositions(staticGeoms);
   merged.boundsTree = new MeshBVH(merged);
   collider = new THREE.Mesh(merged);   // never added to the scene
+  collider.updateMatrixWorld();
+  roomDoors.occluder = collider;
 
   respawn();
   await doorsLoaded;
@@ -363,7 +367,7 @@ function frame() {
       const d = f.pl.position.distanceTo(camera.position);
       if (on && d < 8) nearLight = Math.max(nearLight, 1 - d / 8);
     }
-    audio.update(dt, { moving, running: speed > 4.5, nearLight });
+    if (state === 'play') audio.update(dt, { moving, running: speed > 4.5, nearLight, frozen: cheat.frozen });
     if (state === 'play' && wdt > 0) director.update(wdt, { moving, torchOn });
     // fog follows you in and out of the building
     if ((pickFrame & 7) === 0) indoorK += ((director.indoors() ? 1 : 0) - indoorK) * 0.25;
@@ -413,8 +417,8 @@ var devcon = new DevConsole({
     if (open && controls.isLocked) controls.unlock();
     if (!open && state === 'play') controls.lock();
   },
-  pause: () => { if (state === 'play') { state = 'pause'; menu.open('pause'); document.body.classList.add('inmenu'); } },
-  quit: () => { state = 'menu'; flying = false; menu.open('title'); document.body.classList.add('inmenu'); },
+  pause: () => { if (state === 'play') { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); } },
+  quit: () => { state = 'menu'; flying = false; director.reset(); audio.setHum(0); menu.open('title'); document.body.classList.add('inmenu'); },
   respawn,
   teleport: (x, feet, z, lx, lz) => {
     player.position.set(x, feet + PLAYER.radius + PLAYER.segment + 0.05, z); vel.set(0, 0, 0);

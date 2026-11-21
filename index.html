@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="description" content="First-person horror game set in a hostel building: explore, open doors, keep the torch on.">
 <title>Manju Mania</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #05070c; font-family: -apple-system, system-ui, sans-serif; }
@@ -54,6 +56,13 @@
   #hud { position: fixed; left: 14px; top: 12px; color: #fff; font: bold 14px 'Courier New', monospace; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; line-height: 1.5; }
   #hud b { font-size: 17px; }
   #hint { position: fixed; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); color: #fff; font: 600 14px -apple-system, system-ui, sans-serif; background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 6px; display: none; pointer-events: none; }
+  @media (max-height: 680px) {
+    #menu { overflow-y: auto; }
+    #menu .col { position: relative; left: auto; top: auto; right: auto; padding: 16px 20px; box-sizing: border-box; }
+    #menu .tag, #menu .foot { display: none; }
+    #items { margin-top: 12px; }
+    #panel { position: relative; left: auto; bottom: auto; width: auto; margin: 0 20px 16px; }
+  }
 </style>
 <script type="importmap">
 { "imports": {

@@ -56,10 +56,13 @@ export class Menu {
 
   key(e) {
     if (this.root.hidden) return;
+    if (e.repeat) return;
     const its = this.items();
     const move = (d) => { let i = this.sel; do { i = (i + d + its.length) % its.length; } while (its[i].off); this.sel = i; this.render(); this.h.tick?.(); };
     if (e.code === 'ArrowDown' || e.code === 'KeyS') move(1);
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') move(-1);
+    // a focused <button> already activates itself on Space/Enter; don't double-fire
+    else if ((e.code === 'Enter' || e.code === 'Space') && document.activeElement?.tagName === 'BUTTON') return;
     else if (e.code === 'Enter' || e.code === 'Space') { const it = its[this.sel]; if (it && !it.off) { this.h.tick?.(); it.go(); } }
     else if (e.code === 'Escape' || e.code === 'Backspace') this.show(null);
   }
@@ -86,7 +89,7 @@ export class Menu {
 
   open(mode) { this.mode = mode; this.sel = 0; this.show(null); this.root.hidden = false; this.root.classList.toggle('pause', mode === 'pause'); this.render(); }
   close() { this.root.hidden = true; this.show(null); }
-  setReady() { this.ready = true; this.render(); }
+  setReady() { this.ready = true; const its = this.items(); this.sel = Math.max(0, its.findIndex((i) => !i.off)); this.render(); }
 
   // full-screen tear, used on camera cuts
   burst(ms = 220) {
@@ -108,7 +111,7 @@ export class Menu {
 
   // ---------- glitched wordmark ----------
   buildWord() {
-    const W = Math.min(820, innerWidth * 0.62), lineH = W * 0.2;
+    const W = Math.min(820, innerWidth * 0.62, Math.max(200, innerHeight * 0.9)), lineH = W * 0.2;
     const dpr = Math.min(devicePixelRatio, 2);
     this.cw = W; this.ch = lineH * 2.25;
     this.canvas.width = W * dpr; this.canvas.height = this.ch * dpr;

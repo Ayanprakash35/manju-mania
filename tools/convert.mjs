@@ -5,13 +5,13 @@
 //  * reads the OBJ (global indices, per-vertex RGB, v/vt/vn faces, one group per body)
 //  * converts units: export units / 2.54 -> metres, Z-up -> Y-up, ground slab top at y = 0
 //  * simplifies over-tessellated bodies (door handles had 30k triangles each)
-//  * merges every body into one mesh per colour (19 colours -> 19 draw calls instead of 1534)
+//  * merges every body into primitives grouped by colour/material (45 materials, 53 primitives instead of 1,534 bodies)
 //  * keeps the entrance doors (+ their handles) as separate nodes so the game can swing them open
-//  * writes a meshopt-compressed GLB
+//  * writes an uncompressed GLB (exact positions; meshopt/quantize would flatten the 1 mm slabs)
 import fs from 'node:fs';
 import { Document, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { weld, dedup, prune, meshopt, quantize } from '@gltf-transform/functions';
+import { weld, dedup, prune } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
 import { buildInterior, CLIP_RECTS } from './interior.mjs';
 

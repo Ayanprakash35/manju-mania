@@ -27,6 +27,7 @@ export class HorrorAudio {
   }
 
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.55 * this.volume; }
+  setHum(v = 0) { if (this.humGain) this.humGain.gain.value = v; }
 
   tick() {          // menu blip: a short filtered click
     const ctx = this.ctx; if (!ctx) return;
@@ -103,17 +104,19 @@ export class HorrorAudio {
   }
 
   // called every frame: moving = walking on the ground, indoors = under a ceiling, nearLight = 0..1
-  update(dt, { moving, running, nearLight }) {
+  update(dt, { moving, running, nearLight, frozen = false }) {
     if (!this.ctx) return;
     // footsteps are triggered by the head bob in main.js (footstep()), so they land with the camera dip
     this.humGain.gain.value += ((nearLight * 0.035) - this.humGain.gain.value) * Math.min(1, dt * 3);
-    this.nextBang -= dt;
-    if (this.nextBang <= 0) {            // something, somewhere
-      this.nextBang = 30 + Math.random() * 50;
-      const r = Math.random();
-      if (r < 0.5) this.burst(90, 0.8, 1.4, 0.35, 'lowpass');                      // distant slam
-      else if (r < 0.8) { for (let i = 0; i < 3; i++) setTimeout(() => this.burst(160, 1, 0.15, 0.18, 'lowpass'), i * 420); }  // three slow knocks
-      else this.door();                                                            // a door, far away
+    if (!frozen) {
+      this.nextBang -= dt;
+      if (this.nextBang <= 0) {            // something, somewhere
+        this.nextBang = 30 + Math.random() * 50;
+        const r = Math.random();
+        if (r < 0.5) this.burst(90, 0.8, 1.4, 0.35, 'lowpass');                      // distant slam
+        else if (r < 0.8) { for (let i = 0; i < 3; i++) setTimeout(() => this.burst(160, 1, 0.15, 0.18, 'lowpass'), i * 420); }  // three slow knocks
+        else this.door();                                                            // a door, far away
+      }
     }
   }
 }
