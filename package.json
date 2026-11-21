@@ -1,0 +1,1 @@
+{"name":"building-walk","private":true,"type":"module","dependencies":{"@gltf-transform/core":"^4.1.1","@gltf-transform/extensions":"^4.1.1","@gltf-transform/functions":"^4.1.1","meshoptimizer":"^0.22.0","three":"^0.170.0","three-mesh-bvh":"^0.8.3"}}

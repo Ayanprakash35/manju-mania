@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Model Debug</title>
+<style>body{margin:0;overflow:hidden;background:#cfe0ee}#l{position:fixed;left:8px;top:8px;font:12px monospace;background:#fff8;padding:4px}</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head>
+<body><div id="l"></div><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); document.body.appendChild(r.domElement);
+const s = new THREE.Scene(); s.background = new THREE.Color(0xcfe0ee);
+s.add(new THREE.HemisphereLight(0xffffff, 0x777777, 1.4)); const d = new THREE.DirectionalLight(0xffffff, 1.8); d.position.set(-30, 50, 25); s.add(d);
+const cam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 1000); cam.position.set(-50, 50, 50);
+const oc = new OrbitControls(cam, r.domElement);
+const grid = new THREE.GridHelper(100, 50, 0xff0000, 0xbbbbbb); s.add(grid);
+let root; const file = new URLSearchParams(location.search).get('f') || 'debug.glb';
+import('three/addons/libs/meshopt_decoder.module.js').then(({ MeshoptDecoder }) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/' + file + '?v=' + Date.now(), g => { root = g.scene; s.add(root);
+  root.traverse(o => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.material.metalness = 0; o.material.roughness = 0.8; const n = o.material.name || '';
+    if (n === 'c_0.831,0.831,0.831') o.material.color.setRGB(0.75, 0.42, 0.40);
+    if (n === 'c_0.902,0.894,0.871') o.material.color.setRGB(0.35, 0.5, 0.9);
+    if (n === 'c_0.792,0.776,0.737') o.material.color.setRGB(0.95, 0.9, 0.6); } });
+  window.ready = true; }));
+(function f() { r.localClippingEnabled = true; r.render(s, window.__cam || cam); requestAnimationFrame(f); })();
+const ray = new THREE.Raycaster();
+window.dbg = {
+  view(p, t) { cam.position.set(...p); oc.target.set(...t); oc.update(); },
+  hide(re) { let n = 0; root.traverse(o => { if (o.isMesh && re.test(o.name)) { o.visible = false; n++; } }); return n; },
+  only(re) { root.traverse(o => { if (o.isMesh) o.visible = re.test(o.name); }); },
+  show() { root.traverse(o => { if (o.isMesh) o.visible = true; }); },
+  pick(x, y) { ray.setFromCamera(new THREE.Vector2(x / innerWidth * 2 - 1, -y / innerHeight * 2 + 1), cam); return ray.intersectObject(root, true).filter(h => h.object.visible).slice(0, 3).map(h => h.object.name + ' @' + h.point.toArray().map(v => v.toFixed(1))); },
+  ortho(y = 120) { cam.position.set(0, y, 0.001); oc.target.set(0, 0, 0); oc.update(); },
+  list(minH = 4, minA = 15) { const out = [], b = new THREE.Box3(); root.traverse(o => { if (!o.isMesh || !o.visible) return; b.setFromObject(o); const sz = b.getSize(new THREE.Vector3()); if (sz.y >= minH && sz.x * sz.z >= minA) out.push([o.name, o.geometry.attributes.position.count / 3, b.min.toArray().map(v => +v.toFixed(1)), b.max.toArray().map(v => +v.toFixed(1))]); }); return out; },
+  section(h) { r.localClippingEnabled = true; r.clippingPlanes = h == null ? [] : [new THREE.Plane(new THREE.Vector3(0, -1, 0), h)]; },
+  plan(h, cx = -3, cz = 4, half = 36) { this.section(h); const a = innerWidth / innerHeight; const oc2 = new THREE.OrthographicCamera(-half * a, half * a, half, -half, 0.1, 500); oc2.position.set(cx, 100, cz); oc2.up.set(0, 0, -1); oc2.lookAt(cx, 0, cz); window.__cam = oc2; },
+  label(t) { document.getElementById('l').textContent = t; },
+};
+</script></body></html>
