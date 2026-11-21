@@ -92,19 +92,34 @@ function boxUV(geo) {
 // ---------------------------------------------------------------- shader patches
 const snapUniform = { value: new THREE.Vector2(426, 240) };
 const retroOn = { value: 1 };
-const snapOn = { value: 0 };   // PS1 vertex wobble: off, it made the near-coplanar floor layers flicker
+const snapOn = { value: 0 };
+// ground fog: thick at ankle/knee height, thinning with height, patchy and slowly rolling (see fog_fragment below)
+const mistU = { uMistColor: { value: new THREE.Color(0x4c5560) }, uMist: { value: 0.3 }, uMistH: { value: 0.7 }, uMistY: { value: 0.0 }, uFogTime: { value: 0 } };   // PS1 vertex wobble: off, it made the near-coplanar floor layers flicker
 function patch(mat, { wallBand = false } = {}) {
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uSnap = snapUniform; sh.uniforms.uRetro = retroOn; sh.uniforms.uSnapOn = snapOn;
+    sh.uniforms.uSnap = snapUniform; sh.uniforms.uRetro = retroOn; sh.uniforms.uSnapOn = snapOn; Object.assign(sh.uniforms, mistU);
     sh.vertexShader = 'uniform vec2 uSnap; uniform float uRetro; uniform float uSnapOn; varying vec3 vWPos;\n' + sh.vertexShader
       .replace('#include <project_vertex>', `#include <project_vertex>
         vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
         if (uSnapOn > 0.5) { vec2 s = uSnap * 0.5; gl_Position.xy = floor(gl_Position.xy / gl_Position.w * s + 0.5) / s * gl_Position.w; }`);
-    sh.fragmentShader = `varying vec3 vWPos; uniform float uRetro;
+    sh.fragmentShader = `varying vec3 vWPos; uniform float uRetro; uniform float uMist, uMistH, uMistY, uFogTime; uniform vec3 uMistColor;
       float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
         return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
-` + sh.fragmentShader;
+` + sh.fragmentShader.replace('#include <fog_fragment>', `
+      #ifdef USE_FOG
+        // distance haze (exp2) combined with a height-falloff ground mist integrated along the view ray
+        float fd = length(vWPos - cameraPosition);
+        float haze = 1.0 - exp(-fogDensity * fogDensity * fd * fd);
+        float y0 = max(cameraPosition.y - uMistY, 0.0), y1 = max(vWPos.y - uMistY, 0.0), dy = y1 - y0;
+        float e0 = exp(-y0 / uMistH), e1 = exp(-y1 / uMistH);
+        float avg = abs(dy) > 0.02 ? uMistH * (e0 - e1) / dy : e0;
+        vec2 mp = vWPos.xz;
+        float n = vnoise(mp * 0.09 + vec2(uFogTime * 0.05, uFogTime * 0.02)) * 0.65 + vnoise(mp * 0.29 - vec2(uFogTime * 0.03, -uFogTime * 0.06)) * 0.35;
+        float mist = 1.0 - exp(-uMist * (0.25 + 1.3 * n * n) * avg * fd);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, uMistColor, mist);       // pale, moonlit mist low down
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, haze);         // dark haze with distance
+      #endif`);
     if (wallBand) sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       if (uRetro > 0.5) {
         float fl = vWPos.y >= ${LEVELS[2].toFixed(2)} ? ${LEVELS[2].toFixed(2)} : (vWPos.y >= ${LEVELS[1].toFixed(2)} ? ${LEVELS[1].toFixed(2)} : ${LEVELS[0].toFixed(2)});
@@ -118,7 +133,7 @@ function patch(mat, { wallBand = false } = {}) {
         diffuseColor.rgb *= mix(1.0, 0.8, smoothstep(2.2, 3.0, h));         // soot under the ceiling
       }`);
   };
-  mat.customProgramCacheKey = () => (wallBand ? 'retro-wall2' : 'retro2');
+  mat.customProgramCacheKey = () => (wallBand ? 'retro-wall3' : 'retro3');
   return mat;
 }
 
@@ -209,10 +224,10 @@ export function setupRetro(renderer, scene, camera) {
   }
   function render(dt) {
     if (!enabled) { renderer.setRenderTarget(null); renderer.render(scene, camera); return; }
-    post.uniforms.uTime.value += dt;
+    post.uniforms.uTime.value += dt; mistU.uFogTime.value += dt;
     renderer.setRenderTarget(rt); renderer.render(scene, camera);
     renderer.setRenderTarget(null); renderer.render(postScene, postCam);
   }
   const setTubes = (v) => { for (const t of tubes) t.emissiveIntensity = v ?? 0.12; };
-  return { apply, render, setEnabled, setTubes, fill, get enabled() { return enabled; } };
+  return { apply, render, setEnabled, setTubes, mist: mistU, fill, get enabled() { return enabled; } };
 }

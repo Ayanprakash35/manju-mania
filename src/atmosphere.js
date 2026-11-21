@@ -1,52 +1,23 @@
 // Fog atmosphere: drifting ground mist (soft billboards) and a faint visible torch beam in the haze.
 import * as THREE from 'three';
 
-function mistTexture() {
-  const S = 128, c = document.createElement('canvas'); c.width = c.height = S;
-  const g = c.getContext('2d');
-  // a few overlapping soft blobs -> irregular wisps rather than perfect circles
-  for (let i = 0; i < 14; i++) {
-    const x = S * (0.25 + Math.random() * 0.5), y = S * (0.3 + Math.random() * 0.4), r = S * (0.12 + Math.random() * 0.25);
-    const grd = g.createRadialGradient(x, y, 0, x, y, r);
-    grd.addColorStop(0, 'rgba(255,255,255,0.22)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grd; g.fillRect(0, 0, S, S);
-  }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-export class Mist {
-  // areas: [x0, x1, z0, z1] rectangles to scatter wisps over (courtyard, wells, outside)
-  constructor(scene, areas, count = 70) {
-    const tex = mistTexture();
-    this.puffs = [];
-    const weights = areas.map(([x0, x1, z0, z1]) => (x1 - x0) * (z1 - z0)), total = weights.reduce((a, b) => a + b, 0);
-    for (let i = 0; i < count; i++) {
-      let r = Math.random() * total, k = 0; while (r > weights[k]) r -= weights[k++];
-      const [x0, x1, z0, z1] = areas[k];
-      const size = 4 + Math.random() * 6;
-      const mat = new THREE.MeshBasicMaterial({ map: tex, color: 0x9aa6b4, transparent: true, opacity: 0.18 + Math.random() * 0.2, depthWrite: false, fog: true });
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 0.45), mat);
-      m.userData.noRetro = true;
-      m.position.set(x0 + Math.random() * (x1 - x0), 0.4 + Math.random() * 1.6, z0 + Math.random() * (z1 - z0));
-      m.renderOrder = 2;
-      scene.add(m);
-      this.puffs.push({ m, area: areas[k], vx: (Math.random() - 0.5) * 0.25, vz: 0.1 + Math.random() * 0.2, ph: Math.random() * 6 });
-    }
-  }
-  update(dt, camera, t) {
-    for (const p of this.puffs) {
-      const { m, area: [x0, x1, z0, z1] } = p;
-      m.position.x += p.vx * dt; m.position.z += p.vz * dt * 0.5;
-      if (m.position.x < x0) m.position.x = x1; if (m.position.x > x1) m.position.x = x0;
-      if (m.position.z < z0) m.position.z = z1; if (m.position.z > z1) m.position.z = z0;
-      m.position.y += Math.sin(t * 0.3 + p.ph) * 0.002;
-      m.rotation.y = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z);   // face the camera (yaw only)
-      // thin out wisps right in front of the face so they don't fill the screen
-      const d = m.position.distanceTo(camera.position);
-      m.visible = d > 2.5;
-    }
-  }
+// Night sky: dark overhead, fading to exactly the fog colour at the horizon (so distant buildings melt into it),
+// with a faint smudge of moonlight behind the cloud.
+export function skyDome(moonDir) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uHorizon: { value: new THREE.Color() }, uZenith: { value: new THREE.Color(0x07090c) }, uMoon: { value: moonDir.clone().normalize() } },
+    vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform vec3 uHorizon, uZenith, uMoon; varying vec3 vDir;
+      void main(){ vec3 d = normalize(vDir);
+        vec3 c = mix(uHorizon, uZenith, smoothstep(-0.02, 0.55, d.y));
+        float m = max(dot(d, uMoon), 0.0);
+        c += vec3(0.55, 0.62, 0.75) * (pow(m, 28.0) * 0.05 + pow(m, 600.0) * 0.12);
+        gl_FragColor = vec4(c, 1.0); }`,
+    side: THREE.BackSide, depthWrite: false, fog: false,
+  });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(300, 32, 16), mat);
+  m.userData.noRetro = true; m.renderOrder = -10; m.frustumCulled = false;
+  return m;
 }
 
 // a soft cone of light from the torch, visible in the haze

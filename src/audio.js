@@ -96,13 +96,16 @@ export class HorrorAudio {
     o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 1);
   }
 
+  footstep(running) {
+    if (!this.ctx) return;
+    this.burst(130 + Math.random() * 50, 1.2, running ? 0.14 : 0.12, running ? 0.5 : 0.34, 'lowpass');
+    this.onStep?.(running);
+  }
+
   // called every frame: moving = walking on the ground, indoors = under a ceiling, nearLight = 0..1
   update(dt, { moving, running, nearLight }) {
     if (!this.ctx) return;
-    if (moving) {
-      this.stepT -= dt;
-      if (this.stepT <= 0) { this.stepT = running ? 0.32 : 0.52; this.burst(140 + Math.random() * 40, 1.2, 0.12, running ? 0.5 : 0.35, 'lowpass'); this.onStep?.(running); }
-    } else this.stepT = 0.05;
+    // footsteps are triggered by the head bob in main.js (footstep()), so they land with the camera dip
     this.humGain.gain.value += ((nearLight * 0.035) - this.humGain.gain.value) * Math.min(1, dt * 3);
     this.nextBang -= dt;
     if (this.nextBang <= 0) {            // something, somewhere

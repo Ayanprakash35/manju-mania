@@ -33,9 +33,13 @@ Glitched wordmark and menu (new game / controls / settings); Esc opens it as a p
 scene plays slow camera shots cut with glitch tears, with the torch cutting in and out.
 
 ## Night, fog & horror (src/main.js, src/atmosphere.js, src/director.js, src/audio.js)
-- Exponential fog the colour of the sky, so nothing has a visible edge: a cold grey-blue haze outside that
-  blends to near-black inside (the far end of a corridor is just gone). Low mist drifts through the courtyard
-  and round the building; the weak, yellowed torch (L) shows as a beam in the haze.
+- Fog is done in the shaders: a dark distance haze plus a pale, moonlit ground mist that is thick at knee height,
+  thins with height and rolls slowly in patches (outdoors only). The sky fades from near-black overhead into the
+  fog colour at the horizon, with a faint moon glow, so distant buildings melt into it. Indoors the haze goes to
+  near-black, so the far end of a corridor is just gone. The weak, yellowed torch (L) shows as a beam in the haze.
+- Walking motion: the head dips as each foot lands and rises mid-stride, sways and rolls slightly with each step
+  (bigger and quicker when running), footsteps land on the dips, a knee-bend on landing from a jump or fall,
+  slow breathing when standing still, and the torch beam lags behind quick turns.
 - A scare director paces small, ambiguous events rather than constant jump scares. Tension builds indoors and in
   the dark, and it fires more often as tension rises: footsteps behind you that stop a beat after you do; a tall
   pale figure at the edge of the torchlight that's gone when you light it up, get close or look away; the torch

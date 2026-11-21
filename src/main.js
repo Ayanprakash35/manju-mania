@@ -7,7 +7,7 @@ import { Doors } from './doors.js';
 import { setupRetro } from './retro.js';
 import { HorrorAudio } from './audio.js';
 import { Menu } from './menu.js';
-import { Mist, torchBeam } from './atmosphere.js';
+import { skyDome, torchBeam } from './atmosphere.js';
 import { Director } from './director.js';
 import { DevConsole } from './console.js';
 
@@ -41,9 +41,9 @@ const scene = new THREE.Scene();
 // Exponential fog the same colour as the sky: things dissolve into the haze with no visible edge.
 // Outside it's a cold grey-blue haze (buildings read as silhouettes); inside it fades to near black, so the far end
 // of a corridor is simply gone. The two blend as you walk in and out (indoorK).
-const FOG_OUT = new THREE.Color(0x343e4a), FOG_IN = new THREE.Color(0x06080b);
+const FOG_OUT = new THREE.Color(0x20262d), FOG_IN = new THREE.Color(0x06080b);
 scene.background = FOG_OUT.clone();
-scene.fog = new THREE.FogExp2(FOG_OUT.clone(), 0.06);
+scene.fog = new THREE.FogExp2(FOG_OUT.clone(), 0.035);
 let indoorK = 0;
 
 const camera = new THREE.PerspectiveCamera(60,innerWidth / innerHeight, 0.1, 600);
@@ -74,8 +74,7 @@ for (const [fi, Lc] of [[0, 4.03 - 0.25], [1, 7.17 - 0.25], [2, 10.92 - 0.3]]) {
   }
 }
 const audio = new HorrorAudio();
-// low mist drifting through the courtyard, the light wells and round the outside
-const mist = new Mist(scene, [[-29.5, 23.6, -7.05, 15.4], [-50, 44, -30, -12.2], [-50, 44, 20.7, 34], [-50, -35.5, -12.2, 20.7], [29.3, 44, -12.2, 20.7]], 110);
+const sky = skyDome(new THREE.Vector3(30, 40, -20)); scene.add(sky);
 
 // ground (grass) — slightly below the building's lowest slab
 const ground = new THREE.Mesh(
@@ -296,22 +295,56 @@ function step(dt) {
 const floorEl = document.getElementById('floor'), modeEl = document.getElementById('mode'), hintEl = document.getElementById('hint');
 const clock = new THREE.Clock();
 let bobT = 0, bobAmp = 0, pickFrame = 0, looked = null;
+// walking motion state
+let stepSide = 0, runK = 0, airVy = 0, landDip = 0, landV = 0, lagX = 0, lagY = 0, lastYaw = 0, lastPitch = 0, camRoll = 0, camPitch = 0, idleT = 0;
+const bobRight = new THREE.Vector3(), bobEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 function frame() {
   const rawDt = Math.min(clock.getDelta(), 0.05);
   const dt = rawDt * cheat.timeScale;                 // you
   const wdt = cheat.frozen ? 0 : dt;                  // the world
   if (collider) {
     const before = player.position.clone();
-    if (controls.isLocked) for (let i = 0; i < SUBSTEPS; i++) step(dt / SUBSTEPS);
+    const wasGround = onGround;
+    if (controls.isLocked) for (let i = 0; i < SUBSTEPS; i++) { step(dt / SUBSTEPS); if (!onGround) airVy = Math.min(airVy, vel.y); }
+    if (onGround && !wasGround && !flying) {                 // landing: knees give a little, then spring back
+      landV -= Math.min(2.2, Math.max(0, -airVy - 2) * 0.35); airVy = 0;
+      if (state === 'play') audio.footstep(true);
+    }
     if (state === 'menu') menuCamera(dt);
     else camera.position.copy(player.position).y += PLAYER.eye;
     // head bob while walking
     const speed = Math.hypot(player.position.x - before.x, player.position.z - before.z) / Math.max(dt, 1e-4);
     const moving = state === 'play' && onGround && !flying && speed > 0.5;
-    bobT += moving ? dt * (speed > 4.5 ? 11 : 7.5) : 0;
-    bobAmp += ((moving ? 1 : 0) - bobAmp) * Math.min(1, dt * 6);
-    camera.position.y += Math.sin(bobT) * 0.035 * bobAmp;
-    camera.position.x += Math.cos(bobT * 0.5) * 0.02 * bobAmp;
+    // Walking motion. One cycle of bobT = two steps. The head is lowest as each foot lands and highest mid-stride,
+    // sways toward the planted foot, and rolls a touch with it; running is bigger and quicker. Footsteps fire
+    // on the dip so sound and motion line up.
+    runK += ((speed > 4.5 ? 1 : 0) - runK) * Math.min(1, dt * 4);
+    const stepsPerSec = moving ? speed / (1.05 + runK * 0.55) : 0;        // stride ~1.05 m walking, ~1.6 m running
+    bobT += dt * Math.PI * stepsPerSec;
+    bobAmp += ((moving ? 1 : 0) - bobAmp) * Math.min(1, dt * (moving ? 5 : 3));
+    const side = Math.floor(bobT / Math.PI);
+    if (moving && side !== stepSide) audio.footstep(runK > 0.5);
+    stepSide = side;
+    const s1 = Math.sin(bobT), lift = Math.abs(s1);
+    const A = (0.05 + runK * 0.035) * bobAmp;                              // vertical bounce
+    camera.getWorldDirection(bobRight); bobRight.set(-bobRight.z, 0, bobRight.x).normalize();
+    camera.position.y += (lift - 0.64) * A;
+    camera.position.addScaledVector(bobRight, s1 * (0.028 + runK * 0.02) * bobAmp);
+    // idle breathing when standing still
+    idleT += dt;
+    camera.position.y += Math.sin(idleT * 1.55) * 0.007 * (1 - bobAmp);
+    // landing spring
+    landV += (-landDip * 90 - landV * 14) * dt; landDip += landV * dt;
+    camera.position.y += landDip * 0.12;
+    camRoll = s1 * (0.009 + runK * 0.01) * bobAmp + Math.sin(idleT * 0.8) * 0.0015 * (1 - bobAmp);
+    camPitch = -(1 - lift) * 0.006 * bobAmp + landDip * 0.05;
+    // the torch lags behind quick turns and swings with your steps
+    bobEuler.setFromQuaternion(camera.quaternion);
+    let dYaw = bobEuler.y - lastYaw; if (dYaw > Math.PI) dYaw -= Math.PI * 2; if (dYaw < -Math.PI) dYaw += Math.PI * 2;
+    const dPitch = bobEuler.x - lastPitch; lastYaw = bobEuler.y; lastPitch = bobEuler.x;
+    lagX += (Math.max(-0.6, Math.min(0.6, dYaw * 7)) - lagX) * Math.min(1, dt * 8);
+    lagY += (Math.max(-0.5, Math.min(0.5, -dPitch * 7)) - lagY) * Math.min(1, dt * 8);
+    torchTarget.position.set(0.1 + lagX * 2.5 + s1 * 0.12 * bobAmp, -0.02 + lagY * 2.5 - (1 - lift) * 0.1 * bobAmp, -6);
 
     // flashlight: occasional brief flicker
     torchFlicker -= wdt;
@@ -335,7 +368,9 @@ function frame() {
     // fog follows you in and out of the building
     if ((pickFrame & 7) === 0) indoorK += ((director.indoors() ? 1 : 0) - indoorK) * 0.25;
     scene.fog.color.lerpColors(FOG_OUT, FOG_IN, indoorK); scene.background.copy(scene.fog.color);
-    scene.fog.density = cheat.fog ?? (0.06 + 0.03 * indoorK);
+    scene.fog.density = cheat.fog ?? (0.035 + 0.055 * indoorK);
+    retro.mist.uMist.value = cheat.fog === 0 ? 0 : 0.3 * (1 - indoorK);     // ground mist only outdoors
+    sky.material.uniforms.uHorizon.value.copy(scene.fog.color);
     beam.visible = torch.intensity > 1;
     beam.material.uniforms.uStrength.value = 0.06 * torch.intensity / 6;
 
@@ -357,8 +392,10 @@ function frame() {
     modeEl.textContent = flying ? 'Fly mode (F to land)' : 'Walking';
   }
   menu.update(rawDt);
-  mist.update(wdt, camera, clock.elapsedTime);
+  sky.position.copy(camera.position);
+  camera.rotateZ(camRoll); camera.rotateX(camPitch);
   retro.render(rawDt);
+  camera.rotateX(-camPitch); camera.rotateZ(-camRoll);
   requestAnimationFrame(frame);
 }
 frame();
@@ -399,4 +436,4 @@ var devcon = new DevConsole({
 });
 
 // debug hooks for automated testing
-window.__game = { retro, roomDoors, controls, menu, director, mist, devcon, cheat, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { retro, roomDoors, controls, menu, director, sky, devcon, cheat, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
