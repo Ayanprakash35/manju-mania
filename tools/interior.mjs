@@ -69,6 +69,10 @@ const STAIRS = [
 const LOBBY = { x0: -8.33, x1: 1.37, z0: CORR.zi0, z1: -4.02, voidX0: -7.33, voidX1: 0.37, voidZ1: -5.0 };
 const EXIT_HALL = { x0: -4.55, x1: -2.55 };
 const ENTRANCE = { x: -3.52, z: -4.02, doorZ: -3.6 };
+// owner: the two recesses either side of the entrance block are open entrances into the corridor
+const RECESS_ENTRANCES = [-11.4, 6.4];
+// owner: windows above the main door on the upper floors (same size as the block's ground-floor windows)
+const ABOVE_DOOR = [-7.0, -3.52, 0.0];
 const SPIRALS = [[-26.85, -24.25, -4.0, -1.25], [18.75, 21.55, -3.6, -1.0], [-27.0, -24.25, 9.5, 12.1], [18.75, 21.35, 9.7, 12.45]];
 // covered walkway: courtyard cells outside this rectangle (2.2 m deep along the facades)
 const WALK = { x0: -23.95, x1: 18.38, z0: -1.82, z1: 10.31, roof: 3.75, pillar: 0.35 };
@@ -132,8 +136,9 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
       }
       return (x < 0 ? 'oW' : 'oE') + idx(outerZ, z);
     }
-    if (!inFiller(x, z)) return 'court';
-    const deep = z < -0.9 ? inFiller(x, CORR.zi0 + 1.4) : z > SPLIT_Z ? inFiller(x, CORR.zi1 - 1.4) : x < 0 ? inFiller(CORR.xi0 + 1.4, z) : inFiller(CORR.xi1 - 1.4, z);
+    const wNotch = x > CORR.xi0 && x < -26.15 && z > -0.8 && z < STAIRS[0].z0;     // owner: rooms here, not a gap
+    if (!wNotch && !inFiller(x, z)) return 'court';
+    const deep = wNotch || (z < -0.9 ? inFiller(x, CORR.zi0 + 1.4) : z > SPLIT_Z ? inFiller(x, CORR.zi1 - 1.4) : x < 0 ? inFiller(CORR.xi0 + 1.4, z) : inFiller(CORR.xi1 - 1.4, z));
     if (!deep) return 'court';                         // a sliver behind a deep facade recess: walkway, not a room
     if (z < -0.9) return x > LOBBY.x0 && x < LOBBY.x1 ? 'lobby' : 'iN' + idx(innerN, x);
     if (z > SPLIT_Z) return 'iS' + idx(innerS, x);
@@ -309,6 +314,26 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
         if (r.axis !== 'x' || Math.abs(r.c - (d.minZ + d.maxZ) / 2) > 1.0) continue;
         const o0 = Math.max(d.minX, r.u0), o1 = Math.min(d.maxX, r.u1);
         if (o1 - o0 > 0.3) holes.push([o0, o1, -0.2, d.maxY]);
+      }
+      if (r.axis === 'x' && Math.abs(r.c - CORR.zi0) < 0.05) for (const u of RECESS_ENTRANCES) if (u - 0.9 > r.u0 && u + 0.9 < r.u1) {
+        holes.push([u - 0.8, u + 0.8, -0.2, PLINTH + 2.6]);
+        for (let st = 0; st < 3; st++) addBox(u - 0.9, u + 0.9, -0.2, PLINTH * (3 - st) / 4, r.c + st * 0.32, r.c + (st + 1) * 0.32, COL.stone);
+        doorFrame(addBox, { axis: 'x', c: r.c, u0: r.u0, u1: r.u1, inward: r.inward }, 0.25, false, u, PLINTH, 1.6);
+      }
+      if (r.axis === 'x' && Math.abs(r.c - ENTRANCE.z) < 0.05 && ENTRANCE.x > r.u0 && ENTRANCE.x < r.u1) {
+        for (const u of ABOVE_DOOR) for (const Lv of LEVELS.slice(1)) {
+          const sill = Lv + 0.37, w = 1.59, h = 1.49;
+          holes.push([u - w / 2, u + w / 2, sill, sill + h]);
+          extraWins.push({ axis: 'x', plane: r.c, sgn: -bldSide, u, sill, w, h });
+        }
+      }
+      // windows on the courtyard face of the west-wing rooms that fill the old notch
+      if (r.axis === 'z' && Math.abs(r.c + 26.15) < 0.05) {
+        for (let j = 0; j + 1 < innerW.length; j++) {
+          const u = (innerW[j] + innerW[j + 1]) / 2;
+          if (u < r.u0 + 0.9 || u > r.u1 - 0.9 || innerW[j + 1] - innerW[j] < 2) continue;
+          for (const Lv of LEVELS) { const sill = Lv + 0.9; holes.push([u - 0.7, u + 0.7, sill, sill + 1.4]); extraWins.push({ axis: 'z', plane: r.c, sgn: -bldSide, u, sill, w: 1.4, h: 1.4 }); }
+        }
       }
       if (walkDoorU.has(r)) {
         const u = walkDoorU.get(r);

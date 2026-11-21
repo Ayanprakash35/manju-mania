@@ -1,12 +1,17 @@
-# Building walkthrough
+# Manju Menace
 
-First-person walkable version of the Shapr3D building export.
+First-person horror game (work in progress) set in a hostel building, built from a Shapr3D model.
 
 ```bash
 ./run.sh
 ```
 
-Click the screen to start. WASD walk, mouse look, Shift run, Space jump, F fly/no-clip (Space/C up/down), R back to start, Esc pause.
+Click the screen to start. WASD walk, mouse look, Shift run, E open/close doors, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
+
+## Look (src/retro.js)
+Baldi's-Basics-style analog look: ~240-line render upscaled with hard pixels, procedural pixel textures
+(checker tiles, acoustic ceiling, green school wainscot, red pavers, pixel grass, marble steps), PS1 vertex
+wobble, palette reduction with ordered dithering, VHS grain, scanlines, colour fringe and vignette.
 
 ## How it's built
 - `tools/convert.mjs` turns the Shapr3D OBJ into `public/building.glb`:

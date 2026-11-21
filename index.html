@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Building Walkthrough</title>
+<title>Manju Menace</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #9cc4e4; font-family: -apple-system, system-ui, sans-serif; }
   canvas { display: block; }
   #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(10, 16, 24, .55); color: #fff; cursor: pointer; z-index: 10; }
   #overlay .card { background: rgba(20, 26, 36, .9); padding: 28px 34px; border-radius: 14px; max-width: 420px; line-height: 1.55; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
-  #overlay h1 { margin: 0 0 6px; font-size: 22px; }
+  #overlay h1 { margin: 0 0 6px; font: 34px 'Courier New', monospace; font-weight: 900; letter-spacing: 3px; color: #e8e0c8; text-shadow: 2px 2px 0 #7a1f1f; }
   #overlay .sub { opacity: .7; margin: 0 0 16px; font-size: 14px; }
   #overlay table { border-collapse: collapse; font-size: 14px; width: 100%; }
   #overlay td { padding: 3px 0; }
@@ -18,7 +18,7 @@
   #overlay .go { margin-top: 18px; text-align: center; font-weight: 600; color: #8fd0ff; }
   #loading { margin-top: 18px; text-align: center; opacity: .8; font-size: 14px; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 2px #000; pointer-events: none; }
-  #hud { position: fixed; left: 14px; top: 12px; color: #fff; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; line-height: 1.5; }
+  #hud { position: fixed; left: 14px; top: 12px; color: #fff; font: bold 14px 'Courier New', monospace; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; line-height: 1.5; }
   #hud b { font-size: 17px; }
   #hint { position: fixed; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); color: #fff; font: 600 14px -apple-system, system-ui, sans-serif; background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 6px; display: none; pointer-events: none; }
 </style>
@@ -32,8 +32,8 @@
 </head>
 <body>
 <div id="overlay"><div class="card">
-  <h1>Building Walkthrough</h1>
-  <p class="sub">First-person walk around the building</p>
+  <h1>MANJU MENACE</h1>
+  <p class="sub">Don't stay out after lights-out.</p>
   <table>
     <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Walk</td></tr>
     <tr><td>Mouse</td><td>Look around</td></tr>
@@ -43,6 +43,7 @@
     <tr><td><kbd>F</kbd></td><td>Toggle fly / no-clip</td></tr>
     <tr><td><kbd>C</kbd></td><td>Fly down</td></tr>
     <tr><td><kbd>R</kbd></td><td>Back to start</td></tr>
+    <tr><td><kbd>V</kbd></td><td>Retro look on / off</td></tr>
     <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
   </table>
   <div id="loading">Loading building…</div>

@@ -4,6 +4,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { Doors } from './doors.js';
+import { setupRetro } from './retro.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -34,6 +35,7 @@ scene.background = new THREE.Color(0x9cc4e4);
 scene.fog = new THREE.Fog(0x9cc4e4, 80, 260);
 
 const camera = new THREE.PerspectiveCamera(60,innerWidth / innerHeight, 0.1, 600);
+const retro = setupRetro(renderer, scene, camera);   // Baldi-style pixel / analog look (V toggles)
 
 scene.add(new THREE.HemisphereLight(0xdfefff, 0x7a705e, 1.1));
 const sun = new THREE.DirectionalLight(0xfff0d8, 3.2);
@@ -48,8 +50,9 @@ scene.add(sun);
 // ground (grass) — slightly below the building's lowest slab
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2),
-  new THREE.MeshStandardMaterial({ color: 0x6f9a4f, roughness: 1 }),
+  new THREE.MeshStandardMaterial({ color: 0x6f9a4f, roughness: 1, name: 'c_grass' }),
 );
+ground.geometry.deleteAttribute('uv');     // retro textures use world-space UVs
 ground.position.y = -0.16;
 ground.receiveShadow = true;
 scene.add(ground);
@@ -73,6 +76,7 @@ addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'KeyF') { flying = !flying; vel.set(0, 0, 0); }
   if (e.code === 'KeyR') respawn();
+  if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
   if (e.code === 'Space' && onGround && !flying) { vel.y = JUMP; onGround = false; }
   if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) roomDoors.toggle(d, player.position); }
 });
@@ -126,6 +130,7 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
 
   respawn();
   await doorsLoaded;
+  retro.apply(scene);
   ready = true;
   document.getElementById('loading').hidden = true;
   document.querySelector('#overlay .go').hidden = false;
@@ -240,7 +245,7 @@ function frame() {
     floorEl.textContent = label;
     modeEl.textContent = flying ? 'Fly mode (F to land)' : 'Walking';
   }
-  renderer.render(scene, camera);
+  retro.render(dt);
   requestAnimationFrame(frame);
 }
 frame();
@@ -251,4 +256,4 @@ addEventListener('resize', () => {
 });
 
 // debug hooks for automated testing
-window.__game = { roomDoors, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { retro, roomDoors, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
