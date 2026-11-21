@@ -6,7 +6,7 @@ First-person horror game (work in progress) set in a hostel building, built from
 ./run.sh
 ```
 
-Click the screen to start. WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
+The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
 
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
@@ -52,8 +52,9 @@ shadows, ordered dithering, VHS grain, scanlines, colour fringe and a heavy vign
 - `tools/convert.mjs` turns the Shapr3D OBJ into `public/building.glb`:
   export units ÷ 2.54 → metres (the model was typed in metres in an inch document), Z-up → Y-up, simplifies over-detailed parts (door handles were 30k tris each),
   renders faces single-sided with fixed winding (the courtyard slab is 1 mm thick; drawing its grey
-  underside caused the floor glitch), merges 1,534 bodies into one
-  mesh per colour. No position compression (it flattens the 1 mm slabs). 17.7 MB / 150k tris → 2.4 MB / 63k tris.
+  underside caused the floor glitch), merges 1,534 bodies into primitives grouped by
+  colour/material (45 materials, 53 primitives across 3 meshes). No position compression (it flattens the 1 mm slabs).
+  17.7 MB / 150k tris → ~6.75 MB / 164k tris (uncompressed: meshopt/quantize flatten the 1 mm slabs).
   Rebuild: `./run.sh convert ~/Downloads/<export>.obj`
 - `src/main.js` is three.js + three-mesh-bvh: capsule collision against the whole building
   (walls, steps, landings), gravity, fly mode, floor indicator.
@@ -75,12 +76,12 @@ videos and corrections:
 - **Stairs** (owner's markup + video 3): two switchback stairwells halfway along the west and east wings on
   the courtyard side of the corridor, behind a beige wood-framed glass partition with a glass door;
   ground→first→second; marble steps, black balusters, wooden rail.
-- **Doors**: 193 doorways with door leaves (`public/doors.json`, built by `src/doors.js`). E opens/closes;
+- **Doors**: 197 doorways with door leaves (`public/doors.json`, built by `src/doors.js`). E opens/closes;
   room doors swing into the room so corridors stay clear; closed doors are solid.
 - **Props from the videos**: shoe racks full of shoes beside most doors, door mats, room number plates,
   fire extinguishers along the corridors, red hose reels by the stair doors, tube lights on every corridor
-  ceiling, CCTV cameras at the corridor corners, paintings, dustbins and a water dispenser in the halls.
-- Main entrance (north) with steps into the lobby; street entrances north and south.
+  ceiling, CCTV cameras at the corridor corners, water dispensers and dustbins in the corridor corners.
+- Main entrance (north) with steps into the lobby; outer walls solid, no street entrances.
 - Floors: ground 0.76 m (plinth; courtyard at 0), first 4.03 m, second 7.17 m.
 
 ## Checking walkability
@@ -88,7 +89,7 @@ videos and corrections:
 In the game page's console: `(await import('/tools/navcheck.js')).run()`. Other debug tools:
 `debug.html?f=building.glb` (orbit view, `dbg.section(h)` cuts the roof off at height h),
 `tools/section_svg.py` (true cut-plan of the OBJ), `DEBUG_PLAN=1 node tools/convert.mjs …` (ASCII room map).
-Every door was also checked by walking through it with the game's physics (all 185 pass).
+Every door was also checked by walking through it with the game's physics.
 
 ## Not done yet
 - Rooms are empty (waiting for the interior photos).
