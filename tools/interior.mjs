@@ -302,6 +302,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
         if (o1 - o0 < 0.3) continue;
         holes.push([o0, o1, p.y0, p.y1]);
         if (off > 0.3) recesses.push({ run: r, o0, o1, y0: p.y0, y1: p.y1, depth: off + 0.03, side: bldSide });
+        else recesses.push({ run: r, o0, o1, y0: p.y0, y1: p.y1, shallow: off, side: bldSide });   // pane at/near the face: seal the gap round it
         if (p.y0 > LEVELS[1] && p.y0 < LEVELS[2] - 0.5 && p.y1 + (LEVELS[2] - LEVELS[1]) < TOP_TALL - 0.4 && !panes.some((q) => q !== p && q.axis === p.axis && Math.abs(q.plane - p.plane) < 0.3 && Math.abs(q.u0 - p.u0) < 0.3 && q.y0 > LEVELS[2])) {
           const d = LEVELS[2] - LEVELS[1];
           holes.push([o0, o1, p.y0 + d, p.y1 + d]);
@@ -324,14 +325,6 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
           const sill = Lv + 0.37, w = 1.59, h = 1.49;
           holes.push([u - w / 2, u + w / 2, sill, sill + h]);
           extraWins.push({ axis: 'x', plane: r.c, sgn: -bldSide, u, sill, w, h });
-        }
-      }
-      // windows on the courtyard face of the west-wing rooms that fill the old notch
-      if (r.axis === 'z' && Math.abs(r.c + 26.15) < 0.05) {
-        for (let j = 0; j + 1 < innerW.length; j++) {
-          const u = (innerW[j] + innerW[j + 1]) / 2;
-          if (u < r.u0 + 0.9 || u > r.u1 - 0.9 || innerW[j + 1] - innerW[j] < 2) continue;
-          for (const Lv of LEVELS) { const sill = Lv + 0.9; holes.push([u - 0.7, u + 0.7, sill, sill + 1.4]); extraWins.push({ axis: 'z', plane: r.c, sgn: -bldSide, u, sill, w: 1.4, h: 1.4 }); }
         }
       }
       if (walkDoorU.has(r)) {
@@ -443,6 +436,7 @@ function props({ addBox, addCyl, runs, doorOn }) {
   const corrSide = (r) => (r.hi === 'corr' || r.hi === 'hall' ? 1 : -1);
   for (const r of runs) {
     if (r.kind !== 'corr') continue;
+    if (r.lo === 'lobby' || r.hi === 'lobby' || r.lo.startsWith('st') || r.hi.startsWith('st')) continue;   // open / glass walls
     const side = corrSide(r);
     const ds = doorOn.get(r) || [];
     const busy = (u, half) => ds.some((d) => Math.abs(d.u - u) < d.w / 2 + half + 0.12);
@@ -540,6 +534,14 @@ function doorRecord(run, u, y, w, kind) {
 }
 // lining of a window opening from the wall's inner face to the depth of the model's pane
 function recess(addBox, r, w) {
+  if (w.shallow != null) {
+    // reveal from just outside the pane to the back of the wall, so no sliver of sky shows round the frame
+    const t = 0.05, p0 = r.c + w.side * (w.shallow - 0.03), p1 = r.c + w.side * 0.27, a = Math.min(p0, p1), b = Math.max(p0, p1);
+    const B = (u0, u1, y0, y1) => (r.axis === 'x' ? addBox(u0, u1, y0, y1, a, b, COL.facade) : addBox(a, b, y0, y1, u0, u1, COL.facade));
+    B(w.o0, w.o0 + t, w.y0, w.y1); B(w.o1 - t, w.o1, w.y0, w.y1);
+    B(w.o0, w.o1, w.y0, w.y0 + t); B(w.o0, w.o1, w.y1 - t, w.y1);
+    return;
+  }
   const d0 = 0.2, d1 = w.depth, t = 0.1;
   const p0 = r.c + w.side * d0, p1 = r.c + w.side * d1, a = Math.min(p0, p1), b = Math.max(p0, p1);
   const B = (u0, u1, y0, y1) => (r.axis === 'x' ? addBox(u0, u1, y0, y1, a, b, COL.facade) : addBox(a, b, y0, y1, u0, u1, COL.facade));

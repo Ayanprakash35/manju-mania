@@ -6,6 +6,7 @@ import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { Doors } from './doors.js';
 import { setupRetro } from './retro.js';
 import { HorrorAudio } from './audio.js';
+import { Menu } from './menu.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -55,9 +56,9 @@ let torchOn = true, torchFlicker = 0;
 // a few corridor lights that flicker; some are dead (12 lights, 4 per floor)
 const flickers = [];
 for (const [fi, Lc] of [[0, 4.03 - 0.25], [1, 7.17 - 0.25], [2, 10.92 - 0.3]]) {
-  for (const [x, z] of [[-14, -7.9], [9, 16.25], [-30.35, 6.5], [24.45, -2]]) {
+  for (const [x, z, ax] of [[-14, -7.9, 'x'], [9, 16.25, 'x'], [-30.35, 6.5, 'z'], [24.45, -2, 'z']]) {
     const pl = new THREE.PointLight(0xdfe6ff, 0, 10, 1.6);
-    pl.position.set(x + fi * 3.7, Lc, z);
+    pl.position.set(x + (ax === 'x' ? fi * 3.7 : 0), Lc, z + (ax === 'z' ? fi * 3.1 : 0));   // stagger along the corridor
     scene.add(pl);
     flickers.push({ pl, base: 3.2, dead: Math.random() < 0.25, t: Math.random() * 10 });
   }
@@ -89,6 +90,7 @@ function respawn() {
 }
 
 addEventListener('keydown', (e) => {
+  if (state !== 'play') return;
   keys[e.code] = true;
   if (e.code === 'KeyF') { flying = !flying; vel.set(0, 0, 0); }
   if (e.code === 'KeyR') respawn();
@@ -99,12 +101,51 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-// ---------------- overlay ----------------
-const overlay = document.getElementById('overlay');
-overlay.addEventListener('click', () => { if (ready) { controls.lock(); audio.start(); } });
-controls.addEventListener('lock', () => { overlay.style.display = 'none'; });
-controls.addEventListener('unlock', () => { overlay.style.display = 'flex'; for (const k in keys) keys[k] = false; });
-let ready = false;
+// ---------------- title / pause menu ----------------
+// state: 'menu' (title screen, live attract camera), 'play', 'pause' (Esc)
+let state = 'menu', ready = false, fresh = false;
+const menu = new Menu({
+  newGame: () => { if (!ready) return; audio.start(); controls.lock(); fresh = true; },   // play starts once the pointer is locked
+  resume: () => { audio.start(); controls.lock(); },
+  quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; },
+  setRetro: (v) => retro.setEnabled(v), retro: () => retro.enabled,
+  setSound: (v) => audio.setMuted(!v), sound: () => !audio.muted,
+  tick: () => audio.tick(),
+});
+// first interaction anywhere on the title screen starts the ambience (browsers block audio before that)
+addEventListener('pointerdown', () => audio.start(), { once: true });
+controls.addEventListener('lock', () => {
+  if (fresh) { respawn(); torchOn = true; fresh = false; }
+  menu.close(); document.body.classList.remove('inmenu'); state = 'play';
+});
+document.addEventListener('pointerlockerror', () => { fresh = false; });
+controls.addEventListener('unlock', () => {
+  for (const k in keys) keys[k] = false;
+  if (state === 'play') { state = 'pause'; menu.open('pause'); document.body.classList.add('inmenu'); }
+});
+
+// attract-mode camera: slow shots around the building, cut with a glitch
+const SHOTS = [
+  // looking up the north-east light well, slowly turning (railings of every floor against the sky)
+  { dur: 11, at: (t) => [21.2 + Math.sin(t * 0.15) * 0.3, 1.0, -4.2], look: (t) => [21.2 + Math.cos(t * 0.11) * 3, 12, -4.2 + Math.sin(t * 0.11) * 3] },
+  // creeping along the ground-floor south corridor under the flickering tube
+  { dur: 10, at: (t) => [-1 + t * 0.32, 1.55, 16.25], look: (t) => [12 + t * 0.32, 1.45 + Math.sin(t * 0.7) * 0.05, 16.3 + Math.sin(t * 0.4) * 0.3] },
+  // the courtyard, pushing in on the main entrance
+  { dur: 10, at: (t) => [-3.55 + Math.sin(t * 0.2) * 0.6, 1.5, 11 - t * 0.25], look: (t) => [-3.55, 2.4, -4] },
+  // west corridor, first floor, looking back toward the stairs
+  { dur: 9, at: (t) => [-30.35, 4.03 + 1.55, -5 + t * 0.3], look: (t) => [-30.35 + Math.sin(t * 0.3) * 0.6, 5.5, 10 + t * 0.3] },
+];
+let shotI = 0, shotT = 0, menuTorchT = 2;
+function menuCamera(dt) {
+  shotT += dt;
+  if (shotT > SHOTS[shotI].dur) { shotT = 0; shotI = (shotI + 1) % SHOTS.length; menu.burst(260); }
+  const s = SHOTS[shotI];
+  camera.position.set(...s.at(shotT));
+  camera.lookAt(...s.look(shotT));
+  // torch cuts in and out at random, stuttering when it switches
+  menuTorchT -= dt;
+  if (menuTorchT <= 0) { torchOn = !torchOn; menuTorchT = torchOn ? 1.5 + Math.random() * 5 : 0.4 + Math.random() * 2.6; if (torchOn) torchFlicker = 0.25 + Math.random() * 0.3; }
+}
 
 // ---------------- load building ----------------
 let collider = null;
@@ -149,8 +190,7 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   await doorsLoaded;
   retro.apply(scene);
   ready = true;
-  document.getElementById('loading').hidden = true;
-  document.querySelector('#overlay .go').hidden = false;
+  menu.setReady();
 }, undefined, (err) => { document.getElementById('loading').textContent = 'Failed to load building: ' + err; });
 
 // world-space, non-quantised, indexed position-only geometry
@@ -245,10 +285,11 @@ function frame() {
   if (collider) {
     const before = player.position.clone();
     if (controls.isLocked) for (let i = 0; i < SUBSTEPS; i++) step(dt / SUBSTEPS);
-    camera.position.copy(player.position).y += PLAYER.eye;
+    if (state === 'menu') menuCamera(dt);
+    else camera.position.copy(player.position).y += PLAYER.eye;
     // head bob while walking
     const speed = Math.hypot(player.position.x - before.x, player.position.z - before.z) / Math.max(dt, 1e-4);
-    const moving = onGround && !flying && speed > 0.5;
+    const moving = state === 'play' && onGround && !flying && speed > 0.5;
     bobT += moving ? dt * (speed > 4.5 ? 11 : 7.5) : 0;
     bobAmp += ((moving ? 1 : 0) - bobAmp) * Math.min(1, dt * 6);
     camera.position.y += Math.sin(bobT) * 0.035 * bobAmp;
@@ -286,6 +327,7 @@ function frame() {
     floorEl.textContent = label;
     modeEl.textContent = flying ? 'Fly mode (F to land)' : 'Walking';
   }
+  menu.update(dt);
   retro.render(dt);
   requestAnimationFrame(frame);
 }
@@ -297,4 +339,4 @@ addEventListener('resize', () => {
 });
 
 // debug hooks for automated testing
-window.__game = { retro, roomDoors, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { retro, roomDoors, controls, menu, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
