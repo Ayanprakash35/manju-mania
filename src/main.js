@@ -334,7 +334,7 @@ function frame() {
       const d = f.pl.position.distanceTo(camera.position);
       if (on && d < 8) nearLight = Math.max(nearLight, 1 - d / 8);
     }
-    if (state === 'play') audio.update(dt, { moving, running: speed > 4.5, nearLight });
+    if (state === 'play') audio.update(dt, { moving, running: speed > 4.5, nearLight, frozen: cheat.frozen });
     if (state === 'play' && wdt > 0) director.update(wdt, { moving, torchOn });
     // fog follows you in and out of the building
     if ((pickFrame & 7) === 0) indoorK += ((director.indoors() ? 1 : 0) - indoorK) * 0.25;
@@ -380,8 +380,8 @@ var devcon = new DevConsole({
     if (open && controls.isLocked) controls.unlock();
     if (!open && state === 'play') controls.lock();
   },
-  pause: () => { if (state === 'play') { state = 'pause'; menu.open('pause'); document.body.classList.add('inmenu'); } },
-  quit: () => { state = 'menu'; flying = false; menu.open('title'); document.body.classList.add('inmenu'); },
+  pause: () => { if (state === 'play') { state = 'pause'; director.reset(); menu.open('pause'); document.body.classList.add('inmenu'); } },
+  quit: () => { state = 'menu'; flying = false; director.reset(); menu.open('title'); document.body.classList.add('inmenu'); },
   respawn,
   teleport: (x, feet, z, lx, lz) => {
     player.position.set(x, feet + PLAYER.radius + PLAYER.segment + 0.05, z); vel.set(0, 0, 0);

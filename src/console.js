@@ -97,8 +97,8 @@ export class DevConsole {
       freeze: { h: 'freeze [on|off] — stop the world (lights, scares, doors, mist); you can still move', run: ([x]) => { a.cheat.frozen = onoff(x, a.cheat.frozen); return `World ${a.cheat.frozen ? 'frozen' : 'running'}.`; } },
       unfreeze: { h: 'unfreeze — start the world again', run: () => { a.cheat.frozen = false; return 'World running.'; } },
       timescale: { h: 'timescale <x> — slow motion / fast forward (1 = normal, 0.3 = slow-mo)', run: ([x]) => { a.cheat.timeScale = Math.max(0, Math.min(5, num(x, 'timescale'))); return `Time x${a.cheat.timeScale}.`; } },
-      pause: { h: 'pause — open the pause menu', run: () => { this.toggle(false); a.pause(); } },
-      menu: { h: 'menu — quit to the title screen', run: () => { this.toggle(false); a.quit(); } },
+      pause: { h: 'pause — open the pause menu', run: () => { a.pause(); this.toggle(false); } },
+      menu: { h: 'menu — quit to the title screen', run: () => { a.quit(); this.toggle(false); } },
       tp: { h: 'tp <place> [floor 0-2] | tp <x> <y> <z> — teleport (see "places")', run: (args) => {
         if (args.length >= 3 && args.every((v) => Number.isFinite(parseFloat(v)))) { a.teleport(+args[0], +args[1], +args[2]); return `Teleported to ${args.join(', ')}.`; }
         const p = args[0]; if (!(p in PLACES)) throw new Error(`No place "${p || ''}". Try: places`);
