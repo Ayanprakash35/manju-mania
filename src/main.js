@@ -368,8 +368,8 @@ function frame() {
     // fog follows you in and out of the building
     if ((pickFrame & 7) === 0) indoorK += ((director.indoors() ? 1 : 0) - indoorK) * 0.25;
     scene.fog.color.lerpColors(FOG_OUT, FOG_IN, indoorK); scene.background.copy(scene.fog.color);
-    scene.fog.density = cheat.fog ?? (0.035 + 0.055 * indoorK);
-    retro.mist.uMist.value = cheat.fog === 0 ? 0 : 0.3 * (1 - indoorK);     // ground mist only outdoors
+    scene.fog.density = cheat.fog ?? (0.026 + 0.064 * indoorK);
+    retro.mist.uMist.value = cheat.fog === 0 ? 0 : 0.14 * (1 - indoorK);     // ground mist only outdoors
     sky.material.uniforms.uHorizon.value.copy(scene.fog.color);
     beam.visible = torch.intensity > 1;
     beam.material.uniforms.uStrength.value = 0.06 * torch.intensity / 6;

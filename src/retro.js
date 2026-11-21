@@ -94,7 +94,7 @@ const snapUniform = { value: new THREE.Vector2(426, 240) };
 const retroOn = { value: 1 };
 const snapOn = { value: 0 };
 // ground fog: thick at ankle/knee height, thinning with height, patchy and slowly rolling (see fog_fragment below)
-const mistU = { uMistColor: { value: new THREE.Color(0x4c5560) }, uMist: { value: 0.3 }, uMistH: { value: 0.7 }, uMistY: { value: 0.0 }, uFogTime: { value: 0 } };   // PS1 vertex wobble: off, it made the near-coplanar floor layers flicker
+const mistU = { uMistColor: { value: new THREE.Color(0x3a424c) }, uMist: { value: 0.14 }, uMistH: { value: 0.5 }, uMistY: { value: 0.0 }, uFogTime: { value: 0 } };   // PS1 vertex wobble: off, it made the near-coplanar floor layers flicker
 function patch(mat, { wallBand = false } = {}) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uSnap = snapUniform; sh.uniforms.uRetro = retroOn; sh.uniforms.uSnapOn = snapOn; Object.assign(sh.uniforms, mistU);
