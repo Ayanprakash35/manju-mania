@@ -1,7 +1,7 @@
 // Title / pause menu: glitched wordmark (canvas), menu list with keyboard + mouse, side panels.
 // The live 3D scene behind it is driven by main.js (menuCamera + random torch).
 
-const TITLE = ['MANJU', 'MENACE'];
+const TITLE = ['MANJU', 'MANIA'];
 
 export class Menu {
   constructor(handlers) {

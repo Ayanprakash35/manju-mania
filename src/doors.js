@@ -153,14 +153,14 @@ export class Doors {
           e.swing = dx * px + dz * pz < 0 ? 1 : -1;
         }
       }
-      e.target = opening ? 1 : 0;
+      e.target = opening ? 1 : 0; e.speed = 0;
     }
   }
 
   update(dt) {
     for (const d of this.list) {
       if (d.open === d.target) continue;
-      d.open += Math.sign(d.target - d.open) * Math.min(Math.abs(d.target - d.open), dt * SPEED);
+      d.open += Math.sign(d.target - d.open) * Math.min(Math.abs(d.target - d.open), dt * (d.speed || SPEED));
       d.pivot.rotation.y = d.base + d.swing * d.open * Math.PI * 0.5;
     }
   }

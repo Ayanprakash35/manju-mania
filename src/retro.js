@@ -33,19 +33,22 @@ const speckle = (g, px, base, amt, n = px * px * 0.35) => {
 };
 
 const TEX = {
-  plaster: () => makeTex(16, (g, p) => speckle(g, p, [222, 217, 206], 22)),
-  wall: () => makeTex(16, (g, p) => { speckle(g, p, [233, 229, 214], 12); }),
+  plaster: () => makeTex(16, (g, p) => speckle(g, p, [190, 189, 184], 26)),
+  wall: () => makeTex(32, (g, p) => {                       // tired grey paint, a few hairline cracks
+    speckle(g, p, [196, 196, 190], 16);
+    for (let i = 0; i < 3; i++) { let x = rnd() * p, y = rnd() * p; g.fillStyle = rgb(150, 150, 146); for (let k = 0; k < 10; k++) { g.fillRect(x | 0, y | 0, 1, 1); x += rnd() * 2 - 0.6; y += rnd() * 2 - 1; } }
+  }, 2),
   floor: () => makeTex(32, (g, p) => {                       // 2x2 tiles per 1.2 m, beige / pale grey, dark grout
     for (let ty = 0; ty < 2; ty++) for (let tx = 0; tx < 2; tx++) {
-      const base = (tx + ty) % 2 ? [214, 206, 188] : [190, 192, 190];
+      const base = (tx + ty) % 2 ? [160, 158, 150] : [146, 147, 145];
       for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
         const d = (rnd() - 0.5) * 14; g.fillStyle = rgb(base[0] + d, base[1] + d, base[2] + d); g.fillRect(tx * 16 + x, ty * 16 + y, 1, 1);
       }
     }
-    g.fillStyle = rgb(120, 116, 108); g.fillRect(0, 0, p, 1); g.fillRect(0, 16, p, 1); g.fillRect(0, 0, 1, p); g.fillRect(16, 0, 1, p);
+    g.fillStyle = rgb(78, 76, 72); g.fillRect(0, 0, p, 1); g.fillRect(0, 16, p, 1); g.fillRect(0, 0, 1, p); g.fillRect(16, 0, 1, p);
   }, 1.2),
   ceiling: () => makeTex(16, (g, p) => {                     // acoustic tiles, 0.6 m
-    speckle(g, p, [236, 234, 226], 10);
+    speckle(g, p, [176, 176, 170], 14);
     g.fillStyle = rgb(170, 168, 160); g.fillRect(0, 0, p, 1); g.fillRect(0, 0, 1, p);
     for (let i = 0; i < 14; i++) { g.fillStyle = rgb(196, 194, 186); g.fillRect(2 + ((rnd() * 12) | 0), 2 + ((rnd() * 12) | 0), 1, 1); }
   }, 0.6),
@@ -97,17 +100,25 @@ function patch(mat, { wallBand = false } = {}) {
       .replace('#include <project_vertex>', `#include <project_vertex>
         vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
         if (uSnapOn > 0.5) { vec2 s = uSnap * 0.5; gl_Position.xy = floor(gl_Position.xy / gl_Position.w * s + 0.5) / s * gl_Position.w; }`);
-    sh.fragmentShader = 'varying vec3 vWPos; uniform float uRetro;\n' + sh.fragmentShader;
+    sh.fragmentShader = `varying vec3 vWPos; uniform float uRetro;
+      float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+` + sh.fragmentShader;
     if (wallBand) sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       if (uRetro > 0.5) {
         float fl = vWPos.y >= ${LEVELS[2].toFixed(2)} ? ${LEVELS[2].toFixed(2)} : (vWPos.y >= ${LEVELS[1].toFixed(2)} ? ${LEVELS[1].toFixed(2)} : ${LEVELS[0].toFixed(2)});
         float h = vWPos.y - fl;
-        if (h < 0.12) diffuseColor.rgb = vec3(0.16, 0.12, 0.09);
-        else if (h < 1.0) diffuseColor.rgb *= vec3(0.36, 0.52, 0.38);
-        else if (h < 1.1) diffuseColor.rgb *= vec3(0.20, 0.34, 0.24);
+        vec2 q = vec2(vWPos.x + vWPos.z, vWPos.y);
+        float n = vnoise(q * 1.3) * 0.6 + vnoise(q * 4.1) * 0.4;           // blotchy damp patches
+        float drip = vnoise(vec2((vWPos.x + vWPos.z) * 6.0, 0.0));          // streaks running down
+        diffuseColor.rgb *= mix(0.62, 1.0, smoothstep(0.0, 0.9, h));        // grime near the floor
+        diffuseColor.rgb *= 1.0 - 0.28 * smoothstep(0.55, 0.85, n);
+        diffuseColor.rgb *= 1.0 - 0.18 * smoothstep(0.7, 0.95, drip) * smoothstep(3.1, 1.2, h);
+        diffuseColor.rgb *= mix(1.0, 0.8, smoothstep(2.2, 3.0, h));         // soot under the ceiling
       }`);
   };
-  mat.customProgramCacheKey = () => (wallBand ? 'retro-wall' : 'retro');
+  mat.customProgramCacheKey = () => (wallBand ? 'retro-wall2' : 'retro2');
   return mat;
 }
 
@@ -120,7 +131,7 @@ export function setupRetro(renderer, scene, camera) {
   // building / doors / props: swap to retro materials
   function apply(root) {
     root.traverse((o) => {
-      if (!o.isMesh || originals.has(o)) return;
+      if (!o.isMesh || originals.has(o) || o.userData.noRetro) return;
       const m = o.material;
       originals.set(o, m);
       const key = (m.name || '').replace(/^c_/, '');
@@ -131,7 +142,7 @@ export function setupRetro(renderer, scene, camera) {
         o.userData.retro = patch(new THREE.MeshLambertMaterial({ map: getTex(kind), side: m.side }), { wallBand: kind === 'wall' });
       } else {
         const r = patch(new THREE.MeshLambertMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveIntensity: m.emissiveIntensity ?? 1 }));
-        if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xdfe6ff); r.emissiveIntensity = 0.45; }   // tube lights
+        if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xc8d2e0); r.emissiveIntensity = 0.12; }   // tube lights
         o.userData.retro = r;
       }
       o.material = enabled ? o.userData.retro : m;
@@ -160,17 +171,19 @@ export function setupRetro(renderer, scene, camera) {
         col = clamp(col * (2.51 * col + 0.03) / (col * (2.43 * col + 0.59) + 0.14), 0.0, 1.0);   // ACES-ish tone map (target is linear)
         col = pow(col, vec3(1.0 / 2.2));                                                       // to sRGB
         // palette reduction with ordered dithering (about 5 bits per channel)
-        float levels = 40.0;
+        float levels = 72.0;            // fine enough that the fog fades without visible steps
+        float lum = dot(col, vec3(0.299, 0.587, 0.114));
+        col = mix(vec3(lum), col, 0.32);                                  // nearly drained of colour
+        col *= mix(vec3(0.86, 0.95, 1.0), vec3(1.0, 0.98, 0.94), smoothstep(0.05, 0.5, lum));   // cold shadows
         col = floor(col * levels + bayer(px) + 0.5) / levels;
         // analog: grain, faint horizontal jitter band, scanlines, vignette
         float t = floor(uTime * 24.0);
-        col += (hash(px + t) - 0.5) * 0.03;
+        col += (hash(px + t) - 0.5) * 0.045;
         float band = smoothstep(0.0, 0.02, abs(fract(uv.y * 0.7 - uTime * 0.08) - 0.5) - 0.48);
         col *= 0.985 + 0.015 * band;
         col *= 0.975 + 0.025 * sin(vUv.y * uOut.y * 3.14159);
-        col *= 1.0 - 0.55 * pow(length(cc) * 1.25, 2.4);
-        col = mix(col, col * vec3(1.02, 1.0, 0.96), 0.4);         // slightly warm, tape-like
-        gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+        col *= 1.0 - 0.7 * pow(length(cc) * 1.3, 2.2);
+                gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
       }`,
     depthTest: false, depthWrite: false,
   });
@@ -180,7 +193,7 @@ export function setupRetro(renderer, scene, camera) {
 
   let enabled = true;
   // flat, school-like fill so ceilings and shaded corridors don't go muddy (Baldi's Basics is near fullbright)
-  const fill = new THREE.AmbientLight(0x8090b0, 0.12);   // night: just enough to read shapes
+  const fill = new THREE.AmbientLight(0x8090b0, 0.07);   // night: just enough to read shapes
   scene.add(fill);
   function resize() {
     const w = Math.round(LINES * (innerWidth / innerHeight));

@@ -1,4 +1,4 @@
-# Manju Menace
+# Manju Mania
 
 First-person horror game (work in progress) set in a hostel building, built from a Shapr3D model.
 
@@ -8,15 +8,25 @@ First-person horror game (work in progress) set in a hostel building, built from
 
 Click the screen to start. WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
 
-## Night & horror (src/main.js, src/audio.js)
-Night sky and fog, cold moonlight, a flashlight on the player (L) that sometimes flickers, corridor lights that
-flicker or are dead, head bob, and procedural audio (drone, fluorescent hum near lights, footsteps, door creaks,
-occasional distant bangs/knocks). No sun shadows (they were the main per-frame cost).
+## Title menu (src/menu.js)
+Glitched wordmark and menu (new game / controls / settings); Esc opens it as a pause menu. Behind it the live
+scene plays slow camera shots cut with glitch tears, with the torch cutting in and out.
+
+## Night, fog & horror (src/main.js, src/atmosphere.js, src/director.js, src/audio.js)
+- Exponential fog the colour of the sky, so nothing has a visible edge: a cold grey-blue haze outside that
+  blends to near-black inside (the far end of a corridor is just gone). Low mist drifts through the courtyard
+  and round the building; the weak, yellowed torch (L) shows as a beam in the haze.
+- A scare director paces small, ambiguous events rather than constant jump scares. Tension builds indoors and in
+  the dark, and it fires more often as tension rises: footsteps behind you that stop a beat after you do; a tall
+  pale figure at the edge of the torchlight that's gone when you light it up, get close or look away; the torch
+  dying and coming back with the figure closer; tube lights popping out; doors creaking open or slamming
+  behind you; knocking from a room; whispers.
+- Procedural audio (drone, fluorescent hum, footsteps, creaks, knocks, whispers, heartbeat). No shadows.
 
 ## Look (src/retro.js)
-Baldi's-Basics-style analog look: ~240-line render upscaled with hard pixels, procedural pixel textures
-(checker tiles, acoustic ceiling, green school wainscot, red pavers, pixel grass, marble steps), PS1 vertex
-wobble, palette reduction with ordered dithering, VHS grain, scanlines, colour fringe and vignette.
+Low-res analog look: ~240-line render upscaled with hard pixels, procedural pixel textures (grey tiles, tired
+grey paint with damp patches and grime, acoustic ceiling, pavers, grass), colour drained to ~30%, cold
+shadows, ordered dithering, VHS grain, scanlines, colour fringe and a heavy vignette.
 
 ## How it's built
 - `tools/convert.mjs` turns the Shapr3D OBJ into `public/building.glb`:
