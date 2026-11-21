@@ -126,13 +126,18 @@ export class Doors {
     this.scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex })));
   }
 
-  // door under the crosshair within reach
+  // door under the crosshair within reach; a nearer wall blocks the pick
   pick(camera, reach = 2.6) {
     this._rc ||= new THREE.Raycaster();
     this._rc.setFromCamera(new THREE.Vector2(0, 0), camera);
     this._rc.far = reach;
     const h = this._rc.intersectObjects(this.meshes, false)[0];
-    return h ? h.object.userData.door : null;
+    if (!h) return null;
+    if (this.occluder) {
+      const o = this._rc.intersectObject(this.occluder, false)[0];
+      if (o && o.distance < h.distance - 0.02) return null;
+    }
+    return h.object.userData.door;
   }
 
   toggle(d, from) {

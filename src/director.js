@@ -35,7 +35,7 @@ export class Director {
     Object.assign(this, { scene, camera, getCollider, roomDoors, flickers, audio, player });
     this.shape = makeFigure(); scene.add(this.shape);
     this.rc = new THREE.Raycaster(); this.rc.firstHitOnly = true;
-    this.tension = 0; this.next = rnd(20, 35); this.torchOut = 0;
+    this.tension = 0; this.next = rnd(20, 35); this.torchOut = 0; this.torchOn = false;
     this.fig = null; this.follow = null; this.lastPos = new THREE.Vector3(); this.wasMoving = false;
     this.recent = [];
     audio.onStep = () => this.onPlayerStep();
@@ -60,17 +60,26 @@ export class Director {
   update(dt, { moving, torchOn }) {
     const cam = this.camera.position;
     this.torchOut = Math.max(0, this.torchOut - dt);
+    this.torchOn = torchOn;
     const inside = this.indoors();
     // tension: rises indoors and while the torch is off, slowly decays outside
     this.tension = Math.min(1, Math.max(0, this.tension + dt * (inside ? 0.012 : -0.004) + (torchOn ? 0 : dt * 0.01)));
     this.updateFigure(dt);
-    this.updateFollower(moving);
+    this.updateFollower(moving, dt);
     if (!this.paused) this.next -= dt * (0.6 + this.tension * 1.4);
     if (this.next <= 0 && !this.fig) {
       this.fire(inside);
       this.next = rnd(22, 45);
     }
     this.lastPos.copy(cam); this.wasMoving = moving;
+  }
+
+  reset() {
+    this.shape.visible = false;
+    this.fig = null;
+    this.follow = null;
+    this.torchOut = 0;
+    this.tension = 0;
   }
 
   fire(inside, forced) {
@@ -105,14 +114,14 @@ export class Director {
     const f = this.follow;
     setTimeout(() => this.audio.stepAt(f.pan, 0.45, 0.32), 210 + Math.random() * 60);   // a beat behind yours
   }
-  updateFollower(moving) {
+  updateFollower(moving, dt) {
     const f = this.follow; if (!f) return;
     if (!moving && this.wasMoving) {
       // you stopped... they take one more step
       setTimeout(() => this.audio.stepAt(f.pan, 0.45, 0.3), 420);
       if (++f.stops >= 2) this.follow = null;
     }
-    f.left -= 1 / 60;
+    f.left -= dt;
     if (f.left <= 0 && !moving) this.follow = null;
   }
 
@@ -159,7 +168,7 @@ export class Director {
     const look = dir.dot(this.fwd());                                        // 1 = dead ahead
     if (look > 0.8 && !s.beat) { s.beat = true; this.audio.heartbeat(5, 1.25); }
     if (d < 5) return this.vanish();                                          // never lets you reach it
-    if (look > 0.97 && d < 10 && this.torchOut <= 0) { s.seen += dt; if (s.seen > 1.2) return this.vanish(); }   // lit by the torch
+    if (look > 0.97 && d < 10 && this.torchOn && this.torchOut <= 0) { s.seen += dt; if (s.seen > 1.2) return this.vanish(); }   // lit by the torch
     if (s.t > 6 && look < 0.4) return this.vanish(false);                     // gone when you look back
     if (s.t > 14) return this.vanish();
   }
@@ -168,7 +177,7 @@ export class Director {
     this.torchOut = rnd(1.4, 2.4);
     this.audio.breath((Math.random() - 0.5) * 0.6);
     // when the light comes back, something is standing closer than before
-    if (Math.random() < 0.7) setTimeout(() => { if (!this.fig) this.figure(5.5, 8); }, this.torchOut * 1000 - 60);
+    if (Math.random() < 0.7) setTimeout(() => { if (!this.fig && this.torchOut > 0) this.figure(5.5, 8); }, this.torchOut * 1000 - 60);
     return true;
   }
 
