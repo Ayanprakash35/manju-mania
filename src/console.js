@@ -94,8 +94,8 @@ export class DevConsole {
         return Object.values(this.cmds).map((x) => `<span class="k">${esc(x.h.split(' — ')[0])}</span> — ${esc(x.h.split(' — ')[1] || '')}`).join('<br>');
       } },
       clear: { h: 'clear — clear the console', run: () => { this.log.innerHTML = ''; } },
-      freeze: { h: 'freeze [on|off] — stop the world (lights, scares, doors, mist); you can still move', run: ([x]) => { a.cheat.frozen = onoff(x, a.cheat.frozen); return `World ${a.cheat.frozen ? 'frozen' : 'running'}.`; } },
-      unfreeze: { h: 'unfreeze — start the world again', run: () => { a.cheat.frozen = false; return 'World running.'; } },
+      freeze: { h: 'freeze [on|off] — stop the world (lights, scares, doors, mist); you can still move', run: ([x]) => { a.cheat.frozen = onoff(x, a.cheat.frozen); a.director.setFrozen(a.cheat.frozen); return `World ${a.cheat.frozen ? 'frozen' : 'running'}.`; } },
+      unfreeze: { h: 'unfreeze — start the world again', run: () => { a.cheat.frozen = false; a.director.setFrozen(false); return 'World running.'; } },
       timescale: { h: 'timescale <x> — slow motion / fast forward (1 = normal, 0.3 = slow-mo)', run: ([x]) => { a.cheat.timeScale = Math.max(0, Math.min(5, num(x, 'timescale'))); return `Time x${a.cheat.timeScale}.`; } },
       pause: { h: 'pause — open the pause menu', run: () => { a.pause(); this.toggle(false); } },
       menu: { h: 'menu — quit to the title screen', run: () => { a.quit(); this.toggle(false); } },

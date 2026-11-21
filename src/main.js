@@ -121,7 +121,7 @@ let state = 'menu', ready = false, fresh = false;
 const menu = new Menu({
   newGame: () => { if (!ready) return; audio.start(); controls.lock(); fresh = true; },   // play starts once the pointer is locked
   resume: () => { audio.start(); controls.lock(); },
-  quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; director.reset(); },
+  quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; director.reset(); audio.setHum(0); },
   setRetro: (v) => retro.setEnabled(v), retro: () => retro.enabled,
   setSound: (v) => audio.setMuted(!v), sound: () => !audio.muted,
   tick: () => audio.tick(),
@@ -134,11 +134,11 @@ controls.addEventListener('lock', () => {
 });
 document.addEventListener('pointerlockerror', () => {
   fresh = false;
-  if (state === 'play' && !devcon?.open) { state = 'pause'; menu.open('pause'); document.body.classList.add('inmenu'); }   // couldn't re-capture the mouse
+  if (state === 'play' && !devcon?.open) { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); }   // couldn't re-capture the mouse
 });
 controls.addEventListener('unlock', () => {
   for (const k in keys) keys[k] = false;
-  if (state === 'play' && !devcon?.open) { state = 'pause'; director.reset(); menu.open('pause'); document.body.classList.add('inmenu'); }
+  if (state === 'play' && !devcon?.open) { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); }
 });
 
 // attract-mode camera: slow shots around the building, cut with a glitch
@@ -380,8 +380,8 @@ var devcon = new DevConsole({
     if (open && controls.isLocked) controls.unlock();
     if (!open && state === 'play') controls.lock();
   },
-  pause: () => { if (state === 'play') { state = 'pause'; director.reset(); menu.open('pause'); document.body.classList.add('inmenu'); } },
-  quit: () => { state = 'menu'; flying = false; director.reset(); menu.open('title'); document.body.classList.add('inmenu'); },
+  pause: () => { if (state === 'play') { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); } },
+  quit: () => { state = 'menu'; flying = false; director.reset(); audio.setHum(0); menu.open('title'); document.body.classList.add('inmenu'); },
   respawn,
   teleport: (x, feet, z, lx, lz) => {
     player.position.set(x, feet + PLAYER.radius + PLAYER.segment + 0.05, z); vel.set(0, 0, 0);

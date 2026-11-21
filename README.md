@@ -56,6 +56,7 @@ shadows, ordered dithering, VHS grain, scanlines, colour fringe and a heavy vign
   colour/material (45 materials, 53 primitives across 3 meshes). No position compression (it flattens the 1 mm slabs).
   17.7 MB / 150k tris → ~6.75 MB / 164k tris (uncompressed: meshopt/quantize flatten the 1 mm slabs).
   Rebuild: `./run.sh convert ~/Downloads/<export>.obj`
+  The committed `public/building.glb` predates the latest window/prop source fixes; run the convert command to regenerate it.
 - `src/main.js` is three.js + three-mesh-bvh: capsule collision against the whole building
   (walls, steps, landings), gravity, fly mode, floor indicator.
 

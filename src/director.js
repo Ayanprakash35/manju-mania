@@ -36,6 +36,7 @@ export class Director {
     this.shape = makeFigure(); scene.add(this.shape);
     this.rc = new THREE.Raycaster(); this.rc.firstHitOnly = true;
     this.tension = 0; this.next = rnd(20, 35); this.torchOut = 0; this.torchOn = false;
+    this.blackoutTimer = null; this.frozen = false;
     this.fig = null; this.follow = null; this.lastPos = new THREE.Vector3(); this.wasMoving = false;
     this.recent = [];
     audio.onStep = () => this.onPlayerStep();
@@ -80,6 +81,11 @@ export class Director {
     this.follow = null;
     this.torchOut = 0;
     this.tension = 0;
+    clearTimeout(this.blackoutTimer); this.blackoutTimer = null;
+  }
+  setFrozen(v) {
+    this.frozen = v;
+    if (v) { clearTimeout(this.blackoutTimer); this.blackoutTimer = null; }
   }
 
   fire(inside, forced) {
@@ -177,7 +183,15 @@ export class Director {
     this.torchOut = rnd(1.4, 2.4);
     this.audio.breath((Math.random() - 0.5) * 0.6);
     // when the light comes back, something is standing closer than before
-    if (Math.random() < 0.7) setTimeout(() => { if (!this.fig && this.torchOut > 0) this.figure(5.5, 8); }, this.torchOut * 1000 - 60);
+    clearTimeout(this.blackoutTimer);
+    this.blackoutTimer = null;
+    if (Math.random() < 0.7) {
+      const ms = this.torchOut * 1000 - 60;
+      this.blackoutTimer = setTimeout(() => {
+        this.blackoutTimer = null;
+        if (!this.fig && !this.frozen && this.torchOut > 0) this.figure(5.5, 8);
+      }, ms);
+    }
     return true;
   }
 
