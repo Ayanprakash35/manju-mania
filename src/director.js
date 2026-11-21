@@ -67,7 +67,7 @@ export class Director {
     this.updateFigure(dt);
     this.updateFollower(moving, dt);
     if (!this.paused) this.next -= dt * (0.6 + this.tension * 1.4);
-    if (this.next <= 0 && !this.fig) {
+    if (!this.paused && this.next <= 0 && !this.fig) {
       this.fire(inside);
       this.next = rnd(22, 45);
     }
