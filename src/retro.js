@@ -89,13 +89,14 @@ function boxUV(geo) {
 // ---------------------------------------------------------------- shader patches
 const snapUniform = { value: new THREE.Vector2(426, 240) };
 const retroOn = { value: 1 };
+const snapOn = { value: 0 };   // PS1 vertex wobble: off, it made the near-coplanar floor layers flicker
 function patch(mat, { wallBand = false } = {}) {
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uSnap = snapUniform; sh.uniforms.uRetro = retroOn;
-    sh.vertexShader = 'uniform vec2 uSnap; uniform float uRetro; varying vec3 vWPos;\n' + sh.vertexShader
+    sh.uniforms.uSnap = snapUniform; sh.uniforms.uRetro = retroOn; sh.uniforms.uSnapOn = snapOn;
+    sh.vertexShader = 'uniform vec2 uSnap; uniform float uRetro; uniform float uSnapOn; varying vec3 vWPos;\n' + sh.vertexShader
       .replace('#include <project_vertex>', `#include <project_vertex>
         vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-        if (uRetro > 0.5) { vec2 s = uSnap * 0.5; gl_Position.xy = floor(gl_Position.xy / gl_Position.w * s + 0.5) / s * gl_Position.w; }`);
+        if (uSnapOn > 0.5) { vec2 s = uSnap * 0.5; gl_Position.xy = floor(gl_Position.xy / gl_Position.w * s + 0.5) / s * gl_Position.w; }`);
     sh.fragmentShader = 'varying vec3 vWPos; uniform float uRetro;\n' + sh.fragmentShader;
     if (wallBand) sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       if (uRetro > 0.5) {
@@ -129,8 +130,8 @@ export function setupRetro(renderer, scene, camera) {
         if (!o.geometry.attributes.uv) boxUV(o.geometry);
         o.userData.retro = patch(new THREE.MeshLambertMaterial({ map: getTex(kind), side: m.side }), { wallBand: kind === 'wall' });
       } else {
-        const r = patch(new THREE.MeshLambertMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, transparent: m.transparent, opacity: m.opacity, side: m.side }));
-        if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xfffbe8); r.emissiveIntensity = 1.0; }   // tube lights
+        const r = patch(new THREE.MeshLambertMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveIntensity: m.emissiveIntensity ?? 1 }));
+        if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xdfe6ff); r.emissiveIntensity = 0.45; }   // tube lights
         o.userData.retro = r;
       }
       o.material = enabled ? o.userData.retro : m;
@@ -150,25 +151,25 @@ export function setupRetro(renderer, scene, camera) {
       void main(){
         vec2 uv = vUv;
         // slight barrel distortion like an old screen
-        vec2 cc = uv - 0.5; uv = 0.5 + cc * (1.0 + 0.035 * dot(cc, cc));
+        vec2 cc = uv - 0.5; uv = 0.5 + cc * (1.0 + 0.015 * dot(cc, cc));
         if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; }
         vec2 px = floor(uv * uRes);
         vec2 suv = (px + 0.5) / uRes;
-        float ca = 1.0 / uRes.x;                        // chromatic fringe, one low-res pixel
+        float ca = 0.4 / uRes.x;                        // faint chromatic fringe
         vec3 col = vec3(texture2D(tDiffuse, suv + vec2(ca,0.0)).r, texture2D(tDiffuse, suv).g, texture2D(tDiffuse, suv - vec2(ca,0.0)).b);
         col = clamp(col * (2.51 * col + 0.03) / (col * (2.43 * col + 0.59) + 0.14), 0.0, 1.0);   // ACES-ish tone map (target is linear)
         col = pow(col, vec3(1.0 / 2.2));                                                       // to sRGB
         // palette reduction with ordered dithering (about 5 bits per channel)
-        float levels = 28.0;
+        float levels = 40.0;
         col = floor(col * levels + bayer(px) + 0.5) / levels;
         // analog: grain, faint horizontal jitter band, scanlines, vignette
         float t = floor(uTime * 24.0);
-        col += (hash(px + t) - 0.5) * 0.06;
+        col += (hash(px + t) - 0.5) * 0.03;
         float band = smoothstep(0.0, 0.02, abs(fract(uv.y * 0.7 - uTime * 0.08) - 0.5) - 0.48);
-        col *= 0.96 + 0.04 * band;
-        col *= 0.93 + 0.07 * sin(vUv.y * uOut.y * 3.14159);
+        col *= 0.985 + 0.015 * band;
+        col *= 0.975 + 0.025 * sin(vUv.y * uOut.y * 3.14159);
         col *= 1.0 - 0.55 * pow(length(cc) * 1.25, 2.4);
-        col = mix(col, col * vec3(1.03, 1.0, 0.94), 0.6);         // slightly warm, tape-like
+        col = mix(col, col * vec3(1.02, 1.0, 0.96), 0.4);         // slightly warm, tape-like
         gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
       }`,
     depthTest: false, depthWrite: false,
@@ -179,7 +180,7 @@ export function setupRetro(renderer, scene, camera) {
 
   let enabled = true;
   // flat, school-like fill so ceilings and shaded corridors don't go muddy (Baldi's Basics is near fullbright)
-  const fill = new THREE.AmbientLight(0xf2efe6, 0.9);
+  const fill = new THREE.AmbientLight(0x8090b0, 0.12);   // night: just enough to read shapes
   scene.add(fill);
   function resize() {
     const w = Math.round(LINES * (innerWidth / innerHeight));
@@ -198,5 +199,5 @@ export function setupRetro(renderer, scene, camera) {
     renderer.setRenderTarget(rt); renderer.render(scene, camera);
     renderer.setRenderTarget(null); renderer.render(postScene, postCam);
   }
-  return { apply, render, setEnabled, get enabled() { return enabled; } };
+  return { apply, render, setEnabled, fill, get enabled() { return enabled; } };
 }

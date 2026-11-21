@@ -3,38 +3,44 @@
 // double doors at the street entrances. E toggles the door you're looking at; a door swings away from you.
 // Closed doors are solid: the player is pushed out of their (axis-aligned) boxes after the BVH collision.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const T = 0.045;              // leaf thickness
 const SPEED = 3.0;            // open/close speed (1/s)
 
-const mats = {
-  white: new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.6 }),
-  dark: new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.5 }),
-  wood: new THREE.MeshStandardMaterial({ color: 0x5a3a26, roughness: 0.55 }),
-  glass: new THREE.MeshStandardMaterial({ color: 0x9fb4bf, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.35 }),
-  metal: new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.3, metalness: 0.8 }),
-};
-const box = (w, h, d, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
+// Each door is ONE mesh (parts merged, colours in vertex colours) so ~200 doors cost ~200 draw calls, not ~800.
+const C = { white: [0.95, 0.94, 0.92], dark: [0.16, 0.14, 0.13], wood: [0.35, 0.23, 0.15], metal: [0.6, 0.6, 0.6] };
+const leafMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+const glassMat = new THREE.MeshLambertMaterial({ color: 0x9fb4bf, transparent: true, opacity: 0.3 });
+function part(w, h, d, col, x, y, z) {
+  const g = new THREE.BoxGeometry(w, h, d).translate(x, y, z);
+  const c = new Float32Array(g.attributes.position.count * 3);
+  for (let i = 0; i < c.length; i += 3) c.set(col, i);
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  g.deleteAttribute('uv');
+  return g;
+}
+function mergeParts(parts) { return mergeGeometries(parts, false); }
 
 function makeLeaf(kind, w, h) {
   // leaf built along +x from its hinge at x = 0, centred on z = 0
   const g = new THREE.Group();
+  const parts = [];
   if (kind === 'glass') {
     const f = 0.08;
-    g.add(box(f, h, T, mats.wood, f / 2, h / 2), box(f, h, T, mats.wood, w - f / 2, h / 2));
-    g.add(box(w, f, T, mats.wood, w / 2, h - f / 2), box(w, 0.2, T, mats.wood, w / 2, 0.1));
-    g.add(box(w - 2 * f, h - f - 0.2, 0.01, mats.glass, w / 2, 0.2 + (h - f - 0.2) / 2));
-    g.add(box(0.03, 0.3, 0.06, mats.metal, w - 0.12, 1.0));
+    parts.push(part(f, h, T, C.wood, f / 2, h / 2, 0), part(f, h, T, C.wood, w - f / 2, h / 2, 0));
+    parts.push(part(w, f, T, C.wood, w / 2, h - f / 2, 0), part(w, 0.2, T, C.wood, w / 2, 0.1, 0));
+    parts.push(part(0.03, 0.3, 0.06, C.metal, w - 0.12, 1.0, 0));
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(w - 2 * f, h - f - 0.2, 0.01).translate(w / 2, 0.2 + (h - f - 0.2) / 2, 0), glassMat));
   } else if (kind === 'main') {
-    g.add(box(w, h, T, mats.wood, w / 2, h / 2));
-    g.add(box(0.03, 0.4, 0.08, mats.metal, w - 0.1, 1.05));
+    parts.push(part(w, h, T, C.wood, w / 2, h / 2, 0), part(0.03, 0.4, 0.08, C.metal, w - 0.1, 1.05, 0));
   } else {
-    g.add(box(w, h, T, mats.white, w / 2, h / 2));
-    g.add(box(0.12, 0.45, T + 0.006, mats.dark, w / 2, 1.45));       // vision panel
-    g.add(box(0.13, 0.025, 0.07, mats.metal, w - 0.14, 1.0));        // lever
-    g.add(box(0.05, 0.12, T + 0.01, mats.metal, w - 0.1, 1.0));
+    parts.push(part(w, h, T, C.white, w / 2, h / 2, 0));
+    parts.push(part(0.12, 0.45, T + 0.006, C.dark, w / 2, 1.45, 0));      // vision panel
+    parts.push(part(0.13, 0.025, 0.07, C.metal, w - 0.14, 1.0, 0));       // lever
+    parts.push(part(0.05, 0.12, T + 0.01, C.metal, w - 0.1, 1.0, 0));
   }
-  g.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+  g.add(new THREE.Mesh(mergeParts(parts), leafMat));
   return g;
 }
 
@@ -67,6 +73,7 @@ export class Doors {
     // doubles open together
     for (const d of this.list) if (d.r.double) d.group = this.list.filter((e) => e.r === d.r);
     this.numberPlates(recs);
+    this.buildPlates();
     return this.list.length;
   }
 
@@ -83,20 +90,40 @@ export class Doors {
     });
   }
 
-  plate(r, text) {
-    const W = 128, H = 64, c = document.createElement('canvas'); c.width = W; c.height = H;
-    const g = c.getContext('2d');
-    g.fillStyle = '#f4f2ec'; g.fillRect(0, 0, W, H);
-    g.strokeStyle = '#2a2420'; g.lineWidth = 4; g.strokeRect(2, 2, W - 4, H - 4);
-    g.fillStyle = '#1c1a18'; g.font = `bold ${text.length > 3 ? 26 : 40}px -apple-system, Helvetica, Arial, sans-serif`;
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, H / 2 + 2);
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(text.length > 3 ? 0.3 : 0.2, 0.1), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 }));
-    // corridor side of the wall line: opposite the side the door opens into
-    const out = -r.into;
-    if (r.axis === 'x') { m.position.set(r.x, r.y + r.h + 0.18, r.z + out * 0.022); m.rotation.y = out > 0 ? 0 : Math.PI; }
-    else { m.position.set(r.x + out * 0.022, r.y + r.h + 0.18, r.z); m.rotation.y = out > 0 ? Math.PI / 2 : -Math.PI / 2; }
-    this.scene.add(m);
+  plate(r, text) { (this._plates ||= []).push({ r, text }); }
+
+  // all number plaques share one atlas texture and one mesh (192 plaques = 1 draw call)
+  buildPlates() {
+    const P = this._plates || []; if (!P.length) return;
+    const CW = 128, CH = 64, cols = 16, rows = Math.ceil(P.length / cols);
+    const cv = document.createElement('canvas'); cv.width = CW * cols; cv.height = CH * rows;
+    const g = cv.getContext('2d');
+    const pos = [], uv = [], nrm = [], idx = [];
+    P.forEach(({ r, text }, i) => {
+      const ox = (i % cols) * CW, oy = Math.floor(i / cols) * CH;
+      g.fillStyle = '#f4f2ec'; g.fillRect(ox, oy, CW, CH);
+      g.strokeStyle = '#2a2420'; g.lineWidth = 4; g.strokeRect(ox + 2, oy + 2, CW - 4, CH - 4);
+      g.fillStyle = '#1c1a18'; g.font = `bold ${text.length > 3 ? 26 : 40}px Helvetica, Arial, sans-serif`;
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, ox + CW / 2, oy + CH / 2 + 2);
+      const w = text.length > 3 ? 0.3 : 0.2, h = 0.1, out = -r.into, y = r.y + r.h + 0.18;
+      // corners in the wall plane, facing the corridor
+      const t = r.axis === 'x' ? [out > 0 ? 1 : -1, 0] : [0, out > 0 ? -1 : 1];      // "right" direction seen from the corridor
+      const cx = r.axis === 'x' ? r.x : r.x + out * 0.022, cz = r.axis === 'x' ? r.z + out * 0.022 : r.z;
+      const n = r.axis === 'x' ? [0, 0, out] : [out, 0, 0];
+      const base = pos.length / 3;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        pos.push(cx + t[0] * sx * w / 2, y + sy * h / 2, cz + t[1] * sx * w / 2); nrm.push(...n);
+        uv.push((ox + (sx > 0 ? CW : 0)) / cv.width, 1 - (oy + (sy > 0 ? 0 : CH)) / cv.height);
+      }
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    this.scene.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex })));
   }
 
   // door under the crosshair within reach

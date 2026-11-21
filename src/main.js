@@ -5,6 +5,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { MeshBVH, acceleratedRaycast } from 'three-mesh-bvh';
 import { Doors } from './doors.js';
 import { setupRetro } from './retro.js';
+import { HorrorAudio } from './audio.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -25,27 +26,43 @@ const FLOORS = [[-1, 'Ground floor'], [3.2, 'First floor'], [6.4, 'Second floor'
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = false;            // night: no sun shadows (also the biggest per-frame cost)
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9cc4e4);
-scene.fog = new THREE.Fog(0x9cc4e4, 80, 260);
+// ---- night ----
+const NIGHT = 0x05070c;
+scene.background = new THREE.Color(NIGHT);
+scene.fog = new THREE.Fog(NIGHT, 3, 30);
 
 const camera = new THREE.PerspectiveCamera(60,innerWidth / innerHeight, 0.1, 600);
 const retro = setupRetro(renderer, scene, camera);   // Baldi-style pixel / analog look (V toggles)
 
-scene.add(new THREE.HemisphereLight(0xdfefff, 0x7a705e, 1.1));
-const sun = new THREE.DirectionalLight(0xfff0d8, 3.2);
-sun.position.set(-28, 40, 22);
-sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, { left: -52, right: 52, top: 52, bottom: -52, near: 1, far: 170 });
-sun.shadow.bias = -0.0012;
-sun.shadow.normalBias = 0.06;
-scene.add(sun);
+scene.add(new THREE.HemisphereLight(0x2a3a5c, 0x0a0806, 0.35));
+const moon = new THREE.DirectionalLight(0x7088bb, 0.45);      // cold moonlight, no shadows
+moon.position.set(30, 40, -20);
+scene.add(moon);
+
+// flashlight on the camera (L toggles), with a little lag and the odd flicker
+scene.add(camera);
+const torch = new THREE.SpotLight(0xffe9c4, 28, 26, 0.42, 0.55, 1.3);
+torch.position.set(0.18, -0.12, 0.05);
+const torchTarget = new THREE.Object3D(); torchTarget.position.set(0, -0.15, -5);
+camera.add(torch, torchTarget); torch.target = torchTarget;
+let torchOn = true, torchFlicker = 0;
+
+// a few corridor lights that flicker; some are dead (12 lights, 4 per floor)
+const flickers = [];
+for (const [fi, Lc] of [[0, 4.03 - 0.25], [1, 7.17 - 0.25], [2, 10.92 - 0.3]]) {
+  for (const [x, z] of [[-14, -7.9], [9, 16.25], [-30.35, 6.5], [24.45, -2]]) {
+    const pl = new THREE.PointLight(0xdfe6ff, 0, 10, 1.6);
+    pl.position.set(x + fi * 3.7, Lc, z);
+    scene.add(pl);
+    flickers.push({ pl, base: 3.2, dead: Math.random() < 0.25, t: Math.random() * 10 });
+  }
+}
+const audio = new HorrorAudio();
 
 // ground (grass) — slightly below the building's lowest slab
 const ground = new THREE.Mesh(
@@ -54,7 +71,6 @@ const ground = new THREE.Mesh(
 );
 ground.geometry.deleteAttribute('uv');     // retro textures use world-space UVs
 ground.position.y = -0.16;
-ground.receiveShadow = true;
 scene.add(ground);
 
 // ---------------- player ----------------
@@ -77,14 +93,15 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyF') { flying = !flying; vel.set(0, 0, 0); }
   if (e.code === 'KeyR') respawn();
   if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
+  if (e.code === 'KeyL') torchOn = !torchOn;
   if (e.code === 'Space' && onGround && !flying) { vel.y = JUMP; onGround = false; }
-  if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) roomDoors.toggle(d, player.position); }
+  if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) { roomDoors.toggle(d, player.position); audio.door(); } }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 
 // ---------------- overlay ----------------
 const overlay = document.getElementById('overlay');
-overlay.addEventListener('click', () => { if (ready) controls.lock(); });
+overlay.addEventListener('click', () => { if (ready) { controls.lock(); audio.start(); } });
 controls.addEventListener('lock', () => { overlay.style.display = 'none'; });
 controls.addEventListener('unlock', () => { overlay.style.display = 'flex'; for (const k in keys) keys[k] = false; });
 let ready = false;
@@ -222,11 +239,35 @@ function step(dt) {
 // ---------------- loop ----------------
 const floorEl = document.getElementById('floor'), modeEl = document.getElementById('mode'), hintEl = document.getElementById('hint');
 const clock = new THREE.Clock();
+let bobT = 0, bobAmp = 0, pickFrame = 0, looked = null;
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   if (collider) {
+    const before = player.position.clone();
     if (controls.isLocked) for (let i = 0; i < SUBSTEPS; i++) step(dt / SUBSTEPS);
     camera.position.copy(player.position).y += PLAYER.eye;
+    // head bob while walking
+    const speed = Math.hypot(player.position.x - before.x, player.position.z - before.z) / Math.max(dt, 1e-4);
+    const moving = onGround && !flying && speed > 0.5;
+    bobT += moving ? dt * (speed > 4.5 ? 11 : 7.5) : 0;
+    bobAmp += ((moving ? 1 : 0) - bobAmp) * Math.min(1, dt * 6);
+    camera.position.y += Math.sin(bobT) * 0.035 * bobAmp;
+    camera.position.x += Math.cos(bobT * 0.5) * 0.02 * bobAmp;
+
+    // flashlight: occasional brief flicker
+    torchFlicker -= dt;
+    if (torchFlicker < -8 && Math.random() < dt * 0.15) torchFlicker = 0.35;
+    torch.intensity = torchOn ? (torchFlicker > 0 ? (Math.random() < 0.5 ? 2 : 22) : 28) : 0;
+    // corridor lights: flicker, buzz louder near a live one
+    let nearLight = 0;
+    for (const f of flickers) {
+      f.t += dt;
+      const on = !f.dead && (Math.sin(f.t * 1.3) > -0.7 || Math.random() < 0.3) && Math.random() > 0.04;
+      f.pl.intensity = on ? f.base * (0.85 + Math.random() * 0.15) : 0;
+      const d = f.pl.position.distanceTo(camera.position);
+      if (on && d < 8) nearLight = Math.max(nearLight, 1 - d / 8);
+    }
+    audio.update(dt, { moving, running: speed > 4.5, nearLight });
 
     // doors swing open when the player is near
     for (const d of doors) {
@@ -236,7 +277,7 @@ function frame() {
     }
 
     roomDoors.update(dt);
-    const looked = controls.isLocked ? roomDoors.pick(camera) : null;
+    if (++pickFrame % 4 === 0) looked = controls.isLocked ? roomDoors.pick(camera) : null;
     hintEl.style.display = looked ? 'block' : 'none';
     if (looked) hintEl.textContent = (looked.target ? 'E  close' : 'E  open') + (looked.r.kind === 'glass' ? ' — stairs' : '');
     const feet = player.position.y - PLAYER.segment - PLAYER.radius;

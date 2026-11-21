@@ -76,7 +76,7 @@ const ABOVE_DOOR = [-7.0, -3.52, 0.0];
 const SPIRALS = [[-26.85, -24.25, -4.0, -1.25], [18.75, 21.55, -3.6, -1.0], [-27.0, -24.25, 9.5, 12.1], [18.75, 21.35, 9.7, 12.45]];
 // covered walkway: courtyard cells outside this rectangle (2.2 m deep along the facades)
 const WALK = { x0: -23.95, x1: 18.38, z0: -1.82, z1: 10.31, roof: 3.75, pillar: 0.35 };
-const EXITS = [{ axis: 'x', plane: OUTER.zn, sgn: -1, u: -3.55, w: 1.8 }, { axis: 'x', plane: OUTER.zs, sgn: 1, u: -3.55, w: 1.8 }];
+const EXITS = [];   // owner: no doors through the outer walls (the old street entrances are removed)
 
 const tallAt = () => true;
 const topAt = (z) => (tallAt(z) ? TOP_TALL : TOP_LOW);
@@ -131,7 +131,6 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
     if (inOuterRect && !inInnerRect) return 'corr';
     if (!inOuterRect) {                                  // outer strips
       if (z < CORR.zo0 || z > CORR.zo1) {
-        if (x > EXIT_HALL.x0 && x < EXIT_HALL.x1) return 'corr';
         return (z < 0 ? 'oN' : 'oS') + idx(outerX, x);
       }
       return (x < 0 ? 'oW' : 'oE') + idx(outerZ, z);
@@ -367,7 +366,6 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   for (const [plane, sgn, zIn] of [[OUTER.zn, -1, IN.zn], [OUTER.zs, 1, IN.zs]]) {
     for (let j = 0; j + 1 < outerX.length; j++) {
       const a = outerX[j], b = outerX[j + 1];
-      if (a === EXIT_HALL.x0) continue;
       const u = (a + b) / 2;
       for (const Lv of floorsAt(zIn)) wins.push({ axis: 'x', plane, sgn, u, sill: Lv + 0.9, w: 1.4, h: 1.4 });
     }

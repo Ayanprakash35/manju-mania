@@ -6,7 +6,12 @@ First-person horror game (work in progress) set in a hostel building, built from
 ./run.sh
 ```
 
-Click the screen to start. WASD walk, mouse look, Shift run, E open/close doors, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
+Click the screen to start. WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
+
+## Night & horror (src/main.js, src/audio.js)
+Night sky and fog, cold moonlight, a flashlight on the player (L) that sometimes flickers, corridor lights that
+flicker or are dead, head bob, and procedural audio (drone, fluorescent hum near lights, footsteps, door creaks,
+occasional distant bangs/knocks). No sun shadows (they were the main per-frame cost).
 
 ## Look (src/retro.js)
 Baldi's-Basics-style analog look: ~240-line render upscaled with hard pixels, procedural pixel textures
