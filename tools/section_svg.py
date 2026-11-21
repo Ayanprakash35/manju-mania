@@ -16,10 +16,12 @@ for k, h in enumerate(hs):
     oy = k * (H + 30)
     svg.append(f'<g transform="translate(0,{oy})"><rect width="{W}" height="{H}" fill="#fff"/>')
     for x in range(X0, X1 + 1):
-        svg.append(f'<line x1="{(x-X0)*S}" y1="0" x2="{(x-X0)*S}" y2="{H}" stroke="{"#bbb" if x%5==0 else "#eee"}"/>')
+        stroke = '#bbb' if x % 5 == 0 else '#eee'
+        svg.append(f'<line x1="{(x-X0)*S}" y1="0" x2="{(x-X0)*S}" y2="{H}" stroke="{stroke}"/>')
         if x % 5 == 0: svg.append(f'<text x="{(x-X0)*S+2}" y="11" font-size="10" fill="#c00">{x}</text>')
     for z in range(Z0, Z1 + 1):
-        svg.append(f'<line x1="0" y1="{(z-Z0)*S}" x2="{W}" y2="{(z-Z0)*S}" stroke="{"#bbb" if z%5==0 else "#eee"}"/>')
+        stroke = '#bbb' if z % 5 == 0 else '#eee'
+        svg.append(f'<line x1="0" y1="{(z-Z0)*S}" x2="{W}" y2="{(z-Z0)*S}" stroke="{stroke}"/>')
         if z % 5 == 0: svg.append(f'<text x="2" y="{(z-Z0)*S-2}" font-size="10" fill="#c00">{z}</text>')
     a, b, c = P[F[:, 0]], P[F[:, 1]], P[F[:, 2]]
     ya, yb, yc = a[:, 1] - h, b[:, 1] - h, c[:, 1] - h

@@ -19,6 +19,9 @@
 // with different labels; floors, slabs and roofs are merged rectangles of cells.
 //
 // All coordinates are game metres (x east, y up, z south), after convert.mjs's transform.
+//
+// NOTE: generated geometry changes here only take effect after public/building.glb is rebuilt from the
+// original Shapr3D OBJ (not in the repo) with tools/convert.mjs.
 
 export const LEVELS = [0.76, 4.03, 7.17];       // ground = the model's plinth top; first/second from its spirals
 const PLINTH = 0.76, SLAB = 0.2;
@@ -363,13 +366,6 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
       for (const Lv of floorsAt(zIn)) wins.push({ axis: 'x', plane, sgn, u, sill: Lv + 0.9, w: 1.4, h: 1.4 });
     }
   }
-  for (const [plane, sgn, st] of [[OUTER.xw, -1, STAIRS[0]], [OUTER.xe, 1, STAIRS[1]]]) {
-    for (let j = 0; j + 1 < outerZ.length; j++) {
-      const a = outerZ[j], b = outerZ[j + 1];
-      const u = (a + b) / 2;
-      for (const Lv of floorsAt(u)) wins.push({ axis: 'z', plane, sgn, u, sill: Lv + 0.9, w: 1.4, h: 1.4 });
-    }
-  }
   for (const [plane, sgn] of [[OUTER.xw, -1], [OUTER.xe, 1]]) {
     for (let j = 0; j + 1 < outerZ.length; j++) { const u = (outerZ[j] + outerZ[j + 1]) / 2; for (const Lv of LEVELS) wins.push({ axis: 'z', plane, sgn, u, sill: Lv + 0.9, w: 1.4, h: 1.4 }); }
     for (const u of [(IN.zn + CORR.zo0) / 2, (CORR.zo1 + IN.zs) / 2]) for (const Lv of LEVELS) wins.push({ axis: 'z', plane, sgn, u, sill: Lv + 0.9, w: 1.2, h: 1.4 });
@@ -495,7 +491,7 @@ function props({ addBox, addCyl, runs, doorOn }) {
         n++;
       }
     }
-    for (const [x, z] of [[IN.xw + 0.2, IN.zn + 0.2], [IN.xe - 0.2, IN.zn + 0.2], [IN.xw + 0.2, IN.zs - 0.2], [IN.xe - 0.2, IN.zs - 0.2]]) {
+    for (const [x, z] of [[CORR.xo0 + 0.35, CORR.zo0 + 0.35], [CORR.xo1 - 0.35, CORR.zo0 + 0.35], [CORR.xo0 + 0.35, CORR.zo1 - 0.35], [CORR.xo1 - 0.35, CORR.zo1 - 0.35]]) {
       addBox(x - 0.06, x + 0.06, ceil - 0.12, ceil, z - 0.06, z + 0.06, PCOL.white);
       addCyl([x, ceil - 0.18, z], 0.05, 0.12, 'y', PCOL.white);
       n += 2;
@@ -513,8 +509,8 @@ function props({ addBox, addCyl, runs, doorOn }) {
       n += 2;
     }
   }
-  // water dispensers and dustbins at the corner corridors (video 2)
-  for (const [x, z] of [[IN.xw + 0.4, IN.zn + 0.4], [IN.xe - 0.4, IN.zn + 0.4], [IN.xw + 0.4, IN.zs - 0.4], [IN.xe - 0.4, IN.zs - 0.4]]) {
+  // water dispensers and dustbins at the corridor corners (video 2)
+  for (const [x, z] of [[CORR.xo0 + 0.4, CORR.zo0 + 0.4], [CORR.xo1 - 0.4, CORR.zo0 + 0.4], [CORR.xo0 + 0.4, CORR.zo1 - 0.4], [CORR.xo1 - 0.4, CORR.zo1 - 0.4]]) {
     for (const Lv of LEVELS) {
       addBox(x - 0.17, x + 0.17, Lv, Lv + 1.05, z - 0.17, z + 0.17, PCOL.white);
       addCyl([x, Lv + 1.27, z], 0.13, 0.42, 'y', PCOL.blue);
