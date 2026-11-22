@@ -14,7 +14,7 @@ export class Health {
 
   get max() { return this._max; }
   get hearts() { return this._hearts; }
-  get low() { return this._hearts <= 1; }
+  get low() { return this._hearts <= Math.ceil(this._max / 3); }
   get dead() { return this._hearts <= 0; }
 
   // Returns true only if the hit was applied. force bypasses i-frames/state checks (console testing).

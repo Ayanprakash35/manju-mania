@@ -524,8 +524,11 @@ function props({ addBox, addCyl, runs, doorOn }) {
 // door record for the game: opening centre on the wall line, axis of the wall, which side is "into the room"
 function doorRecord(run, u, y, w, kind) {
   const x = run.axis === 'x' ? u : run.c, z = run.axis === 'x' ? run.c : u;
-  // doors off a corridor open into the room (the side away from the corridor), never into the corridor
-  const into = run.kind === 'corr' ? (run.hi === 'corr' || run.hi === 'hall' ? -1 : 1) : 0;
+  // doors off a corridor open into the room (the side away from the corridor), never into the corridor.
+  // Facade/walkway doors have the room on the building side of the wall, so keep that direction too.
+  const into = run.kind === 'corr'
+    ? (run.hi === 'corr' || run.hi === 'hall' ? -1 : 1)
+    : run.kind === 'facade' ? (run.inward || 1) : 0;
   return { x: +x.toFixed(3), z: +z.toFixed(3), y: +y.toFixed(3), w: +w.toFixed(3), h: DOOR_H, axis: run.axis, kind, into };
 }
 // lining of a window opening from the wall's inner face to the depth of the model's pane

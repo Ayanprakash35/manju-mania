@@ -24,6 +24,8 @@ export class Mutty extends FloorNPC {
   constructor(o) {
     super(o);
     this.onBite = o.onBite;
+    this.getManju = o.getManju;
+    this.onInform = o.onInform;
     this.moveClip = 'Crawl';
     this.idleClip = 'Idle';
     this.floorRange = [-0.2, GROUND_TOP];
@@ -38,7 +40,7 @@ export class Mutty extends FloorNPC {
     this.idleT = 0; this.investT = 0; this.retreatT = 0;
     this.seeing = false; this.heard = false; this.givingUp = false;
     this.lastKnown = new THREE.Vector3();
-    this.attack = null;
+    this.attack = null; this.report = null; this.awayT = 0;
     this.visible = false; this.flickT = 0;
   }
 
@@ -60,13 +62,13 @@ export class Mutty extends FloorNPC {
     this.seeT = 0; this.lostT = 0; this.repathT = 0;
     this.seeing = false; this.heard = false; this.givingUp = false;
     this.alert = 0; this.prox = 0; this.biteCd = 0;
-    this.attack = null;
+    this.attack = null; this.report = null; this.awayT = 0;
     this.lastKnown.copy(this.pos);
     this.visible = false; this.flickT = 0; this.lightT = 0; this.light = 0;
   }
 
   onReset() {
-    this.attack = null;
+    this.attack = null; this.report = null; this.awayT = 0;
     this.retreatT = 0; this.biteCd = 0;
     this.seeT = 0; this.lostT = 0; this.repathT = 0;
     this.idleT = 0; this.investT = 0;
@@ -89,6 +91,7 @@ export class Mutty extends FloorNPC {
   sense(ctx) {
     this.seeing = false; this.heard = false;
     const P = ctx.feet; if (!P) return;
+    if (ctx.inRoom) { this.seeT = 0; return; }             // student rooms are safe from Mutty
     if (P.y < this.floorRange[0] || P.y >= GROUND_TOP) { this.seeT = 0; return; }
 
     const E = this.eye(this._eye), EP = ctx.eyePos;
@@ -146,12 +149,58 @@ export class Mutty extends FloorNPC {
       const dy = Math.abs(ctx.eyePos.y - (this.pos.y + this.eyeH));
       const reach = 2.4;
       if (d <= reach && dy < 1.9 && !this.hitWall(this.eye(), ctx.eyePos, this.closedDoorMeshes())) {
-        this.onBite?.();                      // exactly once per attack, even if the bite misses
+        this.onBite?.();                      // exactly once per attack; main removes a heart
         this.audio?.muttyBite?.(this.pan(ctx));
+        this.report = { pos: ctx.feet.clone(), t: 0, told: false, repath: 0 };
       }
       if (this.state !== 'attack') return;    // onBite may have ended/reset the round
     }
-    if (a.t >= ATTACK_END) this.beginRetreat(ctx);
+    if (a.t >= ATTACK_END) {
+      if (this.report) {
+        this.attack = null;
+        this.state = 'report';
+        this.path = []; this.doorWait = null;
+        this.report.t = 0;
+        this.play('Crawl', 0.15);
+      } else this.beginRetreat(ctx);
+    }
+  }
+
+  // After a bite Mutty runs to Manju, tells him where the player is, then clears out for a while.
+  finishReport() {
+    if (!this.report || this.report.told) return;
+    this.report.told = true;
+    this.onInform?.(this.report.pos);
+    this.startAway();
+  }
+
+  updateReport(dt, ctx) {
+    const rep = this.report;
+    if (!rep) { this.startAway(); return; }
+    rep.t += dt;
+    if (rep.t >= 2.0) { this.finishReport(); return; }
+    rep.repath -= dt;
+    if (rep.repath <= 0) {
+      rep.repath = 0.4;
+      const m = this.getManju?.();
+      if (m?.ready) {
+        let id = this._inFloor(m.pos.y) ? this.nav.nearest(m.pos) : -1;
+        if (id < 0) id = this.nearestAllowed(m.pos);
+        if (id >= 0) this.goTo(id);
+      }
+    }
+    const m = this.getManju?.();
+    if (m?.ready && Math.hypot(m.pos.x - this.pos.x, m.pos.z - this.pos.z) < 1.8 && Math.abs(m.pos.y - this.pos.y) < 1.2) this.finishReport();
+  }
+
+  startAway() {
+    this.state = 'away';
+    this.awayT = 6 + Math.random() * 3;
+    this.attack = null; this.report = null;
+    this.path = []; this.doorWait = null;
+    this.seeing = false; this.heard = false;
+    this.alert = 0; this.prox = 0;
+    if (this.root) this.root.visible = false;
   }
 
   beginRetreat(ctx) {
@@ -175,6 +224,15 @@ export class Mutty extends FloorNPC {
       if (this.root) this.root.visible = false;
       return;
     }
+    if (this.state === 'away') {
+      this.awayT -= dt;
+      if (this.root) this.root.visible = false;
+      if (this.awayT <= 0) {
+        this.awayT = 0;
+        if (!this.spawnFar(ctx.feet, 18)) this.state = 'roam';
+      }
+      return;
+    }
     this.root.visible = true;
     this.biteCd = Math.max(0, this.biteCd - dt);
 
@@ -185,6 +243,12 @@ export class Mutty extends FloorNPC {
     const dist = Math.hypot(P.x - this.pos.x, P.z - this.pos.z);
     const dy = Math.abs(P.y - this.pos.y);
     const offFloor = P.y < this.floorRange[0] || P.y >= GROUND_TOP;
+
+    // A student room breaks the hunt. If it already bit you, it keeps its report errand.
+    if (ctx.inRoom && !this.report && (this.state === 'chase' || this.state === 'investigate' || this.state === 'attack')) {
+      this.startAway();
+      return;
+    }
 
     switch (this.state) {
       case 'roam':
@@ -272,6 +336,10 @@ export class Mutty extends FloorNPC {
         this.updateAttack(dt, ctx);
         break;
 
+      case 'report':
+        this.updateReport(dt, ctx);
+        break;
+
       case 'retreat':
         this.retreatT -= dt;
         if (this.seeing) this.lastKnown.copy(P);
@@ -285,6 +353,7 @@ export class Mutty extends FloorNPC {
     if (this.state === 'roam') sp = this.path.length ? SPEED.roam : 0;
     else if (this.state === 'investigate') sp = SPEED.investigate;
     else if (this.state === 'chase') sp = SPEED.chase;
+    else if (this.state === 'report') sp = 5.2;
     else if (this.state === 'retreat') sp = SPEED.retreat;
 
     if (this.state === 'off') { this.root.visible = false; return; }

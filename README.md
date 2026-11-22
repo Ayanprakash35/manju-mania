@@ -28,8 +28,10 @@ The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the 
 
 ## Mutty (src/mutty.js)
 The crawler (`public/models/crawler.glb`), **ground floor only** (stairs are his border; he never follows you up).
-- Scuttles on all fours at speed, elbows and knees splayed; pounces up to face height, bites once for **one heart**,
-  then drops back and retreats.
+- Scuttles on all fours at speed, elbows and knees splayed; pounces up to face height and bites once for **one heart**.
+- After a bite he runs to Manju and tells him where you are; Manju then tracks you at speed for ~8 seconds.
+- **Student rooms are safe:** once you cross a room door (not a stair/lobby opening), Mutty loses you and clears out
+  for a while, letting you continue.
 - Body is only drawn when light is on him; his eyes catch the torch in the dark.
 
 ## Dr Zoya (src/zoya.js)
@@ -39,10 +41,10 @@ First-floor warden (`public/models/zoya.glb`); she does no damage herself.
 - She never leaves the first floor.
 
 ## Health (src/health.js)
-- **3 hearts**, 1.25 s of invulnerability after a hit, no regeneration.
+- **5 hearts**, 1.25 s of invulnerability after a hit, no regeneration.
 - Mutty takes one heart per bite; Manju's catch is still instant confiscation; Zoya deals no damage.
 - At zero hearts the same **CONFISCATED** screen appears (with a random warden line). Try Again / New Game
-  restore three hearts; R respawn does not heal.
+  restore five hearts; R respawn does not heal.
 
 ## Voices (src/voices.js, public/audio/)
 Recorded lines, cut from the owner's recordings at their pauses and transcribed with Whisper (see the table in src/voices.js), played as positional sound from where each character

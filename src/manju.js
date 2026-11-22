@@ -41,6 +41,7 @@ export class Manju {
     this.lastKnown = new THREE.Vector3(); this.searchStops = 0;
     this.visible = false; this.flickT = 0; this.light = 0;
     this.alert = 0; this.prox = 0; this.stepDist = 0; this.breathT = 0; this.senseT = 0; this.lightT = 0;
+    this.speedBoost = 1;                       // main raises this for the 8 s reinforced response
     this.doorWait = null;
     this.rc = new THREE.Raycaster(); this.rc.firstHitOnly = true;
     this.ready = false;
@@ -208,7 +209,7 @@ export class Manju {
       case 'catch': return;
     }
     // ---------- movement along the path (stops for doors)
-    const sp = this.state === 'chase' ? SPEED.chase * (dist > 18 ? 1.15 : 1) : SPEED[this.state] || 0;
+    const sp = this.state === 'chase' ? SPEED.chase * this.speedBoost * (dist > 18 ? 1.15 : 1) : SPEED[this.state] || 0;
     if (this.path.length && sp > 0 && this.state !== 'stare') this.follow(dt, sp, ctx);
     // ---------- animation speed, footsteps
     if (this.cur === this.actions.Walk) this.cur.timeScale = sp / 1.25;
