@@ -147,6 +147,39 @@ export class HorrorAudio {
     src.connect(f); f.connect(g); g.connect(o); src.start(t, Math.random()); src.stop(t + 1.9);
   }
 
+  muttyScuttle(pan, far = 0.3, vol = 0.3) {   // elbows and knees dragging over tile
+    if (!this.ctx) return; const o = this.out(pan, far);
+    const n = 4 + Math.floor(Math.random() * 3); let d = 0;
+    for (let i = 0; i < n; i++) {
+      this.noiseHit(o, 2400 + Math.random() * 2100, 2, 0.012 + Math.random() * 0.018, vol * (0.6 + Math.random() * 0.4), 'bandpass', d);
+      d += 0.035 + Math.random() * 0.04;
+    }
+  }
+  muttyBite(pan) {            // wet crunch, right beside your ear
+    if (!this.ctx) return; const o = this.out(pan, 0);
+    this.noiseHit(o, 90, 0.9, 0.25, 0.75, 'lowpass');
+    this.noiseHit(o, 900 + Math.random() * 500, 1.4, 0.1, 0.65, 'bandpass', 0.015);
+    this.noiseHit(o, 4000, 0.8, 0.15, 0.3, 'highpass', 0.03);
+  }
+  zoyaShout(pan) {            // an order barked down the corridor: pitch-swept, distorted, formant-shaped
+    if (!this.ctx) return; const ctx = this.ctx, t = ctx.currentTime, o = this.out(pan, 0.1);
+    const sh = ctx.createWaveShaper(), curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(x * 3); }
+    sh.curve = curve;
+    const form = ctx.createBiquadFilter(); form.type = 'bandpass'; form.frequency.value = 720; form.Q.value = 1.6;
+    const bite = ctx.createBiquadFilter(); bite.type = 'bandpass'; bite.Q.value = 5;
+    bite.frequency.setValueAtTime(1900, t); bite.frequency.linearRampToValueAtTime(1200, t + 0.42);
+    const dg = ctx.createGain(); dg.gain.value = 0.5;
+    sh.connect(form); form.connect(dg); sh.connect(bite); bite.connect(dg); dg.connect(o);
+    for (const [type, det] of [['sawtooth', 0], ['square', 7]]) {
+      const s = ctx.createOscillator(); s.type = type; s.detune.value = det;
+      s.frequency.setValueAtTime(300, t); s.frequency.linearRampToValueAtTime(210, t + 0.42);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12, t + 0.025); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.47);
+      s.connect(g); g.connect(sh); s.start(t); s.stop(t + 0.5);
+    }
+    this.noiseHit(o, 1500, 1.5, 0.28, 0.12, 'bandpass');   // breath behind the call
+  }
+
   burst(freq, q, dur, vol, type = 'bandpass', pitchTo = null) {
     const ctx = this.ctx; if (!ctx) return;
     const src = ctx.createBufferSource(); src.buffer = this.noise; src.playbackRate.value = 0.6 + Math.random() * 0.3;

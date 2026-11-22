@@ -26,6 +26,24 @@ The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the 
 - **Caught:** camera snaps to his face, scream and glitch, then CONFISCATED (Try again / Quit to menu) with a random warden line under the title.
 - Console: `manju [status|here|away|off|on|chase|stare]`, `god`.
 
+## Mutty (src/mutty.js)
+The crawler (`public/models/crawler.glb`), **ground floor only** (stairs are his border; he never follows you up).
+- Scuttles on all fours at speed, elbows and knees splayed; pounces up to face height, bites once for **one heart**,
+  then drops back and retreats.
+- Body is only drawn when light is on him; his eyes catch the torch in the dark.
+
+## Dr Zoya (src/zoya.js)
+First-floor warden (`public/models/zoya.glb`); she does no damage herself.
+- Patrols the first-floor corridors and stops to scan. When she sees you she freezes, snaps round, points and
+  calls Manju to your position; she keeps pointing until he arrives (or loses interest after ~8 s).
+- She never leaves the first floor.
+
+## Health (src/health.js)
+- **3 hearts**, 1.25 s of invulnerability after a hit, no regeneration.
+- Mutty takes one heart per bite; Manju's catch is still instant confiscation; Zoya deals no damage.
+- At zero hearts the same **CONFISCATED** screen appears (with a random warden line). Try Again / New Game
+  restore three hearts; R respawn does not heal.
+
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
 
@@ -44,6 +62,9 @@ Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down re
 | `fog 0.02` / `fog off` / `fog auto` | fog override |
 | `retro`, `fov 75`, `sound off`, `volume 0.5`, `hud off` | display and sound |
 | `doors open/close` | every room door at once |
+| `mutty [status\|here\|off\|on\|chase]` | Mutty's state / bring him near / enable / disable / chase |
+| `zoya [status\|here\|off\|on\|spot]` | Dr Zoya's state / bring her near / enable / disable / spot |
+| `hurt [n]`, `heal [n]`, `hearts` | health testing |
 | `pause`, `menu` | pause menu / back to the title |
 
 ## Title menu (src/menu.js)
