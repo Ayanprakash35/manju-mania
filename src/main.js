@@ -213,7 +213,9 @@ const catchLight = new THREE.PointLight(0xff6a55, 0, 6, 1.4); scene.add(catchLig
 function caughtUpdate(dt) {
   const t0 = caughtT; caughtT += dt;
   if (manju.head) { manju.head.getWorldPosition(headW); lookM.lookAt(camera.position, headW, camera.up); lookQ.setFromRotationMatrix(lookM); camera.quaternion.slerp(lookQ, Math.min(1, dt * 14)); }
-  catchLight.position.copy(camera.position).y += 0.25; catchLight.intensity += (2.2 - catchLight.intensity) * Math.min(1, dt * 6);
+  // once the screen is up his face sinks back into the dark and only the eyes stay, staring at you
+  catchLight.position.copy(camera.position).y += 0.25; catchLight.intensity += ((deadShown ? 0.25 : 2.2) - catchLight.intensity) * Math.min(1, dt * (deadShown ? 1.5 : 6));
+  if (deadShown) { torchOn = false; for (const e of manju.eyes || []) { e.visible = true; e.material.opacity = 1; e.scale.setScalar((0.15 + Math.sin(caughtT * 2.2) * 0.012) / 1.23); } }
   manju.mixer?.update(dt);
   manju.root?.traverse((o) => { if (o.isSkinnedMesh) o.visible = true; });   // you see him now
   if (t0 < 0.18 && caughtT >= 0.18) { audio.scream(); menu.burst(900); lungeT = caughtT; }
