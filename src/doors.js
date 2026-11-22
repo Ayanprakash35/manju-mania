@@ -84,7 +84,8 @@ export class Doors {
     const floors = [...new Set(recs.map((r) => r.y))].sort((a, b) => a - b);
     const ang = (r) => (Math.atan2(r.x - cx, -(r.z - cz)) + Math.PI * 2) % (Math.PI * 2);
     floors.forEach((y, fi) => {
-      const rooms = recs.filter((r) => r.y === y && r.into && r.kind === 'room').sort((a, b) => ang(a) - ang(b));
+      for (const r of recs) if (r.y === y && r.into && r.label) this.plate(r, r.label);          // named rooms (bathroom, office, ...)
+      const rooms = recs.filter((r) => r.y === y && r.into && r.kind === 'room' && !r.label).sort((a, b) => ang(a) - ang(b));
       rooms.forEach((r, i) => this.plate(r, String(fi * 100 + i + 1)));
       recs.filter((r) => r.y === y && r.into && r.kind === 'glass').forEach((r) => this.plate(r, 'STAIRS'));
     });
@@ -95,17 +96,20 @@ export class Doors {
   // all number plaques share one atlas texture and one mesh (192 plaques = 1 draw call)
   buildPlates() {
     const P = this._plates || []; if (!P.length) return;
-    const CW = 128, CH = 64, cols = 16, rows = Math.ceil(P.length / cols);
+    const CW = 256, CH = 64, cols = 8, rows = Math.ceil(P.length / cols);   // numbers use the left half of a cell, names the whole cell
     const cv = document.createElement('canvas'); cv.width = CW * cols; cv.height = CH * rows;
     const g = cv.getContext('2d');
     const pos = [], uv = [], nrm = [], idx = [];
     P.forEach(({ r, text }, i) => {
       const ox = (i % cols) * CW, oy = Math.floor(i / cols) * CH;
-      g.fillStyle = '#f4f2ec'; g.fillRect(ox, oy, CW, CH);
-      g.strokeStyle = '#2a2420'; g.lineWidth = 4; g.strokeRect(ox + 2, oy + 2, CW - 4, CH - 4);
-      g.fillStyle = '#1c1a18'; g.font = `bold ${text.length > 3 ? 26 : 40}px Helvetica, Arial, sans-serif`;
-      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, ox + CW / 2, oy + CH / 2 + 2);
-      const w = text.length > 3 ? 0.3 : 0.2, h = 0.1, out = -r.into, y = r.y + r.h + 0.18;
+      const long = text.length > 5, cw = long ? CW : CW / 2;
+      g.fillStyle = '#f4f2ec'; g.fillRect(ox, oy, cw, CH);
+      g.strokeStyle = '#2a2420'; g.lineWidth = 4; g.strokeRect(ox + 2, oy + 2, cw - 4, CH - 4);
+      g.fillStyle = '#1c1a18'; let px = long ? 30 : 40;
+      g.font = `bold ${px}px Helvetica, Arial, sans-serif`;
+      while (g.measureText(text).width > cw - 16 && px > 12) { px -= 1; g.font = `bold ${px}px Helvetica, Arial, sans-serif`; }
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, ox + cw / 2, oy + CH / 2 + 2);
+      const w = long ? 0.42 : 0.2, h = 0.1, out = -r.into, y = r.y + r.h + 0.18;
       // corners in the wall plane, facing the corridor
       const t = r.axis === 'x' ? [out > 0 ? 1 : -1, 0] : [0, out > 0 ? -1 : 1];      // "right" direction seen from the corridor
       const cx = r.axis === 'x' ? r.x : r.x + out * 0.022, cz = r.axis === 'x' ? r.z + out * 0.022 : r.z;
@@ -113,7 +117,7 @@ export class Doors {
       const base = pos.length / 3;
       for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
         pos.push(cx + t[0] * sx * w / 2, y + sy * h / 2, cz + t[1] * sx * w / 2); nrm.push(...n);
-        uv.push((ox + (sx > 0 ? CW : 0)) / cv.width, 1 - (oy + (sy > 0 ? 0 : CH)) / cv.height);
+        uv.push((ox + (sx > 0 ? cw : 0)) / cv.width, 1 - (oy + (sy > 0 ? 0 : CH)) / cv.height);
       }
       idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
     });

@@ -56,6 +56,20 @@ is (quieter and duller with distance, more muffled from another floor):
   when he bites; his other lines (`mutty_1`, `4`, `5`, `7`) at random.
 - **Ravi:** "MOVE!" (`ravi_1`, `ravi_2`) at random from somewhere 18-40 m away (he has no body in the game).
 
+## Room interiors (tools/furnish.mjs), from the ground-floor walkthrough video
+- **Bedrooms (double):** two metal-frame beds along the side walls, heads at the window; two separate study tables, each
+  with its own bookshelf hutch and black chair, under the window; two steel cupboards by the door; white-framed mirror,
+  wall fan, grey curtains, mint window wall, blue buckets. Room 18 is the east-wing room south of the stairs.
+- **Washrooms** (south, west and east wings, every floor; two rooms merged and pushed 2.5 m out into the exterior):
+  yellow-tiled privacy screen inside the door, a row of shower / WC cubicles with beige laminate partitions and white
+  doors, black granite basin counter with framed mirrors, urinals and a "please flush" sign, white tiles with yellow
+  bands, high windows with exhaust fans.
+- **Common room** (beside the entrance, two rooms merged and pushed 3.5 m out; upstairs it is a study hall): wide doorless
+  opening, yellow wall with a big portrait and a bench desk with a row of plastic chairs, carrom on an X stand, square
+  tables, L-shaped corner bookcase, TV, whiteboard, ceiling fan.
+- **Ground floor also:** H.P. residence, study room, laundry room, stores, and the house parent's office opposite the east
+  stairs. Next to room 18 an open gap off the corridor leads to the towel stand by the window.
+
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
 
