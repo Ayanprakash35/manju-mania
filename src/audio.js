@@ -13,7 +13,7 @@ export class HorrorAudio {
     this.noise = buf;
     // drone: two detuned low saws through a slowly breathing low-pass
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 180; lp.Q.value = 6;
-    const dg = ctx.createGain(); dg.gain.value = 0.10; lp.connect(dg); dg.connect(this.master);
+    const dg = ctx.createGain(); dg.gain.value = 0.10; lp.connect(dg); dg.connect(this.master); this.droneGain = dg; this.droneLP = lp;
     for (const f of [43.6, 44.1, 65.3]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(lp); o.start(); }
     const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07; const lg = ctx.createGain(); lg.gain.value = 90; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
     // air: very quiet filtered noise
@@ -24,6 +24,75 @@ export class HorrorAudio {
     const hum = ctx.createOscillator(); hum.type = 'square'; hum.frequency.value = 100;
     const hf = ctx.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 900;
     this.humGain = ctx.createGain(); this.humGain.gain.value = 0.0; hum.connect(hf); hf.connect(this.humGain); this.humGain.connect(this.master); hum.start();
+    this.buildChase();
+  }
+
+  // ---- chase music: pulsing bass, a dissonant string cluster, drum hits on the beat (gain follows the threat) ----
+  buildChase() {
+    const ctx = this.ctx;
+    this.chaseGain = ctx.createGain(); this.chaseGain.gain.value = 0; this.chaseGain.connect(this.master);
+    // bass: two saws an octave apart through a low-pass, amplitude pulsed at 140 bpm (eighths)
+    const bl = ctx.createBiquadFilter(); bl.type = 'lowpass'; bl.frequency.value = 220; bl.Q.value = 4;
+    const bg = ctx.createGain(); bg.gain.value = 0; bl.connect(bg); bg.connect(this.chaseGain); this.bassGain = bg;
+    for (const f of [41.2, 82.4]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(bl); o.start(); }
+    // strings: tight minor-second cluster, slow swell, fast tremolo
+    const sf = ctx.createBiquadFilter(); sf.type = 'bandpass'; sf.frequency.value = 900; sf.Q.value = 0.8;
+    const sg = ctx.createGain(); sg.gain.value = 0.0; sf.connect(sg); sg.connect(this.chaseGain); this.strGain = sg;
+    for (const f of [466.2, 493.9, 523.3, 698.5]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 18; o.connect(sf); o.start(); }
+    const trem = ctx.createOscillator(); trem.frequency.value = 7.5; const tg = ctx.createGain(); tg.gain.value = 0.35; trem.connect(tg); tg.connect(sg.gain); trem.start();
+    this.threat = 0; this.prox = 0; this.beatT = 0; this.heartT = 0; this.beatN = 0;
+  }
+  setThreat(threat, prox) { this.threat = threat; this.prox = prox; }
+  updateThreat(dt) {
+    if (!this.chaseGain) return;
+    const th = this.threat, t = this.ctx.currentTime;
+    this.chaseGain.gain.setTargetAtTime(th * 0.55, t, 0.25);
+    this.strGain.gain.setTargetAtTime(th * 0.06, t, 0.4);
+    this.droneLP.frequency.setTargetAtTime(180 + th * 260, t, 0.5);
+    this.droneGain.gain.setTargetAtTime(0.10 + th * 0.06, t, 0.5);
+    // bass pulse + drums on the beat while it's on
+    if (th > 0.05) {
+      this.beatT -= dt;
+      if (this.beatT <= 0) {
+        this.beatT += 60 / 140 / 2; this.beatN++;
+        const g = this.bassGain.gain; g.cancelScheduledValues(t); g.setValueAtTime(0.0, t); g.linearRampToValueAtTime(0.5 * th, t + 0.01); g.exponentialRampToValueAtTime(0.0001, t + 0.2);
+        if (th > 0.6 && this.beatN % 4 === 0) this.noiseHit(this.chaseGain, 70, 0.8, 0.35, 0.9, 'lowpass');          // kick
+        if (th > 0.6 && this.beatN % 8 === 4) this.noiseHit(this.chaseGain, 1800, 0.7, 0.18, 0.35, 'bandpass');      // snare-ish
+      }
+    }
+    // heartbeat speeds up as he gets closer (even when you can't see him)
+    if (this.prox > 0.25) {
+      this.heartT -= dt;
+      if (this.heartT <= 0) { this.heartT = 1.2 - this.prox * 0.75; this.heartbeat(1, 1); }
+    }
+  }
+  stareSting() {           // he's seen you: a rising swell
+    if (!this.ctx) return; const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 6; f.frequency.setValueAtTime(200, t); f.frequency.exponentialRampToValueAtTime(3000, t + 1.5);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.4, t + 1.4); g.gain.linearRampToValueAtTime(0, t + 1.6);
+    src.connect(f); f.connect(g); g.connect(this.master); src.start(t); src.stop(t + 1.7);
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(55, t); o.frequency.exponentialRampToValueAtTime(110, t + 1.5);
+    const og = ctx.createGain(); og.gain.setValueAtTime(0, t); og.gain.linearRampToValueAtTime(0.12, t + 1.4); og.gain.linearRampToValueAtTime(0, t + 1.6);
+    o.connect(og); og.connect(this.master); o.start(t); o.stop(t + 1.7);
+    this.heartbeat(3, 1.6);
+  }
+  slapAt(pan, far = 0.3, vol = 0.4) {   // chappal on tile: a sharp slap and a soft thud
+    if (!this.ctx) return; const o = this.out(pan, far);
+    this.noiseHit(o, 2600, 1.2, 0.05, vol, 'bandpass'); this.noiseHit(o, 160, 1, 0.09, vol * 0.6, 'lowpass', 0.01);
+  }
+  crackle(pan, far = 0.3) {             // a drag on the joint
+    if (!this.ctx) return; const o = this.out(pan, far);
+    for (let i = 0; i < 5; i++) this.noiseHit(o, 3500 + Math.random() * 2500, 2, 0.02, 0.06, 'bandpass', i * (0.04 + Math.random() * 0.08));
+  }
+  scream() {               // caught
+    if (!this.ctx) return; const ctx = this.ctx, t = ctx.currentTime, o = this.out(0, 0);
+    for (const f of [180, 233, 311]) {
+      const s = ctx.createOscillator(); s.type = 'sawtooth'; s.frequency.setValueAtTime(f, t); s.frequency.exponentialRampToValueAtTime(f * 0.6, t + 1.2);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0, t); g.gain.linearRampToValueAtTime(0.35, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+      s.connect(g); g.connect(o); s.start(t); s.stop(t + 1.4);
+    }
+    this.noiseHit(o, 900, 0.5, 1.2, 1.0, 'bandpass'); this.noiseHit(o, 60, 0.7, 1.0, 1.0, 'lowpass');
   }
 
   setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.55 * this.volume; }
@@ -106,6 +175,7 @@ export class HorrorAudio {
   // called every frame: moving = walking on the ground, indoors = under a ceiling, nearLight = 0..1
   update(dt, { moving, running, nearLight, frozen = false }) {
     if (!this.ctx) return;
+    this.updateThreat(dt);
     // footsteps are triggered by the head bob in main.js (footstep()), so they land with the camera dip
     this.humGain.gain.value += ((nearLight * 0.035) - this.humGain.gain.value) * Math.min(1, dt * 3);
     if (!frozen) {

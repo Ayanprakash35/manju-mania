@@ -8,6 +8,24 @@ First-person horror game (work in progress) set in a hostel building, built from
 
 The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
 
+## Manju (src/manju.js, src/navmesh.js)
+The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the character sheet in `tools/ref/`).
+- **Roams all three floors** using a walkable grid built from the collision mesh at load (stairs connect the floors).
+  Stops now and then to smoke.
+- **Senses:** sees in a ~120° cone (walls and closed doors block it); spots you from ~22 m with your torch on,
+  ~8 m with it off; the torch in his face alerts him at once. Hears running (~12 m), walking (~4 m) and landings;
+  crouching (Ctrl or C) is silent.
+- **Stare, then chase:** stops, turns and stares (eyes flare) for ~1.5 s, then runs at 4.6 m/s. Sprinting (6.5 m/s)
+  outruns him, but stamina lasts ~6 s. He opens doors in his way and bangs on the door before bursting into a room
+  you're hiding in. Loses you after ~6 s unseen, searches the spot, then goes back to roaming.
+- **You can't see him in the dark:** he is drawn only when light is on him (your torch cone, a live tube light,
+  moonlight outside) and stutters in and out as lights flicker. In the dark you hear his chappals, breathing and the
+  joint crackling; while he stares at you, his red eyes show even in total darkness.
+- **Chase atmosphere:** stare sting, pulsing bass, string cluster and drums; the screen edge closes in and red seeps
+  into the shadows; a heartbeat speeds up as he gets near, even unseen.
+- **Caught:** camera snaps to his face, scream and glitch, then the CAUGHT screen (Try again / Quit to menu).
+- Console: `manju [status|here|away|off|on|chase|stare]`, `god`.
+
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
 

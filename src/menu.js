@@ -111,7 +111,7 @@ export class Menu {
 
   // ---------- glitched wordmark ----------
   buildWord() {
-    const W = Math.min(820, innerWidth * 0.62, Math.max(200, innerHeight * 0.9)), lineH = W * 0.2;
+    const W = Math.max(40, Math.min(820, innerWidth * 0.62, Math.max(200, innerHeight * 0.9))), lineH = W * 0.2;   // never 0 (minimised window)
     const dpr = Math.min(devicePixelRatio, 2);
     this.cw = W; this.ch = lineH * 2.25;
     this.canvas.width = W * dpr; this.canvas.height = this.ch * dpr;
@@ -148,7 +148,7 @@ export class Menu {
   }
 
   update(dt) {
-    if (this.root.hidden) return;
+    if (this.root.hidden || !this.word?.width || !this.word?.height) return;
     this.nextGlitch -= dt; this.glitch -= dt;
     if (this.nextGlitch <= 0) { this.nextGlitch = 1.2 + Math.random() * 4; this.glitch = 0.08 + Math.random() * 0.35; }
     const g = this.ctx, W = this.cw, H = this.ch, src = this.word, sx = src.width / W;
