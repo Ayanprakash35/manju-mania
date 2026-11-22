@@ -12,6 +12,7 @@ const SPEED = 3.0;            // open/close speed (1/s)
 const C = { white: [0.95, 0.94, 0.92], dark: [0.16, 0.14, 0.13], wood: [0.35, 0.23, 0.15], metal: [0.6, 0.6, 0.6] };
 const leafMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 const glassMat = new THREE.MeshLambertMaterial({ color: 0x9fb4bf, transparent: true, opacity: 0.3 });
+const visionGeo = new THREE.BoxGeometry(0.12, 0.45, 0.008);     // room doors' vision pane, positioned per leaf in makeLeaf
 function part(w, h, d, col, x, y, z) {
   const g = new THREE.BoxGeometry(w, h, d).translate(x, y, z);
   const c = new Float32Array(g.attributes.position.count * 3);
@@ -44,8 +45,12 @@ function makeLeaf(kind, w, h) {
     parts.push(part(0.03, 0.3, 0.08, C.metal, w - 0.1, 1.0, 0));
     g.add(new THREE.Mesh(new THREE.BoxGeometry(gw, gh, 0.01).translate(w / 2, g0 + gh / 2, 0), glassMat));
   } else {
-    parts.push(part(w, h, T, C.white, w / 2, h / 2, 0));
-    parts.push(part(0.12, 0.45, T + 0.006, C.dark, w / 2, 1.45, 0));      // vision panel
+    // flush leaf with a real opening for the vision panel (owner: the glass is see-through), a dark bead round it
+    const pw = 0.12, ph = 0.45, py = 1.45, pl = w / 2 - pw / 2, pr = w / 2 + pw / 2, pb = py - ph / 2, pt = py + ph / 2;
+    parts.push(part(pl, h, T, C.white, pl / 2, h / 2, 0), part(w - pr, h, T, C.white, (w + pr) / 2, h / 2, 0));
+    parts.push(part(pw, pb, T, C.white, w / 2, pb / 2, 0), part(pw, h - pt, T, C.white, w / 2, (h + pt) / 2, 0));
+    for (const [bw, bh, bx, by] of [[pw + 0.04, 0.02, w / 2, pb - 0.01], [pw + 0.04, 0.02, w / 2, pt + 0.01], [0.02, ph, pl - 0.01, py], [0.02, ph, pr + 0.01, py]]) parts.push(part(bw, bh, T + 0.012, C.dark, bx, by, 0));
+    const pane = new THREE.Mesh(visionGeo, glassMat); pane.position.set(w / 2, py, 0); g.add(pane);
     parts.push(part(0.13, 0.025, 0.07, C.metal, w - 0.14, 1.0, 0));       // lever
     parts.push(part(0.05, 0.12, T + 0.01, C.metal, w - 0.1, 1.0, 0));
   }

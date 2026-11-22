@@ -81,13 +81,21 @@ is (quieter and duller with distance, more muffled from another floor):
 - **Entrance lobby** (across the corridor; three outer rooms merged and pushed 3 m out through the north wall): open to
   the corridor between pillars; the glazed wooden exit door (locked) between glass side panels with steps outside,
   potted plants, a mirror, curtained windows, a red accent wall with a painting and a wooden sofa set, downlights.
-- **Locked:** the H.P. residence, every courtyard-side room except the study, and the exit. E on them rattles the handle;
-  a solid slab in each locked doorway keeps the player and the guards' nav grid out.
+- **Locked:** only the H.P. residence and the exit. E on them rattles the handle; a solid slab in each locked doorway
+  keeps the player and the guards' nav grid out. Every other door opens.
+- **Room doors:** white flush leaves with a see-through glass vision panel (a real opening with a dark bead and a clear
+  pane), lever handle.
 - **Towel nooks** at all four corners: the corridor runs on past the turn to a window in the outer wall (south-east: the
   south corridor runs on east, beside room 16); a clothes stand
   with towels, a chair piled with clothes, a bucket.
-- **Courtyard-side rooms:** shallow facade notches are merged into their deep neighbours and laid out in the deep part;
-  the small rooms east of the lobby are stores (video).
+- **Courtyard-side rooms** (all open, every floor): the model's courtyard facade on the north and south wings stood only
+  1.7-1.8 m from the corridor, so those faces are pushed out into the courtyard (north 1.47 m, south 1.61 m; `INNER` in
+  tools/interior.mjs): the main faces end up 3.3 m from the corridor like the west wing, and the facade's zigzag (the
+  protruding end bays) and the entrance recesses are kept. Each run between the corner wells, recesses, common room and
+  study is split evenly into rooms the size of the outer ones (~3.5 m), each with its own window above the desks. The two
+  solid blocks beside the common room are rooms too. West/east rooms the model left without a window get one, and the
+  model's brown window panels on those facades are swapped for the standard window. Courtyard rooms are bedrooms,
+  except the two store rooms past the east entrance recess (ground floor, video 238-244 s) and the study.
 - **Wings stretched to the video's length:** the walkthrough shows the wings ~2 rooms longer south of each stairwell than
   the Shapr3D model, so everything south of a cut just past the stairwells is moved 7.4 m south (`STRETCH` in
   tools/interior.mjs, applied to the model's vertices in tools/convert.mjs); the wings, slabs and courtyard stretch to

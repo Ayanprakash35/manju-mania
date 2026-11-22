@@ -13,7 +13,7 @@ import { Document, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { weld, dedup, prune } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
-import { buildInterior, CLIP_RECTS, STRETCH } from './interior.mjs';
+import { buildInterior, CLIP_RECTS, STRETCH, WINDOW_SWAP } from './interior.mjs';
 
 // Export units: every dimension / 2.54 is a round number (16, 7, 14, 33, 39...), i.e. the model was
 // typed in metres in a document set to inches and exported in cm. So metres = value / 2.54.
@@ -74,7 +74,7 @@ const bucket = (key, color) => {
   return buckets.get(key);
 };
 let trisIn = 0, trisOut = 0, flipped = 0;
-const removed = [], solids = [], kept = [], droppedNames = [];
+const removed = [], solids = [], kept = [], ghosts = [], droppedNames = [];
 const bbox = (pos) => { const r = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
   for (let i = 0; i < pos.length; i += 3) { r.minX = Math.min(r.minX, pos[i]); r.maxX = Math.max(r.maxX, pos[i]); r.minY = Math.min(r.minY, pos[i + 1]); r.maxY = Math.max(r.maxY, pos[i + 1]); r.minZ = Math.min(r.minZ, pos[i + 2]); r.maxZ = Math.max(r.maxZ, pos[i + 2]); }
   return r; };
@@ -103,6 +103,7 @@ for (const b of bodies) {
   if (DROP.test(b.name)) continue;
   if (REBUILD.test(b.name)) { removed.push(info); continue; }
   if (REBUILD_SOLID.test(b.name)) { solids.push(info); continue; }
+  if (WINDOW_SWAP.name.test(b.name) && WINDOW_SWAP.rects.some(([x0, x1, z0, z1]) => info.minX > x0 && info.maxX < x1 && info.minZ > z0 && info.maxZ < z1)) { ghosts.push(info); continue; }   // replaced by standard windows
   kept.push(info);
   let I = Uint32Array.from(idx);
   trisIn += I.length / 3;
@@ -218,7 +219,8 @@ function addCyl(c, r, len, axis, col, seg = 14) {
     addQuad(col, bot, P(a1, -1), P(a0, -1), bot, ax.map((v) => -v));
   }
 }
-const { stats, doors } = buildInterior({ removed, solids, kept, addBox, addQuad, addBeam, addCyl });
+if (process.env.DUMP_BODIES) fs.writeFileSync(process.env.DUMP_BODIES, JSON.stringify({ kept: kept.map(({ name, minX, maxX, minY, maxY, minZ, maxZ }) => ({ name, minX, maxX, minY, maxY, minZ, maxZ })), removed: removed.map(({ name, minX, maxX, minY, maxY, minZ, maxZ }) => ({ name, minX, maxX, minY, maxY, minZ, maxZ })) }));
+const { stats, doors } = buildInterior({ removed, solids, kept, ghosts, addBox, addQuad, addBeam, addCyl });
 console.log('interior:', stats);
 fs.writeFileSync(outPath.replace(/[^/]*$/, 'doors.json'), JSON.stringify(doors));
 

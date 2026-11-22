@@ -73,7 +73,8 @@ export function planRooms(rooms) {
   pick('oS', (x) => Math.abs(x + 17.5), 'store');
   if (rooms.some((r) => r.id === 'lobby')) plan.lobby = { type: 'common', ground: true, upper: 'study' };
   if (rooms.some((r) => r.id === 'entry')) plan.entry = { type: 'entry', ground: true, upper: 'study' };   // across the corridor: the way out   // the open entrance hall with the courtyard door
-  for (const id of ['iN6', 'iN7']) if (rooms.some((r) => r.id === id)) plan[id] = { type: 'store', ground: false, upper: 'store' };   // video: stores east of the lobby
+  // video (238-244 s): the store rooms on the courtyard side east of the common room, past the east entrance recess
+  for (const r of rooms) if (/^iN/.test(r.id) && r.door && (r.x0 + r.x1) / 2 > 7.9 && (r.x0 + r.x1) / 2 < 13.7 && !plan[r.id]) plan[r.id] = { type: 'store', ground: true, upper: 'default' };
   pick('oN', (x) => (x > 1.4 ? Math.abs(x - 8) : 99 - x), 'store');
   return plan;
 }
@@ -189,8 +190,23 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
   };
 
   // the wall facing the door, painted around its windows (mint window wall in every bedroom, video)
-  const faceB = D + (room.id[0] === 'o' || room.id === 'entry' ? 0.155 : 0.13);
+  // exact depth of the far wall's room-side face (the 0.1 m depth profile is too coarse for a 6 mm paint layer):
+  // find the far cell edge where the room is shallowest, to 5 mm; courtyard facades stand 0.25 m inside their cells
+  const outerRoom = room.id[0] === 'o' || room.id === 'entry';
+  let faceB = D + (outerRoom ? 0.155 : 0.13);
+  {
+    let uMin = null, dMin = Infinity;
+    for (const [u, dd] of prof) if (u >= a0 && u <= a1 && dd < dMin) { dMin = dd; uMin = u; }
+    if (uMin != null) {
+      let lo = Math.max(0, dMin - 0.2), hi = Math.min(full + 0.1, dMin + FAR + 0.3);
+      if (inRoom(room.id, ...ptAt(uMin, lo)) && !inRoom(room.id, ...ptAt(uMin, hi))) {
+        while (hi - lo > 0.005) { const m = (lo + hi) / 2; if (inRoom(room.id, ...ptAt(uMin, m))) lo = m; else hi = m; }
+        faceB = lo - (outerRoom ? 0 : 0.25) - 0.004;
+      }
+    }
+  }
   const paintFar = (col, yTop = ceil - Lv - 0.02) => {
+    if (process.env.DEBUG_PAINT && room.id === process.env.DEBUG_PAINT && Lv < 1) console.log('PAINT', room.id, 'D', D.toFixed(3), 'faceB', faceB.toFixed(3), 'full', full.toFixed(3), 'wins', JSON.stringify(myWins.map((w) => [w.plane.toFixed(2), w.u0.toFixed(2), w.u1.toFixed(2), w.y0.toFixed(2), ((w.plane - d.c) * into - NEAR - faceB).toFixed(2)])), 'prof', prof.filter((_, i) => i % 5 === 0).map(([u, dd]) => dd.toFixed(2)).join(','));
     const u0 = along[0] + 0.065, u1 = along[1] - 0.065;
     const ws = myWins.filter((w) => Math.abs((w.plane - d.c) * into - NEAR - faceB) < 0.4).map((w) => [Math.max(u0, w.u0 - 0.14), Math.min(u1, w.u1 + 0.14), w.y0 - Lv - 0.12, w.y1 - Lv + 0.06]).sort((p, q) => p[0] - q[0]);
     let u = u0;
