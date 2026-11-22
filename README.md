@@ -6,6 +6,13 @@ First-person horror game (work in progress) set in a hostel building, built from
 ./run.sh
 ```
 
+**Room 15 (src/room15.js)** is where you start and the one safe place: inside it nobody can see, hear, catch or hurt
+you (Manju and Mutty's nav grids leave it out, so they stop at the door), its tube light never goes out, and there's
+food: two Choco Pies and a Lay's packet. Look at one and press E to eat it for +1 heart (not when your hearts are
+full); the food comes back on a new game or a retry. The room is a recreation of the owner's video (IMG_2567): two
+almirahs, laundry baskets and a guitar case on the door wall, a floral bed and a geometric-print bed, two teak desks
+with hutches under the mint window wall, grey satin curtains, a wall fan, the runner, mats, bags and slippers.
+
 The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, F flashlight, Ctrl or C crouch, R back to start, V retro look on/off, Esc pause.
 
 ## Manju (src/manju.js, src/navmesh.js)

@@ -121,7 +121,10 @@ const ABOVE_DOOR = [-7.0, -3.52, 0.0];
 const SPIRALS = [[-26.85, -24.25, -4.0, -1.25], [18.75, 21.55, -3.6, -1.0], [-27.0, -24.25, 9.5 + DZ, 12.1 + DZ], [18.75, 21.35, 9.7 + DZ, 12.45 + DZ]];
 // covered walkway: courtyard cells outside this rectangle (2.2 m deep along the facades)
 const WALK = { x0: -23.95, x1: 18.38, z0: -1.82, z1: 10.31 + DZ, roof: 3.75, pillar: 0.35 };
-const EXITS = [];          // filled in buildInterior (the entrance lobby's exit door)
+const EXITS = [];
+// room 15 (owner's IMG_2567): the spawn room / safe room, east wing outer side by the south-east light well. Its
+// interior is built at runtime (src/room15.js) from the video; the generator only places its door.
+export const ROOM15 = { id: 'oE7', doorFromNorth: 0.66 };          // filled in buildInterior (the entrance lobby's exit door)
 // Rooms pushed out into the exterior (the player never goes outside) so they have the video's scale:
 // the common room beside the entrance and the three washrooms. face: which outer wall; u0..u1 along it; depth outward.
 const EXT = [
@@ -256,7 +259,9 @@ export function buildInterior({ removed, solids = [], kept, ghosts = [], addBox,
   // the partition between them disappears on every floor
   // owner: bigger rooms. Shallow facade notches join their deep neighbour, doorless rooms join one with a door,
   // the 0.8 m sliver beside the lobby joins the lobby, the corner rooms' leftovers beside the towel nooks join their neighbours
-  const MERGE = { oS6: 'oS7', oS8: 'oS7', oW1: 'oW2', oE1: 'oE2', oE0: 'oE2', oW8: 'oW7', oE8: 'oE7' };   // courtyard rooms: no merges (each bay is a room)
+  // oE8 (the strip between room 15 and the south-east towel nook) stays its own small room: room 15 is a normal
+  // double room as in the owner's video, not a merged hall
+  const MERGE = { oS6: 'oS7', oS8: 'oS7', oW1: 'oW2', oE1: 'oE2', oE0: 'oE2', oW8: 'oW7' };   // courtyard rooms: no merges (each bay is a room)
   const classifyM = (x, z) => { const l = classify(x, z); return MERGE[l] || l; };
   const lab = [];
   for (let i = 0; i < NX; i++) { lab[i] = []; for (let k = 0; k < NZ; k++) lab[i][k] = classifyM((xs[i] + xs[i + 1]) / 2, (zs[k] + zs[k + 1]) / 2); }
@@ -366,6 +371,7 @@ export function buildInterior({ removed, solids = [], kept, ghosts = [], addBox,
     const st = STAIRS.find((s) => s.id === id);
     let u = (r.u0 + r.u1) / 2;
     if (st) u = st.z0 + 0.1 + STAIR.entry / 2;                                // into the stair's entry strip
+    if (id === ROOM15.id) u = r.u0 + ROOM15.doorFromNorth;                      // video: the door is in the north corner
     pushDoor(r, u, floorsAt(midZ(r)), st ? 'glass' : 'room');
   }
 

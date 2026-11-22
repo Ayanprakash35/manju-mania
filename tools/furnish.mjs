@@ -69,6 +69,8 @@ export function planRooms(rooms) {
   pick('iS', (x) => Math.abs(x - 0), 'study', true, 'study');
   for (const id of ['oS7', 'oW2', 'oE2']) if (rooms.some((r) => r.id === id && r.door)) plan[id] = { type: 'bath', ground: false };   // the three washrooms (merged + pushed out)
   if (rooms.some((r) => r.id === 'oE3' && r.door)) plan.oE3 = { type: 'office', ground: true };          // opposite the east stairs
+  if (rooms.some((r) => r.id === 'oE7' && r.door)) plan.oE7 = { type: 'room15', ground: true, upper: 'default' };   // room 15: built at runtime (src/room15.js)
+  if (rooms.some((r) => r.id === 'oE8' && r.door)) plan.oE8 = { type: 'store', ground: false, upper: 'store' };     // the small room beside it
   pick('oS', (x) => x, 'laundry');                                   // westmost on the south side
   pick('oS', (x) => Math.abs(x + 17.5), 'store');
   if (rooms.some((r) => r.id === 'lobby')) plan.lobby = { type: 'common', ground: true, upper: 'study' };
@@ -114,6 +116,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
   const Dat = (u0, u1) => { let m = Infinity; for (const [u, dd] of prof) if (u >= u0 - 0.05 && u <= u1 + 0.05) m = Math.min(m, dd); return m === Infinity ? 0 : m; };
   const D = Dat(a0, a1);                                   // depth that is inside the room all along its width
   const W = a1 - a0;
+  if (type === 'room15') return 0;                       // furnished at runtime from the owner's video (src/room15.js)
   if (W < 1.6 || (D < 0.9 && !['default', 'store', 'common'].includes(type))) { (furnishAll.skipped ||= []).push(`${room.id} too small ${W.toFixed(1)}x${D.toFixed(1)}`); return 0; }
   let n = 0;
   const toW = (b) => d.c + into * (NEAR + b);
