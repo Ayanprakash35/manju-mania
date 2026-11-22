@@ -14,6 +14,7 @@ import { NavGrid } from './navmesh.js';
 import { Manju } from './manju.js';
 import { Mutty } from './mutty.js';
 import { Zoya } from './zoya.js';
+import { Voices, farPoint } from './voices.js';
 import { inStair } from './npc.js';
 import { Health } from './health.js';
 
@@ -179,6 +180,8 @@ const doors = [];   // the model's entrance doors (auto-open): { pivot, open, di
 const roomDoors = new Doors(scene);   // every generated doorway (E to open/close)
 const director = new Director({ scene, camera, player, getCollider: () => collider, roomDoors, flickers, audio });
 const manju = new Manju({ scene, camera, getCollider: () => collider, roomDoors, audio, flickers, onCatch: () => caught() });
+const voices = new Voices(audio);
+const listener = () => ({ pos: camera.position, dir: camera.getWorldDirection(new THREE.Vector3()), feetY: feetPos().y });
 const mutty = new Mutty({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
   onBite: () => damagePlayer(1, 'mutty'),
@@ -186,18 +189,66 @@ const mutty = new Mutty({
 const zoya = new Zoya({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
   onAlert: (feet) => reportToManju(feet),
+  onShout: () => { if (voices.isPlaying('zoya_1')) return true; return !!voices.play('zoya_1', { getPos: () => zoya.pos }, { listener: listener(), gain: 1.5, ref: 6 }); },
   onManjuNear: () => !!manju.ready && manju.state !== 'off' && (manju.state === 'catch' || manju.pos.distanceTo(feetPos()) < 6),
 });
 function reportToManju(feet) {
   if (!manju.ready || !nav?.ready || state !== 'play') return;
+  // Zoya has called him: he is suddenly ~5 m from you, on your floor, somewhere you aren't looking
+  if (manju.enabled && !['stare', 'chase', 'catch'].includes(manju.state)) placeManjuNear(feet);
   if (manju.state === 'off' && !manju.spawnFar(feet)) return;
   manju.lastKnown.copy(feet);
   manju.awareness = 1; manjuGrace = 0;
   if (!['stare', 'chase', 'catch'].includes(manju.state)) manju.setState('investigate');
 }
+function placeManjuNear(feet) {
+  const n = nav, look = camera.getWorldDirection(new THREE.Vector3()); look.y = 0; look.normalize();
+  const goal = n.nearest(feet); if (goal < 0) return false;
+  const cands = [];
+  for (let i = 0; i < n.x.length; i++) {
+    if (!n.reach[i] || Math.abs(n.y[i] - feet.y) > 0.6) continue;
+    const dx = n.x[i] - feet.x, dz = n.z[i] - feet.z, d = Math.hypot(dx, dz);
+    if (d < 4 || d > 6.5) continue;
+    const behind = (dx * look.x + dz * look.z) / d < 0.3;                 // out of your view
+    cands.push({ i, score: (behind ? 0 : 2) + Math.abs(d - 5) * 0.5 + Math.random() * 0.6 });
+  }
+  cands.sort((a, b) => a.score - b.score);
+  for (const c of cands.slice(0, 12)) {
+    const p = n.path(c.i, goal, 4000);
+    if (p && p.length * 0.35 < 10) { manju.place(n.pos(c.i)); return true; }    // a real walk to you, not through a wall
+  }
+  return false;
+}
 const camDir = new THREE.Vector3();
 const feetPos = () => player.position.clone().setY(player.position.y - PLAYER.radius - PLAYER.segment);
 const staminaEl = document.getElementById('stamina');
+
+// ---- recorded voices: random lines from far off, Zoya's spot line, Mutty when he runs at you ----
+const rnd = (a, b) => a + Math.random() * (b - a);
+const voiceT = { zoya: rnd(12, 25), mutty: rnd(10, 22), ravi: rnd(25, 50) };
+let muttyPrev = 'off', muttyChaseCool = 0;
+function voiceTick(dt, ctx) {
+  const L = listener();
+  for (const k in voiceT) voiceT[k] -= dt;
+  muttyChaseCool -= dt;
+  if (zoya.state !== 'off' && !['spot', 'point'].includes(zoya.state) && voiceT.zoya <= 0) {
+    voiceT.zoya = rnd(18, 40);
+    voices.play(voices.pick('zoya', ['zoya_2', 'zoya_3', 'zoya_4', 'zoya_5']), { getPos: () => zoya.pos }, { listener: L, gain: 1.2, ref: 4 });
+  }
+  if (mutty.state !== 'off' && mutty.state !== 'chase' && voiceT.mutty <= 0) {
+    voiceT.mutty = rnd(15, 35);
+    voices.play(voices.pick('mutty', ['mutty_1', 'mutty_2', 'mutty_3', 'mutty_4']), { getPos: () => mutty.pos }, { listener: L, gain: 1.2, ref: 4 });
+  }
+  if (mutty.state === 'chase' && muttyPrev !== 'chase' && muttyChaseCool <= 0) {      // he's coming for you
+    muttyChaseCool = 12;
+    voices.play('mutty_5', { getPos: () => mutty.pos }, { listener: L, gain: 1.4, ref: 5 });
+  }
+  muttyPrev = mutty.state;
+  if (voiceT.ravi <= 0) {
+    voiceT.ravi = rnd(35, 80);
+    voices.play(voices.pick('ravi'), farPoint(ctx.feet), { listener: L, gain: 1.3, ref: 6 });
+  }
+}
 
 // ---- caught: snap to his face, scream, glitch, black, try again ----
 let caughtT = 0;
@@ -544,6 +595,7 @@ function frame() {
       manju.update(wdt, ctx);
       if (state === 'play') mutty.update(wdt, ctx);
       if (state === 'play') zoya.update(wdt, ctx);
+      if (state === 'play') voiceTick(wdt, ctx);
       // bring the two floor-bound characters in after the grace period
       charSpawnT -= wdt;
       if (charGrace > 0) charGrace -= wdt;
@@ -588,6 +640,7 @@ function frame() {
   }
   menu.update(rawDt);
   sky.position.copy(camera.position);
+  if (audio.ctx) voices.update(listener());
   camera.rotateZ(camRoll); camera.rotateX(camPitch);
   retro.render(rawDt);
   camera.rotateX(-camPitch); camera.rotateZ(-camRoll);
@@ -632,4 +685,4 @@ var devcon = new DevConsole({
 });
 
 // debug hooks for automated testing
-window.__game = { retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };

@@ -30,6 +30,7 @@ export class Zoya extends FloorNPC {
     super(o);
     this.onAlert = o.onAlert;
     this.onManjuNear = o.onManjuNear;
+    this.onShout = o.onShout;
     this.moveClip = 'Walk';
     this.floorRange = [3.35, 4.65];
     this.eyeH = 1.6;
@@ -123,7 +124,7 @@ export class Zoya extends FloorNPC {
     this.alerted = true;
     this.lastSeen.copy(ctx.feet);
     this.play('Spot', 0.15, true);
-    this.audio?.zoyaShout?.(this.pan(ctx));
+    if (!this.onShout?.()) this.audio?.zoyaShout?.(this.pan(ctx));      // her recorded line if loaded, else the synth shout
     this.onAlert?.(ctx.feet.clone());
   }
 

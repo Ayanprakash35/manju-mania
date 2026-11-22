@@ -44,6 +44,14 @@ First-floor warden (`public/models/zoya.glb`); she does no damage herself.
 - At zero hearts the same **CONFISCATED** screen appears (with a random warden line). Try Again / New Game
   restore three hearts; R respawn does not heal.
 
+## Voices (src/voices.js, public/audio/)
+Recorded lines, cut from the owner's recordings at their pauses, played as positional sound from where each character
+is (quieter and duller with distance, more muffled from another floor):
+- **Zoya:** `zoya_1` when she spots you; `zoya_2`-`zoya_5` at random while she patrols. Her spot also brings Manju
+  to ~5 m from you, on your floor, out of your view.
+- **Mutty:** `mutty_1`-`mutty_4` at random; `mutty_5` when he starts running at you.
+- **Ravi:** `ravi_1`-`ravi_2` at random from somewhere 18-40 m away (he has no body in the game).
+
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
 
