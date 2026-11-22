@@ -13,7 +13,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const SCALE = 1.23;                         // model is 1.40 m; ~1.72 m in game
 const EYE_H = 1.29 * SCALE;
 const SPEED = { roam: 1.25, investigate: 1.7, chase: 4.6, search: 1.5 };
-const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 15.4, zo1: 17.1 };
+const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 22.8, zo1: 24.5 };   // south corridor moved 7.4 m (wing stretch)
 const STAIR_RECTS = [[-29.5, -26.15, 3.8, 9.3], [20.58, 23.6, 3.8, 9.35]];
 const inCorridor = (x, z) => {
   const inO = x > CORR.xo0 && x < CORR.xo1 && z > CORR.zo0 && z < CORR.zo1, inI = x > CORR.xi0 && x < CORR.xi1 && z > CORR.zi0 && z < CORR.zi1;

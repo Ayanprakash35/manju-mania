@@ -73,7 +73,7 @@ let torchOn = true, torchFlicker = 0;
 // a few corridor lights that flicker; some are dead (12 lights, 4 per floor)
 const flickers = [];
 for (const [fi, Lc] of [[0, 4.03 - 0.25], [1, 7.17 - 0.25], [2, 10.92 - 0.3]]) {
-  for (const [x, z, ax] of [[-14, -7.9, 'x'], [9, 16.25, 'x'], [-30.35, 6.5, 'z'], [24.45, -2, 'z']]) {
+  for (const [x, z, ax] of [[-14, -7.9, 'x'], [9, 23.65, 'x'], [-30.35, 6.5, 'z'], [24.45, -2, 'z']]) {
     const pl = new THREE.PointLight(0xdfe6ff, 0, 10, 1.6);
     pl.position.set(x + (ax === 'x' ? fi * 3.7 : 0), Lc, z + (ax === 'z' ? fi * 3.1 : 0));   // stagger along the corridor
     scene.add(pl);
@@ -162,7 +162,7 @@ const SHOTS = [
   // looking up the north-east light well, slowly turning (railings of every floor against the sky)
   { dur: 11, at: (t) => [21.2 + Math.sin(t * 0.15) * 0.3, 1.0, -4.2], look: (t) => [21.2 + Math.cos(t * 0.11) * 3, 12, -4.2 + Math.sin(t * 0.11) * 3] },
   // creeping along the ground-floor south corridor under the flickering tube
-  { dur: 10, at: (t) => [-1 + t * 0.32, 1.55, 16.25], look: (t) => [12 + t * 0.32, 1.45 + Math.sin(t * 0.7) * 0.05, 16.3 + Math.sin(t * 0.4) * 0.3] },
+  { dur: 10, at: (t) => [-1 + t * 0.32, 1.55, 23.65], look: (t) => [12 + t * 0.32, 1.45 + Math.sin(t * 0.7) * 0.05, 23.7 + Math.sin(t * 0.4) * 0.3] },
   // the courtyard, pushing in on the main entrance
   { dur: 10, at: (t) => [-3.55 + Math.sin(t * 0.2) * 0.6, 1.5, 11 - t * 0.25], look: (t) => [-3.55, 2.4, -4] },
   // west corridor, first floor, looking back toward the stairs
@@ -474,7 +474,7 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   collider = new THREE.Mesh(merged);   // never added to the scene
   collider.updateMatrixWorld();
   roomDoors.occluder = collider;
-  nav = new NavGrid(collider, { x0: -35.3, x1: 29.1, z0: -12.0, z1: 20.5 });
+  nav = new NavGrid(collider, { x0: -37.8, x1: 31.6, z0: -15.5, z1: 30.4 });   // incl. the rooms pushed out into the exterior
   nav.build().then(() => {
     manju.nav = nav;
     // Mutty is ground-floor only; Zoya is first-floor only. Both stair flights are cut out of the

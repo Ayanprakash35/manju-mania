@@ -59,7 +59,7 @@ is (quieter and duller with distance, more muffled from another floor):
 ## Room interiors (tools/furnish.mjs), from the ground-floor walkthrough video
 - **Bedrooms (double):** two metal-frame beds along the side walls, heads at the window; two separate study tables, each
   with its own bookshelf hutch and black chair, under the window; two steel cupboards by the door; white-framed mirror,
-  wall fan, grey curtains, mint window wall, blue buckets. Room 18 is the east-wing room south of the stairs.
+  wall fan, grey curtains, mint window wall, blue buckets. Room 18 is the fourth east-wing room south of the stairs.
 - **Washrooms** (south, west and east wings, every floor; two rooms merged and pushed 2.5 m out into the exterior):
   yellow-tiled privacy screen inside the door, a row of shower / WC cubicles with beige laminate partitions and white
   doors, black granite basin counter with framed mirrors, urinals and a "please flush" sign, white tiles with yellow
@@ -67,6 +67,10 @@ is (quieter and duller with distance, more muffled from another floor):
 - **Common room** (beside the entrance, two rooms merged and pushed 3.5 m out; upstairs it is a study hall): wide doorless
   opening, yellow wall with a big portrait and a bench desk with a row of plastic chairs, carrom on an X stand, square
   tables, L-shaped corner bookcase, TV, whiteboard, ceiling fan.
+- **Wings stretched to the video's length:** the walkthrough shows the wings ~2 rooms longer south of each stairwell than
+  the Shapr3D model, so everything south of a cut just past the stairwells is moved 7.4 m south (`STRETCH` in
+  tools/interior.mjs, applied to the model's vertices in tools/convert.mjs); the wings, slabs and courtyard stretch to
+  fill the band. East wing from the stairs south: office, three bedrooms, room 18, the towel nook.
 - **Ground floor also:** H.P. residence, study room, laundry room, stores, and the house parent's office opposite the east
   stairs. Next to room 18 an open gap off the corridor leads to the towel stand by the window.
 

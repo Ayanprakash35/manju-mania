@@ -26,7 +26,12 @@ import { planRooms, typeAt, labelFor, furnishAll, furnishNook } from './furnish.
 
 export const LEVELS = [0.76, 4.03, 7.17];       // ground = the model's plinth top; first/second from its spirals
 const PLINTH = 0.76, SLAB = 0.2;
-const TOP_TALL = 10.92, TOP_LOW = 7.82, SPLIT_Z = 9.62;   // G+2 everywhere (owner); SPLIT_Z divides the W/E wings from the S wing
+// Owner: the east wing (and west) is longer than the model: from the walkthrough, ~2 rooms more south of each stairwell.
+// Everything south of the cut is moved DZ further south (model vertices in convert.mjs, constants here); the wings,
+// slabs and courtyard stretch across the band. The cut passes between each stairwell's end and its corner well.
+export const STRETCH = { dz: 7.4, cutW: 9.33, cutE: 9.37 };
+const DZ = STRETCH.dz;
+const TOP_TALL = 10.92, TOP_LOW = 7.82, SPLIT_Z = 9.62 + DZ;   // G+2 everywhere (owner); SPLIT_Z divides the W/E wings from the S wing
 const DOOR_W = 0.95, DOOR_H = 2.15;
 const ROOM_MIN = 2.8, ROOM_TARGET = 3.8;
 
@@ -46,16 +51,16 @@ export const COL = {
 };
 
 // ----- plan constants (game metres), measured from the export -----
-const OUTER = { xw: -35.12, xe: 28.88, zn: -11.75, zs: 20.25 };
+const OUTER = { xw: -35.12, xe: 28.88, zn: -11.75, zs: 20.25 + DZ };
 const OW = 0.3;
 const IN = { xw: OUTER.xw + OW, xe: OUTER.xe - OW, zn: OUTER.zn + OW, zs: OUTER.zs - OW };
 // corridor ring: outer edges (xo/zo) and inner edges (xi/zi)
-const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 15.4, zo1: 17.1 };
+const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 15.4 + DZ, zo1: 17.1 + DZ };
 // The model's corner halls (raised tiled platform, enclosure walls up to 7.17 m, steps and porch from the
 // courtyard corner, curved gallery fronts) are kept exactly as modelled: the generator leaves these squares alone.
 const QUADS = {
   NW: [-31.85, -24.0, -8.95, -0.8], NE: [18.5, 26.5, -8.65, -0.85],
-  SW: [-31.95, -24.0, 9.35, 17.1], SE: [18.5, 26.4, 9.4, 17.45],
+  SW: [-31.95, -24.0, 9.35 + DZ, 17.1 + DZ], SE: [18.5, 26.4, 9.4 + DZ, 17.45 + DZ],
 };
 // Owner: the corridor is one plain rectangle loop on every floor, straight past the corners. So the loop
 // runs through each corner square; the part of the square inside the loop is the light well (kept as modelled),
@@ -77,9 +82,9 @@ const ENTRANCE = { x: -3.52, z: -4.02, doorZ: -3.6 };
 const RECESS_ENTRANCES = [-11.4, 6.4];
 // owner: windows above the main door on the upper floors (same size as the block's ground-floor windows)
 const ABOVE_DOOR = [-7.0, -3.52, 0.0];
-const SPIRALS = [[-26.85, -24.25, -4.0, -1.25], [18.75, 21.55, -3.6, -1.0], [-27.0, -24.25, 9.5, 12.1], [18.75, 21.35, 9.7, 12.45]];
+const SPIRALS = [[-26.85, -24.25, -4.0, -1.25], [18.75, 21.55, -3.6, -1.0], [-27.0, -24.25, 9.5 + DZ, 12.1 + DZ], [18.75, 21.35, 9.7 + DZ, 12.45 + DZ]];
 // covered walkway: courtyard cells outside this rectangle (2.2 m deep along the facades)
-const WALK = { x0: -23.95, x1: 18.38, z0: -1.82, z1: 10.31, roof: 3.75, pillar: 0.35 };
+const WALK = { x0: -23.95, x1: 18.38, z0: -1.82, z1: 10.31 + DZ, roof: 3.75, pillar: 0.35 };
 const EXITS = [];
 // Rooms pushed out into the exterior (the player never goes outside) so they have the video's scale:
 // the common room beside the entrance and the three washrooms. face: which outer wall; u0..u1 along it; depth outward.
@@ -97,7 +102,7 @@ const extRects = (e) => {          // [room rect, outer-wall band rect] as [x0, 
   const f = OUTER.xe + e.depth; return [[IN.xe, f - t, e.u0, e.u1], [f - t, f, e.u0, e.u1]];
 };
 // the open gap next to room 18 leading to the towel stand (video): part of the corridor, no wall, no door
-const NOOKS = ['oE6'];   // owner: no doors through the outer walls (the old street entrances are removed)
+const NOOKS = ['oE8'];        // room 18 is oE7 (two rooms more since the stretch)   // owner: no doors through the outer walls (the old street entrances are removed)
 
 const tallAt = () => true;
 const topAt = (z) => (tallAt(z) ? TOP_TALL : TOP_LOW);
@@ -119,13 +124,14 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   // courtyard rooms: between window centres of the facade
   const paneCentres = (filter) => [...new Set(panes.filter(filter).map((p) => +((p.u0 + p.u1) / 2).toFixed(2)))].sort((a, b) => a - b);
   const nWin = paneCentres((p) => p.axis === 'x' && p.plane < -2 && p.plane > -8 && p.y0 < LEVELS[1]);
-  const sWin = paneCentres((p) => p.axis === 'x' && p.plane > 11 && p.plane < 17 && p.y0 < LEVELS[1]);
+  const sWin = paneCentres((p) => p.axis === 'x' && p.plane > 11 + DZ && p.plane < 17 + DZ && p.y0 < LEVELS[1]);
   const wWin = paneCentres((p) => p.axis === 'z' && p.plane < -24 && p.plane > -32 && p.y0 < LEVELS[1]);
   const eWin = paneCentres((p) => p.axis === 'z' && p.plane > 19 && p.plane < 27 && p.y0 < LEVELS[1]);
   const innerN = [...roomBounds(-24.0, LOBBY.x0, nWin), ...roomBounds(LOBBY.x1, 18.5, nWin)];
   const innerS = roomBounds(-24.0, 18.5, sWin);
-  const innerW = roomBounds(-0.8, STAIRS[0].z0, wWin);
-  const innerE = roomBounds(-0.85, STAIRS[1].z0, eWin);
+  // courtyard-side rooms in the W/E wings: north of each stairwell, and in the stretched band south of it
+  const innerW = [...roomBounds(-0.8, STAIRS[0].z0, wWin), ...roomBounds(STAIRS[0].z1, QUADS.SW[2], wWin)];
+  const innerE = [...roomBounds(-0.85, STAIRS[1].z0, eWin), ...roomBounds(STAIRS[1].z1, QUADS.SE[2], eWin)];
   const idx = (arr, v) => { let i = 0; while (i + 1 < arr.length && v > arr[i + 1]) i++; return i; };
 
   // ---------- grid ----------

@@ -80,7 +80,7 @@ export class Doors {
   // small number plaques above the doors, on the corridor side (video: dark numbers on a white plate).
   // Ground floor 1.., first 101.., second 201..; numbered clockwise round the building from the north.
   numberPlates(recs) {
-    const cx = -3, cz = 4.25;
+    const cx = -3, cz = 7.95;
     const floors = [...new Set(recs.map((r) => r.y))].sort((a, b) => a - b);
     const ang = (r) => (Math.atan2(r.x - cx, -(r.z - cz)) + Math.PI * 2) % (Math.PI * 2);
     floors.forEach((y, fi) => {

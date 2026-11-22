@@ -13,7 +13,7 @@ import { Document, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { weld, dedup, prune } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer';
-import { buildInterior, CLIP_RECTS } from './interior.mjs';
+import { buildInterior, CLIP_RECTS, STRETCH } from './interior.mjs';
 
 // Export units: every dimension / 2.54 is a round number (16, 7, 14, 33, 39...), i.e. the model was
 // typed in metres in a document set to inches and exported in cm. So metres = value / 2.54.
@@ -55,7 +55,11 @@ for (const line of src) {
 console.log(`parsed ${P.length / 3} verts, ${bodies.length} bodies, ${bodies.reduce((s, b) => s + b.tris.length / 3, 0)} tris`);
 
 // export units -> metres, Y-up (x, z, -y), centred
-const tx = (i) => [P[3 * i] * UNIT - CX, (P[3 * i + 2] - GROUND_Z) * UNIT, -P[3 * i + 1] * UNIT - CZ];
+// stretch: everything south of the cut moves STRETCH.dz further south (interior.mjs shifts its constants to match)
+const tx = (i) => {
+  const x = P[3 * i] * UNIT - CX, z = -P[3 * i + 1] * UNIT - CZ;
+  return [x, (P[3 * i + 2] - GROUND_Z) * UNIT, z > (x < 0 ? STRETCH.cutW : STRETCH.cutE) ? z + STRETCH.dz : z];
+};
 const tn = (i) => [N[3 * i], N[3 * i + 2], -N[3 * i + 1]];
 
 // which node a body goes to

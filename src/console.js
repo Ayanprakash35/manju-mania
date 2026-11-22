@@ -8,15 +8,15 @@ const PLACES = {
   courtyard: [-3.5, 4, 0.3, -3.5, -4],
   lobby:     [-3.5, -5.6, 0.76, -3.5, 10],
   north:     [-3.5, -7.9, 'floor', 20, -7.9],        // corridors (add a floor: tp north 2)
-  south:     [-3.5, 16.25, 'floor', 20, 16.25],
+  south:     [-3.5, 23.65, 'floor', 20, 23.65],
   west:      [-30.35, 4, 'floor', -30.35, 16],
   east:      [24.45, 4, 'floor', 24.45, -8],
   stairs:    [-27.8, 3.3, 'floor', -27.8, 9],         // west stairwell
   stairs2:   [22.1, 3.3, 'floor', 22.1, 9],           // east stairwell
   wellne:    [21.1, -4, 0.3, 21.1, 3],                // light wells
   wellnw:    [-26.8, -4, 0.3, -26.8, 3],
-  wellse:    [21.1, 12.4, 0.3, 21.1, 5],
-  wellsw:    [-26.8, 12.4, 0.3, -26.8, 5],
+  wellse:    [21.1, 19.8, 0.3, 21.1, 12],
+  wellsw:    [-26.8, 19.8, 0.3, -26.8, 12],
   outside:   [-3.5, -19, 0.1, -3.5, 0],
   roof:      [-3.5, -7.9, 11.1, -3.5, 10],
 };
