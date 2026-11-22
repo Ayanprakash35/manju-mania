@@ -186,7 +186,7 @@ const mutty = new Mutty({
 const zoya = new Zoya({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
   onAlert: (feet) => reportToManju(feet),
-  onManjuNear: () => !!manju.ready && (manju.state === 'catch' || manju.pos.distanceTo(feetPos()) < 6),
+  onManjuNear: () => !!manju.ready && manju.state !== 'off' && (manju.state === 'catch' || manju.pos.distanceTo(feetPos()) < 6),
 });
 function reportToManju(feet) {
   if (!manju.ready || !nav?.ready || state !== 'play') return;
