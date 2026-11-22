@@ -157,24 +157,55 @@ controls.addEventListener('unlock', () => {
   if (state === 'play' && !devcon?.open) { state = 'pause'; director.reset(); audio.setHum(0); menu.open('pause'); document.body.classList.add('inmenu'); }
 });
 
-// attract-mode camera: slow shots around the building, cut with a glitch
-const SHOTS = [
-  // looking up the north-east light well, slowly turning (railings of every floor against the sky)
-  { dur: 11, at: (t) => [21.2 + Math.sin(t * 0.15) * 0.3, 1.0, -4.2], look: (t) => [21.2 + Math.cos(t * 0.11) * 3, 12, -4.2 + Math.sin(t * 0.11) * 3] },
-  // creeping along the ground-floor south corridor under the flickering tube
-  { dur: 10, at: (t) => [-1 + t * 0.32, 1.55, 23.65], look: (t) => [12 + t * 0.32, 1.45 + Math.sin(t * 0.7) * 0.05, 23.7 + Math.sin(t * 0.4) * 0.3] },
-  // the courtyard, pushing in on the main entrance
-  { dur: 10, at: (t) => [-3.55 + Math.sin(t * 0.2) * 0.6, 1.5, 11 - t * 0.25], look: (t) => [-3.55, 2.4, -4] },
-  // west corridor, first floor, looking back toward the stairs
-  { dur: 9, at: (t) => [-30.35, 4.03 + 1.55, -5 + t * 0.3], look: (t) => [-30.35 + Math.sin(t * 0.3) * 0.6, 5.5, 10 + t * 0.3] },
-];
-let shotI = 0, shotT = 0, menuTorchT = 2;
+// attract mode (title screen): lying on the floor of the north-east light well, looking up at the corner where the
+// north and east corridors meet; the railings of every floor make a V overhead. Manju, Zoya and Mutty patrol those
+// corridors along the railings, stop, look round (Manju stares down into the well), walk off and come back.
+let menuT = 0, menuTorchT = 2, menuGlitchT = 14;
+const PARADE = [
+  // who, floor, path along the corridor edge [x, z], speed, walk clip, stop clips
+  // right along the railings, near the corner, so they show above the rail from the well floor
+  { who: 'manju', y: 7.17, path: [[17.5, -7.38], [23.92, -7.38], [23.92, -0.5]], speed: 1.0, walk: 'Walk', stops: ['Idle', 'Stare', 'Stare'] },
+  { who: 'zoya', y: 4.03, path: [[23.92, 0.5], [23.92, -6.3]], speed: 0.75, walk: 'Walk', stops: ['LookAround', 'Point'] },
+  { who: 'mutty', y: 4.03, path: [[16.5, -7.4], [22.6, -7.4]], speed: 0.9, walk: 'Crawl', stops: ['Idle'] },
+].map((p, i) => {
+  let len = 0; const seg = [];
+  for (let k = 0; k + 1 < p.path.length; k++) { const [a, b] = [p.path[k], p.path[k + 1]]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); seg.push({ a, b, l, at: len }); len += l; }
+  return { ...p, seg, len, s: Math.random() * len, dir: i % 2 ? -1 : 1, pauseT: 0, nextStop: 3 + Math.random() * 6, clip: null };
+});
+// dim cold tubes near the corner on the upper floors, only while the title screen is up
+const menuLights = [4.03, 7.17].map((y) => { const l = new THREE.PointLight(0xc8d6ff, 0, 10, 1.2); l.position.set(22.8, y + 2.4, -7.6); scene.add(l); return l; });
+const paradeNpc = (p) => (p.who === 'manju' ? manju : p.who === 'zoya' ? zoya : mutty);
+function menuParade(dt) {
+  for (const p of PARADE) {
+    const n = paradeNpc(p); if (!n?.root || !n.mixer) continue;
+    let moving = true;
+    if (p.pauseT > 0) { p.pauseT -= dt; moving = false; }
+    else {
+      p.s += p.dir * p.speed * dt;
+      if (p.s <= 0 || p.s >= p.len) { p.s = Math.max(0, Math.min(p.len, p.s)); p.dir *= -1; p.pauseT = 2 + Math.random() * 4; }   // turn round at the ends (out of view)
+      else if ((p.nextStop -= dt) <= 0) { p.pauseT = 3 + Math.random() * 5; p.nextStop = 6 + Math.random() * 10; }
+    }
+    const sg = p.seg.find((g) => p.s <= g.at + g.l + 1e-6) || p.seg[p.seg.length - 1];
+    const t = (p.s - sg.at) / sg.l, x = sg.a[0] + (sg.b[0] - sg.a[0]) * t, z = sg.a[1] + (sg.b[1] - sg.a[1]) * t;
+    n.root.position.set(x, p.y, z);
+    if (moving) n.root.rotation.y = Math.atan2((sg.b[0] - sg.a[0]) * p.dir, (sg.b[1] - sg.a[1]) * p.dir);
+    else n.root.rotation.y = Math.atan2(camera.position.x - x, camera.position.z - z);             // turns to face the well
+    const want = moving ? p.walk : (p.clip && p.clip !== p.walk ? p.clip : p.stops[Math.floor(Math.random() * p.stops.length)]);
+    if (want !== p.clip) { p.clip = want; n.play(want, 0.3); if (n.actions?.[want]) n.actions[want].timeScale = 1; }
+    n.root.visible = true;
+    n.root.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.visible = true; });
+    if (n !== manju) n.updateVisibility?.(dt, { body: true, eyes: true });             // eye glints in the dark
+    if (n === manju && manju.eyes) for (const e of manju.eyes) { e.visible = true; e.material.opacity = p.clip === 'Stare' ? 1 : 0.6; e.scale.setScalar((p.clip === 'Stare' ? 0.13 : 0.07) / 1.23); }
+    n.mixer.update(dt);
+  }
+}
 function menuCamera(dt) {
-  shotT += dt;
-  if (shotT > SHOTS[shotI].dur) { shotT = 0; shotI = (shotI + 1) % SHOTS.length; menu.burst(260); }
-  const s = SHOTS[shotI];
-  camera.position.set(...s.at(shotT));
-  camera.lookAt(...s.look(shotT));
+  menuT += dt;
+  for (const [i, l] of menuLights.entries()) l.intensity = (Math.sin(menuT * (1.7 + i * 0.6)) > -0.85 && Math.random() > 0.03) ? 3.2 : 0;   // flickering tubes
+  camera.position.set(21.6 + Math.sin(menuT * 0.13) * 0.25, 1.0, -4.6 + Math.cos(menuT * 0.11) * 0.2);
+  camera.lookAt(22.7 + Math.sin(menuT * 0.07) * 0.5, 9.0, -8.3 + Math.cos(menuT * 0.09) * 0.4);   // corner sits right of the title
+  menuParade(dt);
+  if ((menuGlitchT -= dt) <= 0) { menuGlitchT = 12 + Math.random() * 14; menu.burst(200 + Math.random() * 200); }
   // torch cuts in and out at random, stuttering when it switches
   menuTorchT -= dt;
   if (menuTorchT <= 0) { torchOn = !torchOn; menuTorchT = torchOn ? 1.5 + Math.random() * 5 : 0.4 + Math.random() * 2.6; if (torchOn) torchFlicker = 0.25 + Math.random() * 0.3; }
@@ -601,7 +632,7 @@ function frame() {
       landV -= Math.min(2.2, Math.max(0, -airVy - 2) * 0.35); airVy = 0;
       if (state === 'play') { audio.footstep(true); landNoiseT = 0.4; }
     }
-    if (state === 'menu') menuCamera(dt);
+    if (state === 'menu') menuCamera(dt); else if (menuLights[0].intensity) for (const l of menuLights) l.intensity = 0;
     else if (state !== 'caught') camera.position.copy(player.position).y += PLAYER.eye;
     else camera.position.copy(caughtPos);
     crouchK += ((crouching && state === 'play' ? 1 : 0) - crouchK) * Math.min(1, dt * 8);
