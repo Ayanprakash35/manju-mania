@@ -22,10 +22,10 @@ const inCorridor = (x, z) => {
 const rnd = (a, b) => a + Math.random() * (b - a);
 const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 
-function glowTexture() {
+function glowTexture(rgb = '255,40,20') {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d'), grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, 'rgba(255,230,220,1)'); grd.addColorStop(0.18, 'rgba(255,40,20,0.95)'); grd.addColorStop(0.5, 'rgba(200,0,0,0.25)'); grd.addColorStop(1, 'rgba(120,0,0,0)');
+  grd.addColorStop(0, 'rgba(255,230,220,1)'); grd.addColorStop(0.18, `rgba(${rgb},0.95)`); grd.addColorStop(0.5, 'rgba(200,0,0,0.25)'); grd.addColorStop(1, 'rgba(120,0,0,0)');
   g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
@@ -52,6 +52,11 @@ export class Manju {
     root.updateMatrixWorld(true);
     this.head = root.getObjectByName('head');
     this.ember = root.getObjectByName('ember');
+    this.smokes = [0, 1, 2, 3, 4].map((i) => root.getObjectByName('smoke' + i)).filter(Boolean);
+    if (this.ember) {                                  // the joint's tip: a small orange glow that swells on each drag
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('255,150,60'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: true }));
+      sp.userData.noRetro = true; sp.scale.setScalar(0.035); this.ember.add(sp); this.emberGlow = sp;   // ~4 cm, swells with the drag
+    }
     // eyes: two glow sprites parented to the head bone, at the painted eyes
     let zFront = 0.1;
     root.traverse((m) => {
@@ -77,6 +82,47 @@ export class Manju {
     this.scene.add(root);
     this.ready = true;
     return root;
+  }
+
+  // monster form (separate rig, same proportions): Transform -> Caught (lunge and grab), only used when he catches you
+  async loadMonster(url) {
+    const gltf = await new GLTFLoader().loadAsync(url);
+    const root = gltf.scene; root.scale.setScalar(SCALE); root.visible = false;
+    root.traverse((o) => { if (o.isSkinnedMesh || o.isMesh) o.frustumCulled = false; });
+    const mixer = new THREE.AnimationMixer(root), actions = {};
+    for (const c of gltf.animations) actions[c.name] = mixer.clipAction(c);
+    this.monster = { root, mixer, actions, head: root.getObjectByName('head'), phase: null, t: 0 };
+    this.scene.add(root);
+    return root;
+  }
+  // he has caught you: swap in the monster facing the player and start transforming
+  startTransform(target) {
+    const M = this.monster; if (!M) return false;
+    this.root.visible = false;
+    // stand 1.7 m off the camera along his line to it, so the lunge ends in your face rather than through it
+    const dx = this.pos.x - target.x, dz = this.pos.z - target.z, L = Math.hypot(dx, dz) || 1;
+    M.root.position.set(target.x + dx / L * 1.7, this.pos.y, target.z + dz / L * 1.7);
+    M.root.rotation.y = Math.atan2(-dx, -dz);
+    M.root.visible = true; M.root.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.visible = true; });
+    M.mixer.stopAllAction();
+    const tr = M.actions.Transform; tr.reset(); tr.setLoop(THREE.LoopOnce, 1); tr.clampWhenFinished = true; tr.timeScale = 1.5; tr.play();
+    M.phase = 'transform'; M.t = 0;
+    return true;
+  }
+  // advance the catch animation; returns 'lunge' on the frame the lunge (and scream) begins
+  updateCatch(dt) {
+    const M = this.monster; if (!M || !M.phase) return null;
+    M.t += dt; M.mixer.update(dt);
+    if (M.phase === 'transform' && M.t >= M.actions.Transform.getClip().duration / 1.5) {
+      const c = M.actions.Caught; c.reset(); c.setLoop(THREE.LoopOnce, 1); c.clampWhenFinished = true; c.play();
+      M.actions.Transform.crossFadeTo(c, 0.12, false);
+      M.phase = 'lunge'; M.t = 0; return 'lunge';
+    }
+    return null;
+  }
+  endCatch() {            // back to plain Manju (after "try again")
+    if (this.monster) { this.monster.root.visible = false; this.monster.mixer.stopAllAction(); this.monster.phase = null; }
+    if (this.root) this.root.visible = true;
   }
 
   play(name, fade = 0.25) {
@@ -142,8 +188,8 @@ export class Manju {
   }
   setState(s) {
     this.state = s; this.timer = 0;
-    if (s === 'idle') { this.play('Idle'); this.timer = rnd(3, 7); }
-    if (s === 'roam') { this.play('Walk'); const g = this.randomGoal(); if (g < 0 || !this.goTo(g)) this.path = []; }
+    if (s === 'idle') { this.play('Idle'); this.timer = rnd(8, 16); }                 // one or two full drags (the loop is 8 s)
+    if (s === 'roam') { this.smokeBreak = rnd(14, 28); this.play('Walk'); const g = this.randomGoal(); if (g < 0 || !this.goTo(g)) this.path = []; }
     if (s === 'investigate') { this.play('Walk'); this.goTo(this.lastKnown); }
     if (s === 'stare') { this.play('Stare', 0.15); this.timer = 1.5; this.path = []; this.audio.stareSting?.(); }
     if (s === 'chase') { this.play('Chase', 0.15); this.repathT = 0; this.lostT = 0; }
@@ -165,7 +211,8 @@ export class Manju {
     // ---------- state machine
     switch (this.state) {
       case 'roam':
-        if (!this.path.length) { if (Math.random() < 0.45) this.setState('idle'); else this.setState('roam'); }
+        if (!this.path.length) { if (Math.random() < 0.75) this.setState('idle'); else this.setState('roam'); }
+        else if ((this.smokeBreak -= dt) <= 0) { this.setState('idle'); }          // stops mid-patrol for a smoke
         break;
       case 'idle':
         this.timer -= dt; if (this.timer <= 0) this.setState('roam');
@@ -209,7 +256,7 @@ export class Manju {
     if (this.cur === this.actions.Chase) this.cur.timeScale = 1;
     this.mixer.update(dt);
     this.root.position.copy(this.pos); this.root.rotation.y = this.yaw;
-    if (this.ember) this.ember.scale.setScalar(this.state === 'chase' ? 0.6 : 1 + Math.sin(performance.now() * 0.004) * 0.15);
+    if (this.ember && this.state === 'chase') this.ember.scale.setScalar(0.6);
     // ---------- threat level for music / post (alert) and proximity heartbeat
     const target = this.state === 'chase' ? 1 : this.state === 'stare' ? 0.7 : this.state === 'search' ? 0.35 : 0;
     this.alert += (target - this.alert) * Math.min(1, dt * (target > this.alert ? 3 : 0.35));
@@ -360,6 +407,9 @@ export class Manju {
     else if (show && this.light < 0.32 && Math.random() < 0.06) show = false;         // edge of the light: drops out
     this.root.visible = true;
     this.root.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.visible = show; });
+    const smoking = this.cur === this.actions.Idle && (this.state === 'idle' || this.state === 'search');
+    for (const sm of this.smokes) sm.traverse((o) => { if (o.isMesh) o.visible = show && smoking; });
+    if (this.ember) { this.ember.traverse((o) => { if (o.isMesh) o.visible = show || smoking; }); this.emberGlow.visible = smoking; }
     // eyes: dim when he's calm and lit; bright when he's after you; while staring they show even in the dark
     const staring = this.state === 'stare' || this.state === 'catch';
     const alertEyes = staring || this.state === 'chase';

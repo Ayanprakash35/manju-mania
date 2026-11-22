@@ -157,7 +157,7 @@ export function setupRetro(renderer, scene, camera) {
         if (!o.geometry.attributes.uv) boxUV(o.geometry);
         o.userData.retro = patch(new THREE.MeshLambertMaterial({ map: getTex(kind), side: m.side }), { wallBand: kind === 'wall' });
       } else {
-        const r = patch(new THREE.MeshLambertMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveIntensity: m.emissiveIntensity ?? 1 }));
+        const r = patch(new THREE.MeshLambertMaterial({ color: m.color ? m.color.clone() : 0xffffff, map: m.map || null, vertexColors: !!m.vertexColors, transparent: m.transparent, opacity: m.opacity, side: m.side, emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveMap: m.emissiveMap || null, emissiveIntensity: m.emissiveIntensity ?? 1 }));
         if (key === '0.996,0.996,0.980') { r.emissive = new THREE.Color(0xc8d2e0); r.emissiveIntensity = 0.12; tubes.push(r); }   // tube lights
         o.userData.retro = r;
       }

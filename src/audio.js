@@ -85,6 +85,16 @@ export class HorrorAudio {
     if (!this.ctx) return; const o = this.out(pan, far);
     for (let i = 0; i < 5; i++) this.noiseHit(o, 3500 + Math.random() * 2500, 2, 0.02, 0.06, 'bandpass', i * (0.04 + Math.random() * 0.08));
   }
+  transformSound(dur = 2) {   // bones cracking and a groan dropping in pitch while he changes
+    if (!this.ctx) return; const ctx = this.ctx, t = ctx.currentTime, o = this.out(0, 0);
+    for (let i = 0; i < 16; i++) this.noiseHit(o, 600 + Math.random() * 1800, 3, 0.05, 0.25 + Math.random() * 0.35, 'bandpass', Math.pow(Math.random(), 0.7) * dur);
+    for (let i = 0; i < 5; i++) this.noiseHit(o, 90, 1, 0.4, 0.5, 'lowpass', Math.random() * dur);
+    const g = ctx.createOscillator(); g.type = 'sawtooth'; g.frequency.setValueAtTime(95, t); g.frequency.exponentialRampToValueAtTime(42, t + dur);
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500; f.Q.value = 5;
+    const gg = ctx.createGain(); gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(0.3, t + dur * 0.6); gg.gain.linearRampToValueAtTime(0, t + dur + 0.1);
+    g.connect(f); f.connect(gg); gg.connect(o); g.start(t); g.stop(t + dur + 0.2);
+  }
+
   scream() {               // caught
     if (!this.ctx) return; const ctx = this.ctx, t = ctx.currentTime, o = this.out(0, 0);
     for (const f of [180, 233, 311]) {
