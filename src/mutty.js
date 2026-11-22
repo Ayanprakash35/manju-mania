@@ -114,7 +114,7 @@ export class Mutty extends FloorNPC {
     if (this.seeing) this.seeT = Math.min(1, this.seeT + 1 / SENSE_HZ);
     else this.seeT = 0;
 
-    // running, walking, a landed jump: go and look, if it is close enough
+    // running, walking, a landing from a fall: go and look, if it is close enough
     if (!this.seeing && ctx.noise > 0) {
       const hd = Math.hypot(P.x - this.pos.x, P.z - this.pos.z) + Math.abs(P.y - this.pos.y) * 3;
       if (hd < ctx.noise) { this.lastKnown.copy(P); this.heard = true; }

@@ -6,7 +6,7 @@ First-person horror game (work in progress) set in a hostel building, built from
 ./run.sh
 ```
 
-The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, F flashlight, Space jump, Ctrl or C crouch, R back to start, V retro look on/off, Esc pause.
+The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, F flashlight, Ctrl or C crouch, R back to start, V retro look on/off, Esc pause.
 
 ## Manju (src/manju.js, src/navmesh.js)
 The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the character sheet in `tools/ref/`).
@@ -130,7 +130,7 @@ scene plays slow camera shots cut with glitch tears, with the torch cutting in a
   fog colour at the horizon, with a faint moon glow, so distant buildings melt into it. Indoors the haze goes to
   near-black, so the far end of a corridor is just gone. The weak, yellowed torch (F) shows as a beam in the haze.
 - Walking motion: the head dips as each foot lands and rises mid-stride, sways and rolls slightly with each step
-  (bigger and quicker when running), footsteps land on the dips, a knee-bend on landing from a jump or fall,
+  (bigger and quicker when running), footsteps land on the dips, a knee-bend on landing from a fall,
   slow breathing when standing still, and the torch beam lags behind quick turns.
 - A scare director paces small, ambiguous events rather than constant jump scares. Tension builds indoors and in
   the dark, and it fires more often as tension rises: footsteps behind you that stop a beat after you do; a tall

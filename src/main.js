@@ -22,7 +22,7 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 // ---------------- tunables ----------------
 const PLAYER = { radius: 0.3, segment: 0.98, eye: 0.15 };   // eye ~1.43 m above the floor   // capsule: feet are radius+segment below the top sphere centre
-const WALK = 3.2, RUN = 6.5, FLY = 9, JUMP = 5, GRAVITY = -20;
+const WALK = 3.2, RUN = 6.5, FLY = 9, GRAVITY = -20;   // no jumping (owner); Space only flies up in console fly mode
 const SUBSTEPS = 6;
 // console-controlled tweaks (see src/console.js)
 const cheat = { timeScale: 1, frozen: false, speed: 1, torchPower: 6, fog: null, bright: false, lights: 'flicker', god: false };
@@ -126,7 +126,6 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyR') respawn();
   if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
   if (e.code === 'KeyF') torchOn = !torchOn;                 // flashlight (fly/no-clip is console-only: `fly`)
-  if (e.code === 'Space' && onGround && !flying) { vel.y = JUMP; onGround = false; }
   if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) { if (roomDoors.toggle(d, player.position)) audio.door(); else audio.rattle(); } }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
