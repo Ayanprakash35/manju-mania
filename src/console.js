@@ -146,7 +146,32 @@ export class DevConsole {
         if (x === 'chase' || x === 'stare') { if (m.state === 'off') m.spawnFar(f); m.lastKnown.copy(f); m.awareness = 1; m.setState(x); return x === 'chase' ? 'Run.' : 'He sees you.'; }
         throw new Error('manju status | here | away | off | on | chase | stare');
       } },
-      god: { h: 'god [on|off] — Manju can\'t catch you', run: ([x]) => { a.cheat.god = onoff(x, a.cheat.god); a.manju.god = a.cheat.god; return `God mode ${a.cheat.god ? 'on' : 'off'}.`; } },
+      mutty: { h: 'mutty [status|here|away|off|on|chase] — the ground-floor crawler', run: ([x = 'status']) => {
+        const m = a.mutty, f = a.feet0();
+        if (!m.ready || !m.nav?.ready) return 'Mutty is still loading (the walkable map builds in the first few seconds).';
+        if (x === 'status') return `state ${m.state}, ${Math.hypot(m.pos.x - f.x, m.pos.z - f.z).toFixed(1)} m away, ${m.alert.toFixed(2)} alert.`;
+        if (x === 'here') { const dir = a.camDirNow(); dir.y = 0; dir.normalize(); const id = m.nav.nearest(f.clone().addScaledVector(dir, 4)); if (id < 0) throw new Error('no ground-floor spot in front of you'); m.place(m.nav.pos(id)); return 'Mutty is 4 m in front of you.'; }
+        if (x === 'away') { m.spawnFar(f); return 'Sent him away.'; }
+        if (x === 'off') { m.state = 'off'; if (m.root) m.root.visible = false; return 'Mutty off.'; }
+        if (x === 'on') { if (m.state === 'off') m.spawnFar(f); return 'Mutty on.'; }
+        if (x === 'chase') { if (m.state === 'off') m.spawnFar(f); m.lastKnown.copy(f); m.setState('chase'); return 'Mutty is coming.'; }
+        throw new Error('mutty status | here | away | off | on | chase');
+      } },
+      zoya: { h: 'zoya [status|here|away|off|on|spot] — the first-floor warden', run: ([x = 'status']) => {
+        const m = a.zoya, f = a.feet0();
+        if (!m.ready || !m.nav?.ready) return 'Zoya is still loading (the walkable map builds in the first few seconds).';
+        if (x === 'status') return `state ${m.state}, ${Math.hypot(m.pos.x - f.x, m.pos.z - f.z).toFixed(1)} m away, ${m.alert.toFixed(2)} alert.`;
+        if (x === 'here') { const dir = a.camDirNow(); dir.y = 0; dir.normalize(); const id = m.nav.nearest(f.clone().addScaledVector(dir, 4)); if (id < 0) throw new Error('no first-floor spot in front of you'); m.place(m.nav.pos(id)); return 'Zoya is 4 m in front of you.'; }
+        if (x === 'away') { m.spawnFar(f); return 'Sent her away.'; }
+        if (x === 'off') { m.state = 'off'; if (m.root) m.root.visible = false; return 'Zoya off.'; }
+        if (x === 'on') { if (m.state === 'off') m.spawnFar(f); return 'Zoya on.'; }
+        if (x === 'spot') { m.spot({ feet: f, eyePos: a.eyePos(), camDir: a.camDirNow(), hidden: false }); return 'Zoya has spotted you.'; }
+        throw new Error('zoya status | here | away | off | on | spot');
+      } },
+      god: { h: 'god [on|off] — Manju and Mutty can\'t hurt you', run: ([x]) => { a.cheat.god = onoff(x, a.cheat.god); a.manju.god = a.cheat.god; return `God mode ${a.cheat.god ? 'on' : 'off'}.`; } },
+      hurt: { h: 'hurt [n] — take n hearts (console testing)', run: ([x]) => { const n = Math.max(1, parseInt(x ?? '1', 10) || 1); const ok = a.damagePlayer(n, 'console', true); return ok ? `Took ${n}. ${a.health.hearts}/${a.health.max} hearts.` : 'No damage (already dead).'; } },
+      heal: { h: 'heal [n] — restore n hearts', run: ([x]) => { const n = Math.max(1, parseInt(x ?? '1', 10) || 1); const h = a.healPlayer(n); return `Healed ${h}. ${a.health.hearts}/${a.health.max} hearts.`; } },
+      hearts: { h: 'hearts — current health', run: () => `${a.health.hearts}/${a.health.max} hearts${a.health.low ? ' (low)' : ''}.` },
       hud: { h: 'hud [on|off] — floor label, crosshair', run: ([x]) => { const on = onoff(x, !document.body.classList.contains('nohud')); document.body.classList.toggle('nohud', !on); return `HUD ${on ? 'on' : 'off'}.`; } },
     };
     return C;
