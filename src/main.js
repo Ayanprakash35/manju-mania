@@ -182,6 +182,25 @@ const staminaEl = document.getElementById('stamina');
 let caughtT = 0;
 const caughtPos = new THREE.Vector3();
 const deadEl = document.getElementById('dead');
+// One of these is shown under CONFISCATED. Add more lines here.
+const CONFISCATED_LINES = [
+  'No laptop for you tomorrow.',
+  'Get a buzzcut tomorrow morning.',
+  "I'm calling your parents.",
+  'Wear formal uniform the whole day.',
+  'I will confiscate your toothbrush.',
+  'Stop causing a ruckus in the boarding.',
+];
+const deadLineEl = document.getElementById('deadline');
+let lastDeadLine = -1;
+function pickConfiscatedLine() {
+  const n = CONFISCATED_LINES.length;
+  if (!n) return '';
+  let i = 0;
+  if (n > 1) do { i = Math.floor(Math.random() * n); } while (i === lastDeadLine);
+  lastDeadLine = i;
+  return CONFISCATED_LINES[i];
+}
 const lookQ = new THREE.Quaternion(), lookM = new THREE.Matrix4(), headW = new THREE.Vector3();
 function caught() {
   if (cheat.god) return;
@@ -206,7 +225,8 @@ function caughtUpdate(dt) {
     }
   } else if (manju.updateCatch(dt) === 'lunge') { audio.scream(); menu.burst(900); lungeT = caughtT; }
   if (lungeT >= 0 && !deadShown && caughtT - lungeT >= 1.2) {
-    deadShown = true; deadEl.hidden = false; document.body.classList.add('inmenu');
+    deadShown = true; deadLineEl.textContent = pickConfiscatedLine();
+    deadEl.hidden = false; document.body.classList.add('inmenu');
     if (controls.isLocked) controls.unlock();
   }
 }
