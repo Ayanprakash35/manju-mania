@@ -45,12 +45,14 @@ First-floor warden (`public/models/zoya.glb`); she does no damage herself.
   restore three hearts; R respawn does not heal.
 
 ## Voices (src/voices.js, public/audio/)
-Recorded lines, cut from the owner's recordings at their pauses, played as positional sound from where each character
+Recorded lines, cut from the owner's recordings at their pauses and transcribed with Whisper (see the table in src/voices.js), played as positional sound from where each character
 is (quieter and duller with distance, more muffled from another floor):
-- **Zoya:** `zoya_1` when she spots you; `zoya_2`-`zoya_5` at random while she patrols. Her spot also brings Manju
-  to ~5 m from you, on your floor, out of your view.
-- **Mutty:** `mutty_1`-`mutty_4` at random; `mutty_5` when he starts running at you.
-- **Ravi:** `ravi_1`-`ravi_2` at random from somewhere 18-40 m away (he has no body in the game).
+- **Zoya:** "These boys!" (`zoya_1`-`zoya_3`) when she spots you, usually followed by "What are you doing, boys? I will
+  not handle this attitude!" (`zoya_5`) while she points; "Stop causing a ruckus in the boarding!" (`zoya_4`) and the
+  attitude line at random while she patrols. Her spot also brings Manju to ~5 m from you, on your floor, out of view.
+- **Mutty:** "Kya karega?" / "So jao, so jao" (`mutty_3`, `mutty_6`) when he starts running at you; a grunt (`mutty_2`)
+  when he bites; his other lines (`mutty_1`, `4`, `5`, `7`) at random.
+- **Ravi:** "MOVE!" (`ravi_1`, `ravi_2`) at random from somewhere 18-40 m away (he has no body in the game).
 
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.

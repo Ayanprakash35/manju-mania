@@ -184,12 +184,17 @@ const voices = new Voices(audio);
 const listener = () => ({ pos: camera.position, dir: camera.getWorldDirection(new THREE.Vector3()), feetY: feetPos().y });
 const mutty = new Mutty({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
-  onBite: () => damagePlayer(1, 'mutty'),
+  onBite: () => { voices.play('mutty_2', { getPos: () => mutty.pos }, { listener: listener(), gain: 1.5, ref: 4 }); return damagePlayer(1, 'mutty'); },
 });
 const zoya = new Zoya({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
   onAlert: (feet) => reportToManju(feet),
-  onShout: () => { if (voices.isPlaying('zoya_1')) return true; return !!voices.play('zoya_1', { getPos: () => zoya.pos }, { listener: listener(), gain: 1.5, ref: 6 }); },
+  onShout: () => {                // "These boys!", then usually the attitude line while she points at you
+    if (['zoya_1', 'zoya_2', 'zoya_3'].some((n) => voices.isPlaying(n))) return true;
+    const v = voices.play(voices.pick('zoya', ['zoya_1', 'zoya_2', 'zoya_3']), { getPos: () => zoya.pos }, { listener: listener(), gain: 1.5, ref: 6 });
+    if (v && Math.random() < 0.7) setTimeout(() => { if (state === 'play' && ['spot', 'point'].includes(zoya.state)) voices.play('zoya_5', { getPos: () => zoya.pos }, { listener: listener(), gain: 1.4, ref: 6 }); }, (v.src.buffer.duration + 0.5) * 1000);
+    return !!v;
+  },
   onManjuNear: () => !!manju.ready && manju.state !== 'off' && (manju.state === 'catch' || manju.pos.distanceTo(feetPos()) < 6),
 });
 function reportToManju(feet) {
@@ -233,15 +238,15 @@ function voiceTick(dt, ctx) {
   muttyChaseCool -= dt;
   if (zoya.state !== 'off' && !['spot', 'point'].includes(zoya.state) && voiceT.zoya <= 0) {
     voiceT.zoya = rnd(18, 40);
-    voices.play(voices.pick('zoya', ['zoya_2', 'zoya_3', 'zoya_4', 'zoya_5']), { getPos: () => zoya.pos }, { listener: L, gain: 1.2, ref: 4 });
+    voices.play(voices.pick('zoya', ['zoya_4', 'zoya_5']), { getPos: () => zoya.pos }, { listener: L, gain: 1.2, ref: 4 });
   }
   if (mutty.state !== 'off' && mutty.state !== 'chase' && voiceT.mutty <= 0) {
     voiceT.mutty = rnd(15, 35);
-    voices.play(voices.pick('mutty', ['mutty_1', 'mutty_2', 'mutty_3', 'mutty_4']), { getPos: () => mutty.pos }, { listener: L, gain: 1.2, ref: 4 });
+    voices.play(voices.pick('mutty', ['mutty_1', 'mutty_4', 'mutty_5', 'mutty_7']), { getPos: () => mutty.pos }, { listener: L, gain: 1.2, ref: 4 });
   }
   if (mutty.state === 'chase' && muttyPrev !== 'chase' && muttyChaseCool <= 0) {      // he's coming for you
     muttyChaseCool = 12;
-    voices.play('mutty_5', { getPos: () => mutty.pos }, { listener: L, gain: 1.4, ref: 5 });
+    voices.play(voices.pick('muttyChase', ['mutty_3', 'mutty_6']), { getPos: () => mutty.pos }, { listener: L, gain: 1.4, ref: 5 });
   }
   muttyPrev = mutty.state;
   if (voiceT.ravi <= 0) {

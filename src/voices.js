@@ -2,14 +2,23 @@
 // Each line comes from where its character is: distance makes it quieter and duller, another floor
 // muffles it further, and the panner follows a moving source (Mutty running at you).
 //
-//   zoya_1        her spotting line (when she sees you); zoya_2..5 random while she patrols
-//   mutty_1..4    random; mutty_5 (long) when he starts running at you
-//   ravi_1..2     random, from somewhere far off in the building (he has no body in the game)
+// What each clip says (transcribed with Whisper, checked against the full recordings):
+//   zoya_1-3   "These boys!" (three takes)                       -> when she spots you
+//   zoya_4     "Stop causing a ruckus in the boarding!"          -> random while patrolling
+//   zoya_5     "What are you doing, boys? I will not handle this attitude!"  -> patrolling, and after a spot
+//   mutty_1    "Hey, sab mein ... laaya hoon"                    -> random
+//   mutty_2    a short grunt                                     -> when he bites
+//   mutty_3    "Kya karega?" (what will you do?)                 -> when he starts running at you
+//   mutty_4    "Hai, lag to sabhi karega"                        -> random
+//   mutty_5    "Jalega nahi hai" (it won't burn)                 -> random
+//   mutty_6    "So jao, so jao" (go to sleep, go to sleep)       -> when he starts running at you
+//   mutty_7    "Sir, mere ... maarega" (sir, he'll hit me)       -> random
+//   ravi_1-2   "MOVE!" (two takes)                               -> random, from somewhere far off (no body in the game)
 import * as THREE from 'three';
 
 export const VOICE_FILES = {
   zoya: ['zoya_1', 'zoya_2', 'zoya_3', 'zoya_4', 'zoya_5'],
-  mutty: ['mutty_1', 'mutty_2', 'mutty_3', 'mutty_4', 'mutty_5'],
+  mutty: ['mutty_1', 'mutty_2', 'mutty_3', 'mutty_4', 'mutty_5', 'mutty_6', 'mutty_7'],
   ravi: ['ravi_1', 'ravi_2'],
 };
 
