@@ -127,7 +127,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
   if (e.code === 'KeyF') torchOn = !torchOn;                 // flashlight (fly/no-clip is console-only: `fly`)
   if (e.code === 'Space' && onGround && !flying) { vel.y = JUMP; onGround = false; }
-  if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) { roomDoors.toggle(d, player.position); audio.door(); } }
+  if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) { if (roomDoors.toggle(d, player.position)) audio.door(); else audio.rattle(); } }
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
 
@@ -500,6 +500,12 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   const isDoor = (o) => { for (let p = o; p; p = p.parent) if (p.name === 'doorL' || p.name === 'doorR') return true; return false; };
   root.traverse((o) => { if (o.isMesh && (!DOORS_OPEN || !isDoor(o))) staticGeoms.push(toWorldPositions(o)); });
   ground.updateMatrixWorld(); staticGeoms.push(toWorldPositions(ground));
+  // locked doors are solid for good: a slab in each doorway keeps the player and the nav grid out
+  await doorsLoaded;
+  for (const d of roomDoors.list) if (d.r.locked && d.side < 0) {
+    const r = d.r, slab = new THREE.Mesh(new THREE.BoxGeometry(r.axis === 'x' ? r.w : 0.1, r.h, r.axis === 'x' ? 0.1 : r.w));
+    slab.position.set(r.x, r.y + r.h / 2, r.z); slab.updateMatrixWorld(); staticGeoms.push(toWorldPositions(slab));
+  }
   const merged = mergePositions(staticGeoms);
   merged.boundsTree = new MeshBVH(merged);
   collider = new THREE.Mesh(merged);   // never added to the scene
@@ -753,7 +759,7 @@ function frame() {
     roomDoors.update(wdt);
     if (++pickFrame % 4 === 0) looked = controls.isLocked ? roomDoors.pick(camera) : null;
     hintEl.style.display = looked ? 'block' : 'none';
-    if (looked) hintEl.textContent = (looked.target ? 'E  close' : 'E  open') + (looked.r.kind === 'glass' ? ' — stairs' : '');
+    if (looked) hintEl.textContent = looked.r.locked ? 'Locked' : (looked.target ? 'E  close' : 'E  open') + (looked.r.kind === 'glass' ? ' — stairs' : '');
     const feet = player.position.y - PLAYER.segment - PLAYER.radius;
     let label = FLOORS[0][1];
     for (const [h, n] of FLOORS) if (feet > h) label = n;

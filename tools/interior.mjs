@@ -75,9 +75,16 @@ const STAIRS = [
   { id: 'stW', x0: CORR.xi0, x1: -26.15, z0: 3.8, z1: 9.3, bLow: false },
   { id: 'stE', x0: 20.58, x1: CORR.xi1, z0: 3.8, z1: 9.35, bLow: true },
 ];
-const LOBBY = { x0: -8.33, x1: 1.37, z0: CORR.zi0, z1: -4.02, voidX0: -7.33, voidX1: 0.37, voidZ1: -5.0 };
+// owner: the common room is deeper than the model's entrance block; it is pushed out into the courtyard to zx.
+// Video: library (west) and yellow games room (east) behind a wood-framed glass partition at glassX,
+// both open to the corridor; the library has the wooden French doors onto the courtyard.
+const LOBBY = { x0: -8.33, x1: 1.37, z0: CORR.zi0, z1: -4.02, zx: -0.62, glassX: -2.8, voidX0: -7.33, voidX1: 0.37, voidZ1: -5.0 };
 const EXIT_HALL = { x0: -4.55, x1: -2.55 };
-const ENTRANCE = { x: -3.52, z: -4.02, doorZ: -3.6 };
+const ENTRANCE = { x: -3.52, z: LOBBY.zx, doorX: -3.85 };
+// owner/video: across the corridor from the common room, the entrance lobby with the exit door to the outside
+// (three outer rooms merged and pushed 3 m out through the north wall; open to the corridor between pillars)
+const ENTRY = { depth: 3.0, exitW: 1.6 };
+CLIP_RECTS.push([LOBBY.x0 + 0.02, LOBBY.x1 - 0.02, LOBBY.z1 - 0.6, LOBBY.zx + 0.4]);   // the model's entrance front, now inside the common room
 // owner: the two recesses either side of the entrance block are open entrances into the corridor
 const RECESS_ENTRANCES = [-11.4, 6.4];
 // owner: windows above the main door on the upper floors (same size as the block's ground-floor windows)
@@ -85,7 +92,7 @@ const ABOVE_DOOR = [-7.0, -3.52, 0.0];
 const SPIRALS = [[-26.85, -24.25, -4.0, -1.25], [18.75, 21.55, -3.6, -1.0], [-27.0, -24.25, 9.5 + DZ, 12.1 + DZ], [18.75, 21.35, 9.7 + DZ, 12.45 + DZ]];
 // covered walkway: courtyard cells outside this rectangle (2.2 m deep along the facades)
 const WALK = { x0: -23.95, x1: 18.38, z0: -1.82, z1: 10.31 + DZ, roof: 3.75, pillar: 0.35 };
-const EXITS = [];
+const EXITS = [];          // filled in buildInterior (the entrance lobby's exit door)
 // Rooms pushed out into the exterior (the player never goes outside) so they have the video's scale:
 // the common room beside the entrance and the three washrooms. face: which outer wall; u0..u1 along it; depth outward.
 const EXT = [
@@ -103,7 +110,7 @@ const extRects = (e) => {          // [room rect, outer-wall band rect] as [x0, 
 // towel nooks (video): at every corner the corridor runs on past the turn to a window in the outer wall.
 // Each is a corridor-wide dead end carved out of the corner room. end = the outer wall with the window.
 const NOOK_RECTS = [
-  { rect: [CORR.xi1, CORR.xo1, CORR.zo1, IN.zs], end: 'S' },     // SE: east corridor continues south (beside room 18)
+  { rect: [CORR.xo1, IN.xe, CORR.zi1, CORR.zo1], end: 'E' },     // SE: south corridor continues east, toward room 16 (owner)
   { rect: [IN.xw, CORR.xo0, CORR.zi1, CORR.zo1], end: 'W' },     // SW: south corridor continues west (laundry door)
   { rect: [CORR.xo0, CORR.xi0, IN.zn, CORR.zo0], end: 'N' },     // NW: west corridor continues north
   { rect: [CORR.xo1, IN.xe, CORR.zo0, CORR.zi0], end: 'E' },     // NE: north corridor continues east
@@ -126,6 +133,10 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   const split = (a, b, target = ROOM_TARGET) => { const n = Math.max(1, Math.round((b - a) / target)); return Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n); };
   const outerX = [IN.xw, ...split(-29.6, EXIT_HALL.x0).slice(0, -1), EXIT_HALL.x0, EXIT_HALL.x1, ...split(EXIT_HALL.x1, 23.9).slice(1), IN.xe];
   const outerZ = split(CORR.zo0, CORR.zo1);   // W/E outer strips
+  ENTRY.x0 = outerX[outerX.indexOf(EXIT_HALL.x0) - 1]; ENTRY.x1 = outerX[outerX.indexOf(EXIT_HALL.x1) + 1];
+  if (!EXT.some((e) => e.id === 'entry')) EXT.push({ id: 'entry', face: 'N', u0: ENTRY.x0, u1: ENTRY.x1, depth: ENTRY.depth });
+  EXITS.length = 0;
+  EXITS.push({ axis: 'x', plane: OUTER.zn - ENTRY.depth, sgn: -1, u: ENTRANCE.x, w: ENTRY.exitW, locked: true });
   // courtyard rooms: between window centres of the facade
   const paneCentres = (filter) => [...new Set(panes.filter(filter).map((p) => +((p.u0 + p.u1) / 2).toFixed(2)))].sort((a, b) => a - b);
   const nWin = paneCentres((p) => p.axis === 'x' && p.plane < -2 && p.plane > -8 && p.y0 < LEVELS[1]);
@@ -142,7 +153,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   // ---------- grid ----------
   const X = new Set([OUTER.xw, OUTER.xe, IN.xw, IN.xe, CORR.xo0, CORR.xi0, CORR.xi1, CORR.xo1, LOBBY.x0, LOBBY.x1, LOBBY.voidX0, LOBBY.voidX1,
     EXIT_HALL.x0, EXIT_HALL.x1, WALK.x0, WALK.x1, ...outerX, ...innerN, ...innerS]);
-  const Z = new Set([OUTER.zn, OUTER.zs, IN.zn, IN.zs, CORR.zo0, CORR.zi0, CORR.zi1, CORR.zo1, LOBBY.z1, LOBBY.voidZ1, SPLIT_Z, WALK.z0, WALK.z1, ...outerZ, ...innerW, ...innerE]);
+  const Z = new Set([OUTER.zn, OUTER.zs, IN.zn, IN.zs, CORR.zo0, CORR.zi0, CORR.zi1, CORR.zo1, LOBBY.z1, LOBBY.zx, LOBBY.voidZ1, SPLIT_Z, WALK.z0, WALK.z1, ...outerZ, ...innerW, ...innerE]);
   for (const r of Object.values(QUADS)) { X.add(r[0]); X.add(r[1]); Z.add(r[2]); Z.add(r[3]); }
   for (const e of EXT) for (const r of extRects(e)) { X.add(r[0]); X.add(r[1]); Z.add(r[2]); Z.add(r[3]); }
   for (const { rect: r } of NOOK_RECTS) { X.add(r[0]); X.add(r[1]); Z.add(r[2]); Z.add(r[3]); }
@@ -167,10 +178,12 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
     if (inOuterRect && !inInnerRect) return 'corr';
     if (!inOuterRect) {                                  // outer strips
       if (z < CORR.zo0 || z > CORR.zo1) {
+        if (z < 0 && x > ENTRY.x0 && x < ENTRY.x1) return 'entry';
         return (z < 0 ? 'oN' : 'oS') + idx(outerX, x);
       }
       return (x < 0 ? 'oW' : 'oE') + idx(outerZ, z);
     }
+    if (inRect(x, z, [LOBBY.x0, LOBBY.x1, CORR.zi0, LOBBY.zx])) return 'lobby';
     const wNotch = x > CORR.xi0 && x < -26.15 && z > -0.8 && z < STAIRS[0].z0;     // owner: rooms here, not a gap
     if (!wNotch && !inFiller(x, z)) return 'court';
     const deep = wNotch || (z < -0.9 ? inFiller(x, CORR.zi0 + 1.4) : z > SPLIT_Z ? inFiller(x, CORR.zi1 - 1.4) : x < 0 ? inFiller(CORR.xi0 + 1.4, z) : inFiller(CORR.xi1 - 1.4, z));
@@ -183,7 +196,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   // the partition between them disappears on every floor
   // owner: bigger rooms. Shallow facade notches join their deep neighbour, doorless rooms join one with a door,
   // the 0.8 m sliver beside the lobby joins the lobby, the corner rooms' leftovers beside the towel nooks join their neighbours
-  const MERGE = { oS6: 'oS7', oS8: 'oS7', oW1: 'oW2', oE1: 'oE2', oE0: 'oE2', oW8: 'oW7', iS5: 'iS4',
+  const MERGE = { oS6: 'oS7', oS8: 'oS7', oW1: 'oW2', oE1: 'oE2', oE0: 'oE2', oW8: 'oW7', oE8: 'oE7', iS5: 'iS4',
     iN1: 'iN0', iN3: 'lobby', iS2: 'iS3', iS6: 'iS7' };
   const classifyM = (x, z) => { const l = classify(x, z); return MERGE[l] || l; };
   const lab = [];
@@ -191,7 +204,8 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   const L = (i, k) => (i < 0 || k < 0 || i >= NX || k >= NZ ? 'out' : lab[i][k]);
   const isBld = (l) => l !== 'out' && l !== 'court' && l !== 'wall' && l !== 'void';
   const isRoom = (l) => /^(o|i)[NSWE]\d/.test(l);
-  const isRoomL = (l) => isRoom(l) || l === 'lobby';
+  const isRoomL = (l) => isRoom(l) || l === 'lobby' || l === 'entry';
+  const isHall = (l) => l === 'lobby' || l === 'entry';
   const isStair = (l) => l.startsWith('st');
   // walkway cells: courtyard, outside the inner walkway rectangle, clear of the spiral towers and the entrance
   const isWalk = () => false;     // no covered walkway (owner: the courtyard facades are just windows)
@@ -216,7 +230,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   // each room's bounding rectangle (rooms are rectangles of grid cells)
   const roomRect = {};
   for (let i = 0; i < NX; i++) for (let k = 0; k < NZ; k++) {
-    const l = lab[i][k]; if (!isRoom(l) && l !== 'lobby') continue;
+    const l = lab[i][k]; if (!isRoomL(l)) continue;
     const r = roomRect[l] ||= { id: l, x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
     r.x0 = Math.min(r.x0, xs[i]); r.x1 = Math.max(r.x1, xs[i + 1]); r.z0 = Math.min(r.z0, zs[k]); r.z1 = Math.max(r.z1, zs[k + 1]);
   }
@@ -301,13 +315,14 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
     if (!id || d.kind !== 'room' || !roomRect[id]) continue;
     roomRect[id].door = { axis: r.axis, c: r.c, u: d.u, w: d.w, into: r.hi === id ? 1 : -1 };
   }
-  if (roomRect.lobby) { roomRect.lobby.mainDoorU = ENTRANCE.x; roomRect.lobby.door = { axis: 'x', c: CORR.zi0, u: (LOBBY.x0 + LOBBY.x1) / 2, w: DOOR_W, into: 1 }; }                 // the courtyard door: keep its path clear
+  if (roomRect.lobby) Object.assign(roomRect.lobby, { ax0: LOBBY.x0, mainDoorU: ENTRANCE.doorX, glassU: LOBBY.glassX, door: { axis: 'x', c: CORR.zi0, u: (LOBBY.x0 + LOBBY.x1) / 2, w: 0.3, into: 1 } });   // the courtyard door: keep its path clear
+  if (roomRect.entry) Object.assign(roomRect.entry, { mainDoorU: ENTRANCE.x, door: { axis: 'x', c: CORR.zo0, u: ENTRANCE.x, w: 0.3, into: -1 } });
   const roomList = Object.values(roomRect);
   const roomPlan = planRooms(roomList);
   CTX.roomPlan = roomPlan;
   for (const [r, ds] of doorOn) for (const d of [...ds]) {
     const id = isRoom(r.lo) ? r.lo : isRoom(r.hi) ? r.hi : null;
-    if (!id || id === 'lobby' || roomPlan[id]?.type !== 'common' || d.kind !== 'room') continue;
+    if (!id || isHall(id) || roomPlan[id]?.type !== 'common' || d.kind !== 'room') continue;
     d.floors = d.floors.filter((Lv) => Lv !== LEVELS[0]);
     ds.push({ u: d.u, floors: [LEVELS[0]], kind: 'open', w: Math.min(2.6, r.u1 - r.u0 - 0.6) });   // wide doorless opening (video)
   }
@@ -340,7 +355,8 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   }
 
   // the space above the lobby is a room on each upper floor, with its own corridor door
-  for (const r of runs) if (r.kind === 'corr' && (r.lo === 'lobby' || r.hi === 'lobby')) pushDoor(r, (LOBBY.x0 + LOBBY.x1) / 2, LEVELS.slice(1), 'room');
+  for (const r of runs) if (r.kind === 'corr' && (r.lo === 'lobby' || r.hi === 'lobby')) pushDoor(r, (LOBBY.x0 + LOBBY.glassX) / 2, LEVELS.slice(1), 'room');
+  for (const r of runs) if (r.kind === 'corr' && (r.lo === 'entry' || r.hi === 'entry') && r.u1 - r.u0 > 3) pushDoor(r, (r.u0 + r.u1) / 2, LEVELS.slice(1), 'room');
   const porchEdges = [], extraWins = [], recesses = [];
   // ---------- build interior walls ----------
   for (const r of runs) {
@@ -359,10 +375,17 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
       const rid = isRoomL(r.lo) ? r.lo : isRoomL(r.hi) ? r.hi : null;
       const label = rid && d.kind === 'room' ? labelFor(typeAt(roomPlan, rid, Lv, LEVELS[0])) : null;
       if (label) rec.label = label;
+      // owner: the house parents' residence and the courtyard-side rooms are locked (the study stays open)
+      const ty = rid && d.kind === 'room' ? typeAt(roomPlan, rid, Lv, LEVELS[0]) : null;
+      if (ty === 'hp' || (rid && /^i[NSWE]\d/.test(rid) && ty !== 'study')) rec.locked = true;
       doors.push(rec);
     }
-    if (r.kind === 'corr' && (r.lo === 'lobby' || r.hi === 'lobby')) {
-      holes.push([LOBBY.voidX0 + 0.3, LOBBY.voidX1 - 0.3, LEVELS[0], LEVELS[1] - 0.45]);   // wide opening at ground
+    if (r.kind === 'corr' && (r.lo === 'lobby' || r.hi === 'lobby')) {          // two wide openings at ground, a pillar where the glass meets it
+      holes.push([LOBBY.x0 + 0.35, LOBBY.glassX - 0.25, LEVELS[0], LEVELS[0] + 2.75], [LOBBY.glassX + 0.25, LOBBY.x1 - 0.35, LEVELS[0], LEVELS[0] + 2.75]);
+    }
+    if (r.kind === 'corr' && (r.lo === 'entry' || r.hi === 'entry') && r.u1 - r.u0 > 3) {   // entrance lobby: three bays between pillars
+      const p1 = ENTRANCE.x - 1.5, p2 = ENTRANCE.x + 1.5;
+      holes.push([r.u0 + 0.3, p1 - 0.18, LEVELS[0], LEVELS[0] + 2.75], [p1 + 0.18, p2 - 0.18, LEVELS[0], LEVELS[0] + 2.75], [p2 + 0.18, r.u1 - 0.3, LEVELS[0], LEVELS[0] + 2.75]);
 
     }
     if (r.kind === 'facade') {
@@ -394,11 +417,19 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
         doorFrame(addBox, { axis: 'x', c: r.c, u0: r.u0, u1: r.u1, inward: r.inward }, 0.25, false, u, PLINTH, 1.6);
       }
       if (r.axis === 'x' && Math.abs(r.c - ENTRANCE.z) < 0.05 && ENTRANCE.x > r.u0 && ENTRANCE.x < r.u1) {
-        for (const u of ABOVE_DOOR) for (const Lv of LEVELS.slice(1)) {
-          const sill = Lv + 0.37, w = 1.59, h = 1.49;
+        // the common room's courtyard front: French doors into the library, windows (library, games room) on every floor
+        for (const Lv of LEVELS) for (const u of Lv === LEVELS[0] ? [-6.15, -0.75] : [-7.0, -3.85, -0.75]) {
+          const sill = Lv + 0.85, w = 1.45, h = 1.45;
           holes.push([u - w / 2, u + w / 2, sill, sill + h]);
           extraWins.push({ axis: 'x', plane: r.c, sgn: -bldSide, u, sill, w, h });
         }
+        holes.push([ENTRANCE.doorX - 0.8, ENTRANCE.doorX + 0.8, LEVELS[0], LEVELS[0] + 2.4]);
+        doors.push({ ...doorRecord(r, ENTRANCE.doorX, LEVELS[0], 1.6, 'french'), h: 2.4, double: true });
+        for (let st = 0; st < 3; st++) addBox(ENTRANCE.doorX - 1.1, ENTRANCE.doorX + 1.1, -0.2, PLINTH * (3 - st) / 4, r.c + st * 0.32, r.c + (st + 1) * 0.32, COL.stone);
+      }
+      if (r.axis === 'z' && (r.lo === 'lobby' || r.hi === 'lobby') && r.u0 > LOBBY.z1 - 0.05) {   // side walls of the extension
+        const u = (Math.max(r.u0, LOBBY.z1) + r.u1) / 2;
+        for (const Lv of LEVELS) { const sill = Lv + 0.85, w = 1.45, h = 1.45; holes.push([u - w / 2, u + w / 2, sill, sill + h]); extraWins.push({ axis: 'z', plane: r.c, sgn: -bldSide, u, sill, w, h }); }
       }
       if (walkDoorU.has(r)) {
         const u = walkDoorU.get(r);
@@ -460,12 +491,17 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
     for (let k = 0; k < n; k++) {
       const u = e.u0 + (len * (k + 0.5)) / n;
       for (const Lv of LEVELS) {
+        if (Lv === LEVELS[0] && EXITS.some((x) => x.axis === axis && Math.abs(x.plane - far) < 0.01 && Math.abs(x.u - u) < x.w / 2 + 0.95)) continue;   // beside the exit door
         const w = isBath ? { sill: Lv + 2.15, w: 1.1, h: 0.62 } : { sill: Lv + 0.9, w: 1.4, h: 1.4 };   // washrooms: high windows with exhaust fans
         holes.push([u - w.w / 2, u + w.w / 2, w.sill, w.sill + w.h]);
         windowUnit(addBox, axis, far, sgn, u, w.sill, w.w, w.h);
         bumpWins.push({ axis, plane: far, u0: u - w.w / 2, u1: u + w.w / 2, y0: w.sill, y1: w.sill + w.h });
         if (isBath && k % 2 === 0) addCyl(axis === 'x' ? [u - 0.25, w.sill + w.h / 2, far - sgn * 0.08] : [far - sgn * 0.08, w.sill + w.h / 2, u - 0.25], 0.22, 0.05, axis === 'x' ? 'z' : 'x', COL.trim);
       }
+    }
+    for (const x of EXITS) if (x.axis === axis && Math.abs(x.plane - far) < 0.01) {          // the exit door and a glazed panel either side
+      holes.push([x.u - x.w / 2, x.u + x.w / 2, PLINTH, PLINTH + 2.6]);
+      for (const s2 of [-1, 1]) { const u = x.u + s2 * (x.w / 2 + 0.55); holes.push([u - 0.4, u + 0.4, PLINTH + 0.5, PLINTH + 2.5]); windowUnit(addBox, axis, far, sgn, u, PLINTH + 0.5, 0.8, 2.0); bumpWins.push({ axis, plane: far, u0: u - 0.4, u1: u + 0.4, y0: PLINTH + 0.5, y1: PLINTH + 2.5 }); }
     }
     wallWithHoles(addBox, { axis, c: far, u0: e.u0 - 0.1, u1: e.u1 + 0.1, inward: -sgn }, OW, -0.2, TOP_TALL + 0.04, holes, COL.facade);
     for (const u of [e.u0, e.u1]) {                                   // side walls, centred on the partition lines
@@ -487,13 +523,12 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
       wallWithHoles(addBox, { axis, c, u0: a, u1: b, inward }, OW, -0.2, top, holes, COL.facade);
     }
   }
-  for (const e of EXITS) { exitSteps(addBox, e); doors.push({ x: e.u, z: e.plane - e.sgn * OW / 2, y: PLINTH, w: e.w, h: 2.6, axis: e.axis, kind: 'main', double: true }); }
+  for (const e of EXITS) { exitSteps(addBox, e); doors.push({ x: e.u, z: e.plane - e.sgn * OW / 2, y: PLINTH, w: e.w, h: 2.6, axis: e.axis, kind: 'main', double: true, label: 'EXIT', ...(e.locked ? { locked: true } : {}) }); }
 
   // ---------- stairs ----------
   for (const st of STAIRS) { buildStair(st, addBox, addBeam); stats.stairs++; }
 
-  // ---------- lobby gallery railings + entrance ----------
-  entrance(addBox);
+  // (the model's entrance portal and its inner steps went with the old front: the common room runs on into the courtyard)
 
   // ---------- covered walkway: pillars, edge, steps down to the courtyard ----------
   for (const w of extraWins) windowUnit(addBox, w.axis, w.plane, w.sgn, w.u, w.sill, w.w, w.h);
@@ -538,6 +573,7 @@ const PCOL = {
   paint: ['0.776,0.329,0.482', '0.243,0.557,0.643', '0.894,0.584,0.290', '0.302,0.459,0.255'],
   bin: '0.157,0.706,0.620', blue: '0.502,0.718,0.878', grey: '0.420,0.420,0.430',
 };
+const isHallL = (l) => l === 'lobby' || l === 'entry';
 function props({ addBox, addCyl, runs, doorOn }) {
   let n = 0;
   // helper: box placed against a wall face. along (u0..u1), height (y0..y1), out from the face (o0..o1)
@@ -549,7 +585,7 @@ function props({ addBox, addCyl, runs, doorOn }) {
   const corrSide = (r) => (r.hi === 'corr' || r.hi === 'hall' ? 1 : -1);
   for (const r of runs) {
     if (r.kind !== 'corr') continue;
-    if (r.lo === 'lobby' || r.hi === 'lobby' || r.lo.startsWith('st') || r.hi.startsWith('st')) continue;   // open / glass walls
+    if (isHallL(r.lo) || isHallL(r.hi) || r.lo.startsWith('st') || r.hi.startsWith('st')) continue;   // open / glass walls
     const side = corrSide(r);
     const ds = doorOn.get(r) || [];
     const busy = (u, half) => ds.some((d) => Math.abs(d.u - u) < d.w / 2 + half + 0.12);
@@ -820,18 +856,6 @@ function porchSteps(addBox, r) {
     B(r.u0 + 0.05, r.u1 - 0.05, -0.2, top, p0, p1, COL.stone);
   }
 }
-function entrance(addBox) {
-  // the entrance block's portal (part of the model's facade block, projecting 0.5 m around the door; its
-  // outline sits above floor level so the floor-plan outline missed it): two dark jambs up to 3.22 m
-  addBox(-5.41, -4.61, 0.29, 3.22, ENTRANCE.z - 0.012, -3.52, '0.208,0.208,0.208');
-  addBox(-2.42, -1.62, 0.29, 3.22, ENTRANCE.z - 0.012, -3.52, '0.208,0.208,0.208');
-  // steps just inside the doors: landing 0.29 -> ground floor 0.76 (green marble, video 2)
-  for (let i = 0; i < 3; i++) {
-    const zf = ENTRANCE.doorZ - i * 0.32;
-    addBox(ENTRANCE.x - 1.5, ENTRANCE.x + 1.5, -0.2, 0.29 + (i + 1) * ((PLINTH - 0.29) / 3), zf - 0.32, zf, COL.stone);
-  }
-}
-
 function exitSteps(addBox, e) {
   const g0 = -0.16, n = 6, r = (PLINTH - g0) / n, t = 0.32;
   for (let i = 0; i < n; i++) {

@@ -60,14 +60,24 @@ is (quieter and duller with distance, more muffled from another floor):
 - **Bedrooms (double):** two metal-frame beds along the side walls, heads at the window; two separate study tables, each
   with its own bookshelf hutch and black chair, under the window; two steel cupboards by the door; white-framed mirror,
   wall fan, grey curtains, mint window wall, blue buckets. Room 18 is the fourth east-wing room south of the stairs.
-- **Washrooms** (south, west and east wings, every floor; two rooms merged and pushed 2.5 m out into the exterior):
-  yellow-tiled privacy screen inside the door, a row of shower / WC cubicles with beige laminate partitions and white
-  doors, black granite basin counter with framed mirrors, urinals and a "please flush" sign, white tiles with yellow
-  bands, high windows with exhaust fans.
-- **Common room** = the open entrance hall (the lobby with the courtyard door; upstairs a study hall): yellow wall with a
-  big portrait and a bench desk with plastic chairs, carrom on an X stand, square table, bookcase, TV, whiteboard,
-  potted plants either side of the courtyard door, with a clear path from the corridor to that door.
-- **Towel nooks** at all four corners: the corridor runs on past the turn to a window in the outer wall; a clothes stand
+- **Rest rooms** (south, west and east wings, every floor; merged rooms pushed 2.5 m out into the exterior), laid out as
+  in the video: a yellow-tiled screen inside the door; a row of WC / shower cubicles down the side wall away from the
+  door (beige laminate partitions, white doors, a steel rail along the top); a free-standing laminate island with a
+  black granite counter, round basins and a framed mirror over each, yellow strip at its end; a bank of four urinals on
+  a white half-wall capped with yellow tiles across the far end; a row of showers down the other side wall; white tiles
+  with a solid yellow band low and a yellow/white checker band high; grey floor; high windows with exhaust fans; a
+  notice board and switches by the door.
+- **Common room** (courtyard side of the front, pushed 3.4 m out into the courtyard so it has the video's depth): open
+  to the corridor. West, the library: L bookcase in the courtyard corner, bench desk with plastic chairs, TV and
+  whiteboard on stands, the wooden French doors to the courtyard. East, behind a wood-framed glass partition, the games
+  room: yellow wall with a big painting and a long desk with plastic chairs, two carrom boards on X stands.
+- **Entrance lobby** (across the corridor; three outer rooms merged and pushed 3 m out through the north wall): open to
+  the corridor between pillars; the glazed wooden exit door (locked) between glass side panels with steps outside,
+  potted plants, a mirror, curtained windows, a red accent wall with a painting and a wooden sofa set, downlights.
+- **Locked:** the H.P. residence, every courtyard-side room except the study, and the exit. E on them rattles the handle;
+  a solid slab in each locked doorway keeps the player and the guards' nav grid out.
+- **Towel nooks** at all four corners: the corridor runs on past the turn to a window in the outer wall (south-east: the
+  south corridor runs on east, beside room 16); a clothes stand
   with towels, a chair piled with clothes, a bucket.
 - **Courtyard-side rooms:** shallow facade notches are merged into their deep neighbours and laid out in the deep part;
   the small rooms east of the lobby are stores (video).
@@ -115,7 +125,8 @@ scene plays slow camera shots cut with glitch tears, with the torch cutting in a
   slow breathing when standing still, and the torch beam lags behind quick turns.
 - A scare director paces small, ambiguous events rather than constant jump scares. Tension builds indoors and in
   the dark, and it fires more often as tension rises: footsteps behind you that stop a beat after you do; a tall
-  pale figure at the edge of the torchlight that's gone when you light it up, get close or look away; the torch
+  pale figure at the edge of the torchlight, there for a glimpse (2-3 s at most) and gone the moment you're within 4 m,
+  light it up or look away; the torch
   dying and coming back with the figure closer; tube lights popping out; doors creaking open or slamming
   behind you; knocking from a room; whispers.
 - Procedural audio (drone, fluorescent hum, footsteps, creaks, knocks, whispers, heartbeat). No shadows.

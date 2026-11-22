@@ -32,8 +32,17 @@ function makeLeaf(kind, w, h) {
     parts.push(part(w, f, T, C.wood, w / 2, h - f / 2, 0), part(w, 0.2, T, C.wood, w / 2, 0.1, 0));
     parts.push(part(0.03, 0.3, 0.06, C.metal, w - 0.12, 1.0, 0));
     g.add(new THREE.Mesh(new THREE.BoxGeometry(w - 2 * f, h - f - 0.2, 0.01).translate(w / 2, 0.2 + (h - f - 0.2) / 2, 0), glassMat));
-  } else if (kind === 'main') {
-    parts.push(part(w, h, T, C.wood, w / 2, h / 2, 0), part(0.03, 0.4, 0.08, C.metal, w - 0.1, 1.05, 0));
+  } else if (kind === 'main' || kind === 'french') {
+    // video: dark wooden leaves with small glass panes; the exit door is glazed above a solid panel, the
+    // courtyard French doors nearly full height
+    const f = 0.09, g0 = kind === 'main' ? 1.05 : 0.35, rows = kind === 'main' ? 3 : 4, cols = 2;
+    parts.push(part(f, h, T, C.wood, f / 2, h / 2, 0), part(f, h, T, C.wood, w - f / 2, h / 2, 0));
+    parts.push(part(w, f, T, C.wood, w / 2, h - f / 2, 0), part(w, g0, T, C.wood, w / 2, g0 / 2, 0));
+    const gw = w - 2 * f, gh = h - f - g0;
+    for (let i = 1; i < cols; i++) parts.push(part(0.04, gh, T, C.wood, f + (gw * i) / cols, g0 + gh / 2, 0));
+    for (let j = 1; j < rows; j++) parts.push(part(gw, 0.04, T, C.wood, w / 2, g0 + (gh * j) / rows, 0));
+    parts.push(part(0.03, 0.3, 0.08, C.metal, w - 0.1, 1.0, 0));
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(gw, gh, 0.01).translate(w / 2, g0 + gh / 2, 0), glassMat));
   } else {
     parts.push(part(w, h, T, C.white, w / 2, h / 2, 0));
     parts.push(part(0.12, 0.45, T + 0.006, C.dark, w / 2, 1.45, 0));      // vision panel
@@ -145,6 +154,7 @@ export class Doors {
   }
 
   toggle(d, from) {
+    if (d.r.locked) return false;                 // house parents' flats and the courtyard rooms stay shut
     const ds = d.group || [d];
     const opening = d.target === 0;
     for (const e of ds) {
@@ -164,6 +174,7 @@ export class Doors {
       }
       e.target = opening ? 1 : 0; e.speed = 0;
     }
+    return true;
   }
 
   update(dt) {

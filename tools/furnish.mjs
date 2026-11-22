@@ -42,10 +42,14 @@ export const FCOL = {
   steelDark: '0.110,0.165,0.157',    // dark green-black steel cupboards (video)
   bucketBlue: '0.180,0.400,0.690',
   bucket: '0.157,0.620,0.541',
+  red: '0.596,0.161,0.110',           // entrance lobby accent wall (video)
+  floorGrey: '0.588,0.600,0.608',    // washroom floor tiles
+  glass: '0.780,0.851,0.878',        // clear glass (transparent in convert.mjs)
+  cushion: '0.204,0.247,0.231',
   paint: ['0.776,0.329,0.482', '0.243,0.557,0.643', '0.894,0.584,0.290', '0.302,0.459,0.255'],
 };
 
-const LABEL = { bath: 'BATHROOM', study: 'STUDY ROOM', common: 'COMMON ROOM', hp: 'H.P. RESIDENCE', office: 'OFFICE', laundry: 'LAUNDRY ROOM', store: 'STORE' };
+const LABEL = { bath: 'REST ROOM', study: 'STUDY ROOM', common: 'COMMON ROOM', hp: 'H.P. RESIDENCE', office: 'OFFICE', laundry: 'LAUNDRY ROOM', store: 'STORE' };
 
 // pick a room for each special function by position; returns { id: { type, ground } }
 export function planRooms(rooms) {
@@ -65,7 +69,8 @@ export function planRooms(rooms) {
   if (rooms.some((r) => r.id === 'oE3' && r.door)) plan.oE3 = { type: 'office', ground: true };          // opposite the east stairs
   pick('oS', (x) => x, 'laundry');                                   // westmost on the south side
   pick('oS', (x) => Math.abs(x + 17.5), 'store');
-  if (rooms.some((r) => r.id === 'lobby')) plan.lobby = { type: 'common', ground: true, upper: 'study' };   // the open entrance hall with the courtyard door
+  if (rooms.some((r) => r.id === 'lobby')) plan.lobby = { type: 'common', ground: true, upper: 'study' };
+  if (rooms.some((r) => r.id === 'entry')) plan.entry = { type: 'entry', ground: true, upper: 'study' };   // across the corridor: the way out   // the open entrance hall with the courtyard door
   for (const id of ['iN6', 'iN7']) if (rooms.some((r) => r.id === id)) plan[id] = { type: 'store', ground: false, upper: 'store' };   // video: stores east of the lobby
   pick('oN', (x) => (x > 1.4 ? Math.abs(x - 8) : 99 - x), 'store');
   return plan;
@@ -91,9 +96,9 @@ export function furnishAll({ addBox, addCyl, rooms, plan, levels, ceilAt, window
 function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) {
   const d = room.door, into = d.into;
   // local frame: a along the door wall, b = depth from the door wall's room-side face toward the far wall
-  const along = d.axis === 'x' ? [room.x0, room.x1] : [room.z0, room.z1];
+  const along = d.axis === 'x' ? [room.ax0 ?? room.x0, room.x1] : [room.z0, room.z1];   // ax0: lay out from here (the lobby's model sliver stays an alcove)
   const farEdge = d.axis === 'x' ? (into > 0 ? room.z1 : room.z0) : (into > 0 ? room.x1 : room.x0);
-  const SIDE = 0.1, NEAR = 0.17, FAR = room.id[0] === 'o' ? 0.06 : 0.3;   // outer rooms end at the outer wall's face; courtyard rooms have the facade inside their cells
+  const SIDE = 0.1, NEAR = 0.17, FAR = room.id[0] === 'o' || room.id === 'entry' ? 0.06 : 0.3;   // outer rooms end at the outer wall's face; courtyard rooms have the facade inside their cells
   const a0 = along[0] + SIDE, a1 = along[1] - SIDE;
   // the courtyard facade zigzags, so a room can be deeper in one part than another: depth profile along the door wall
   const ptAt = (u, b) => (d.axis === 'x' ? [u, d.c + into * (NEAR + b)] : [d.c + into * (NEAR + b), u]);
@@ -132,6 +137,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
   });
   const curtains = (col) => {
     for (const w of myWins) {
+      if (w.y0 - Lv < 0.7) continue;                       // glazed door side panels: no curtains
       const top = Math.min(w.y1 - Lv + 0.25, ceil - Lv - 0.1);
       const bw = Math.min(Dat(w.u0, w.u1) + 0.02, (w.plane - d.c) * into - NEAR - FAR + 0.02);   // just inside that wall
       for (const [u0, u1] of [[w.u0 - 0.2, w.u0 + 0.12], [w.u1 - 0.12, w.u1 + 0.2]]) B(Math.max(a0, u0), Math.min(a1, u1), Math.max(0.3, w.y0 - Lv - 0.25), top, bw - 0.12, bw - 0.06, col);
@@ -180,7 +186,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
   };
 
   // the wall facing the door, painted around its windows (mint window wall in every bedroom, video)
-  const faceB = D + (room.id[0] === 'o' ? 0.155 : 0.13);
+  const faceB = D + (room.id[0] === 'o' || room.id === 'entry' ? 0.155 : 0.13);
   const paintFar = (col, yTop = ceil - Lv - 0.02) => {
     const u0 = along[0] + 0.065, u1 = along[1] - 0.065;
     const ws = myWins.filter((w) => Math.abs((w.plane - d.c) * into - NEAR - faceB) < 0.4).map((w) => [Math.max(u0, w.u0 - 0.14), Math.min(u1, w.u1 + 0.14), w.y0 - Lv - 0.12, w.y1 - Lv + 0.06]).sort((p, q) => p[0] - q[0]);
@@ -256,40 +262,102 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
       }
     }
   } else if (type === 'bath') {
-    // white tiles to 2 m with yellow bands at waist and top on every wall (video), tubelights
-    const bands = (u, s2, b0, b1) => { B(u, u - s2 * 0.006, 0.12, 2.02, b0, b1, FCOL.tileW); B(u, u - s2 * 0.01, 0.84, 0.96, b0, b1, FCOL.tileY); B(u, u - s2 * 0.01, 1.86, 2.02, b0, b1, FCOL.tileY); };
-    bands(along[0] + 0.061, -1, 0, faceB); bands(along[1] - 0.061, 1, 0, faceB);
-    for (const [y0, y1, col] of [[0.12, 2.02, FCOL.tileW], [0.84, 0.96, FCOL.tileY], [1.86, 2.02, FCOL.tileY]]) B(along[0] + 0.06, along[1] - 0.06, y0, y1, faceB - (col === FCOL.tileW ? 0.006 : 0.01), faceB, col);
-    for (const k of [0.33, 0.66]) B(a0 + W * k - 0.6, a0 + W * k + 0.6, ceil - Lv - 0.05, ceil - Lv, D * 0.5 - 0.05, D * 0.5 + 0.05, FCOL.fan);
-    // yellow-tiled privacy screen just inside the door
-    B(doorU - 0.85, doorU + 0.85, 0, 1.85, d.w + 0.15, d.w + 0.27, FCOL.tileY);
-    // row of cubicles along the far wall: beige laminate partitions, white doors; showers and WCs alternate
-    const cd = D >= 4 ? 1.55 : Math.min(1.3, D * 0.45), nC = Math.max(1, Math.min(10, Math.floor((W - 0.1) / 1.05))), cw = W / nC;
-    for (let i = 0; i < nC; i++) {
-      const u0 = a0 + i * cw, u1 = u0 + cw, dm = (u0 + u1) / 2, dw = Math.min(0.7, cw - 0.22);
-      if (i > 0) B(u0 - 0.025, u0 + 0.025, 0.1, 2.05, D - cd, D, FCOL.laminate);
-      B(u0, dm - dw / 2, 0.1, 2.05, D - cd - 0.025, D - cd + 0.025, FCOL.laminate);
-      B(dm + dw / 2, u1, 0.1, 2.05, D - cd - 0.025, D - cd + 0.025, FCOL.laminate);
-      B(dm - dw / 2, dm + dw / 2, 0.15, 2.0, D - cd - 0.03, D - cd + 0.01, FCOL.tileW);   // door
-      B(dm + dw / 2 - 0.1, dm + dw / 2 - 0.06, 0.95, 1.05, D - cd - 0.06, D - cd - 0.03, FCOL.steelGrey);
-      if (i % 2) { C(dm, 2.0, D - 0.14, 0.08, 0.03, 'b', FCOL.steelGrey); B(dm - 0.015, dm + 0.015, 1.05, 2.0, D - 0.04, D - 0.01, FCOL.steelGrey); B(dm - 0.09, dm + 0.09, 1.0, 1.1, D - 0.07, D - 0.01, FCOL.steelGrey); }
-      else { B(dm - 0.19, dm + 0.19, 0.38, 0.42, D - 0.62, D - 0.1, FCOL.tileW); B(dm - 0.2, dm + 0.2, 0.42, 0.45, D - 0.64, D - 0.1, FCOL.sheet); B(dm - 0.2, dm + 0.2, 0.3, 0.85, D - 0.12, D - 0.01, FCOL.tileW); }
+    // REST ROOM (video, the same in all three): a yellow-tiled screen inside the door; a row of WC / shower cubicles
+    // down one side wall (beige grooved laminate partitions ~2 m, white doors, a steel rail along the top); a free-
+    // standing laminate island with a black granite counter, round basins and a framed mirror over each; on the far
+    // side a urinal bank on a white half-wall capped with yellow tiles and a row of showers along the other side
+    // wall. White tiles to 2 m everywhere with a solid yellow band low and a yellow/white checker band high, grey
+    // floor tiles, high windows with exhaust fans (outer wall), tubelights, a notice board and switches by the door.
+    // tiles sit on the wall faces: the outer/bump far wall face is the room's edge; the bump side walls are 0.2 thick
+    const Wf = along[1] - along[0], sf = 0.105, fb = Math.abs(farEdge - d.c) - NEAR - 0.004;
+    const mir = doorU - along[0] < along[1] - doorU;                // the cubicle row goes down the side away from the door
+    const U = (q) => (mir ? along[1] - q : along[0] + q);
+    const BS = (q0, q1, y0, y1, b0, b1, col) => B(Math.min(U(q0), U(q1)), Math.max(U(q0), U(q1)), y0, y1, b0, b1, col);
+    const CS = (q, y, b, r, hh, ax, col) => C(U(q), y, b, r, hh, ax, col);
+    const sDoor = mir ? along[1] - doorU : doorU - along[0];
+    B(along[0] + 0.06, along[1] - 0.06, 0.006, 0.012, -0.02, fb, FCOL.floorGrey);
+    // wall tiles: [s0, s1] along a wall; wall: 'L' (s = sf side), 'R' (far side wall), 'F' (far), 'N' (door wall)
+    const tile = (wall, t0, t1, y0, y1, col, dep) => {
+      if (wall === 'L') BS(sf, sf + dep, y0, y1, t0, t1, col);
+      else if (wall === 'R') BS(Wf - sf - dep, Wf - sf, y0, y1, t0, t1, col);
+      else if (wall === 'F') BS(t0, t1, y0, y1, fb - dep, fb, col);
+      else BS(t0, t1, y0, y1, -0.02, -0.02 + dep, col);
+    };
+    const tiled = (wall, t0, t1) => {
+      if (t1 - t0 < 0.05) return;
+      tile(wall, t0, t1, 0.1, 2.05, FCOL.tileW, 0.006);
+      tile(wall, t0, t1, 0.62, 0.78, FCOL.tileY, 0.01);
+      for (let t = t0; t < t1 - 0.05; t += 0.6) tile(wall, t, Math.min(t1, t + 0.3), 1.75, 2.05, FCOL.tileY, 0.01);
+    };
+    tiled('L', -0.02, fb); tiled('R', -0.02, fb); tiled('F', sf, Wf - sf);
+    tiled('N', sf, sDoor - d.w / 2 - 0.08); tiled('N', sDoor + d.w / 2 + 0.08, Wf - sf);
+    for (const k of [0.3, 0.7]) B(a0 + W * k - 0.6, a0 + W * k + 0.6, ceil - Lv - 0.05, ceil - Lv, fb * 0.5 - 0.05, fb * 0.5 + 0.05, FCOL.fan);
+    // the screen just inside the door, a mug left on top
+    const sc0 = Math.max(doorU - 0.85, a0 + 1.6), sc1 = Math.min(doorU + 0.85, a1 - 0.2);
+    B(sc0, sc1, 0, 1.85, d.w + 0.15, d.w + 0.27, FCOL.tileY);
+    C(sc1 - 0.25, 1.92, d.w + 0.21, 0.05, 0.12, 'y', FCOL.curtainRed);
+    // a row of cubicles against a side wall: q0..q1 across (q1 = front with the doors), b0..b1 along
+    const cubicles = (q0, q1, b0, b1, wcFirst) => {
+      const front = q1 > q0 ? 1 : -1, n = Math.max(1, Math.floor((b1 - b0) / 1.02)), cw = (b1 - b0) / n;
+      for (let i = 0; i <= n; i++) { const bb = b0 + i * cw; BS(q0, q1, 0.12, 2.05, bb - 0.02, bb + 0.02, FCOL.laminate); }
+      BS(q1 - front * 0.035, q1, 2.06, 2.09, b0, b1, FCOL.steelGrey);                           // rail along the top
+      for (let i = 0; i < n; i++) {
+        const c0 = b0 + i * cw, c1 = c0 + cw, cm = (c0 + c1) / 2, dw = Math.min(0.68, cw - 0.24);
+        BS(q1 - front * 0.035, q1, 0.12, 2.05, c0, cm - dw / 2, FCOL.laminate);
+        BS(q1 - front * 0.035, q1, 0.12, 2.05, cm + dw / 2, c1, FCOL.laminate);
+        BS(q1 - front * 0.03, q1 - front * 0.005, 0.17, 2.0, cm - dw / 2 + 0.01, cm + dw / 2 - 0.01, FCOL.tileW);   // door
+        BS(q1, q1 + front * 0.03, 0.95, 1.08, cm + dw / 2 - 0.12, cm + dw / 2 - 0.08, FCOL.steelGrey);
+        const back = q0 + front * 0.01;
+        if (wcFirst !== null && (i % 2 === 0) === wcFirst) {                                      // wall-hung WC, white seat, flush plate
+          BS(back, back + front * 0.55, 0.36, 0.44, cm - 0.18, cm + 0.18, FCOL.tileW);
+          BS(back + front * 0.02, back + front * 0.56, 0.44, 0.47, cm - 0.19, cm + 0.19, FCOL.sheet);
+          BS(back, back + front * 0.08, 0.3, 0.9, cm - 0.2, cm + 0.2, FCOL.tileW);
+          BS(back, back + front * 0.015, 1.0, 1.15, cm - 0.1, cm + 0.1, FCOL.steelGrey);
+          CS(back + front * 0.08, 0.7, cm + 0.32, 0.05, 0.1, 'b', FCOL.sheet);         // tissue roll
+        } else {                                                               // shower head and mixer
+          CS(back + front * 0.12, 2.0, cm, 0.07, 0.03, 'y', FCOL.steelGrey);
+          BS(back, back + front * 0.14, 1.98, 2.0, cm - 0.015, cm + 0.015, FCOL.steelGrey);
+          BS(back, back + front * 0.06, 1.0, 1.08, cm - 0.12, cm + 0.12, FCOL.steelGrey);
+          CS(back + front * 0.2, 0.17, cm - 0.2, 0.15, 0.3, 'y', FCOL.bucketBlue);      // bucket
+        }
+      }
+    };
+    const cD = Math.min(1.45, Wf * 0.18);
+    cubicles(sf, cD, 0.15, fb, true);                                       // WC row (alternating with showers)
+    // the island: counter and mirrors facing the cubicle row
+    const sI = cD + 1.3 + 0.55, bI0 = Math.max(1.5, d.w + 0.5), bI1 = fb - 1.35;
+    const halfB = fb - 0.9, sR = Wf - sf - 1.15;
+    if (bI1 - bI0 > 1.1 && sI + 0.1 < sR - 1.0) {
+      BS(sI, sI + 0.1, 0.0, 2.05, bI0, bI1, FCOL.laminate);
+      BS(sI, sI + 0.1, 1.8, 2.05, bI0 - 0.005, bI0 + 0.3, FCOL.tileY);       // yellow strip at its top end
+      BS(sI - 0.55, sI, 0.0, 0.84, bI0 + 0.1, bI1 - 0.1, FCOL.granite);
+      for (let bq = bI0 + 0.5; bq < bI1 - 0.35; bq += 0.85) {
+        CS(sI - 0.28, 0.845, bq, 0.19, 0.012, 'y', FCOL.tileW);
+        BS(sI - 0.06, sI - 0.02, 0.84, 1.08, bq - 0.015, bq + 0.015, FCOL.steelGrey);
+        BS(sI - 0.012, sI, 1.15, 1.85, bq - 0.29, bq + 0.29, FCOL.fan);
+        BS(sI - 0.016, sI - 0.012, 1.2, 1.8, bq - 0.24, bq + 0.24, FCOL.mirror);
+      }
+      BS(sI + 0.1, sI + 0.11, 1.4, 1.8, bI1 - 0.55, bI1 - 0.15, FCOL.yellow);   // 'please flush the toilet before you leave'
     }
-    // basin counter (black granite, round basins, a framed mirror over each) along one side wall
-    const free0 = Math.max(swingB(a0, a0 + 0.6), 0.3) + 0.2, free1 = D - cd - 0.3;
-    if (free1 - free0 > 0.9) {
-      B(a0, a0 + 0.55, 0, 0.8, free0, free1, FCOL.granite);
-      for (let bq = free0 + 0.45; bq < free1 - 0.3; bq += 0.85) {
-        C(a0 + 0.3, 0.81, bq, 0.18, 0.04, 'y', FCOL.tileW); B(a0 + 0.02, a0 + 0.08, 0.8, 1.02, bq - 0.02, bq + 0.02, FCOL.steelGrey);
-        const mu = along[0] + 0.07; B(mu, mu + 0.02, 1.15, 1.8, bq - 0.27, bq + 0.27, FCOL.fan); B(mu + 0.02, mu + 0.025, 1.19, 1.76, bq - 0.23, bq + 0.23, FCOL.mirror);
+    // urinal half-wall, capped with yellow tiles, across the far part of the room; urinals on the door side
+    const hw0 = Math.max(sI + 1.0, sR - 0.25 - 4 * 0.72);
+    if (sR - hw0 > 0.9) {
+      BS(hw0, sR, 0.0, 1.5, halfB - 0.05, halfB + 0.05, FCOL.tileW);
+      BS(hw0, sR, 1.5, 1.82, halfB - 0.06, halfB + 0.06, FCOL.tileY);
+      for (let q = sR - 0.45; q > hw0 + 0.3; q -= 0.72) {
+        BS(q - 0.18, q + 0.18, 0.45, 1.05, halfB - 0.42, halfB - 0.05, FCOL.tileW);
+        BS(q - 0.02, q + 0.02, 1.05, 1.42, halfB - 0.1, halfB - 0.06, FCOL.steelGrey);
+        BS(q - 0.06, q + 0.06, 1.3, 1.36, halfB - 0.13, halfB - 0.05, FCOL.steelGrey);
       }
     }
-    // urinals on the other side wall, a yellow 'please flush' sign
-    const f0 = Math.max(swingB(a1 - 0.6, a1), 0.3) + 0.3, f1 = D - cd - 0.3;
-    for (let bq = f0 + 0.35, k = 0; bq < f1 - 0.2 && k < 3; bq += 0.8, k++) {
-      B(a1 - 0.36, a1, 0.45, 1.05, bq - 0.2, bq + 0.2, FCOL.tileW); B(a1 - 0.06, a1, 1.1, 1.35, bq - 0.03, bq + 0.03, FCOL.steelGrey);
-    }
-    if (f1 - f0 > 0.6) B(along[1] - 0.075, along[1] - 0.065, 1.45, 1.85, f0 - 0.15, f0 + 0.15, FCOL.yellow);
+    // shower row down the other side wall, up to the half-wall
+    const bS0 = sDoor + d.w / 2 + 0.3 > sR ? d.w + 0.5 : 0.15;
+    if (halfB - 0.05 - bS0 > 0.95) cubicles(Wf - sf, sR, bS0, halfB - 0.05, null);   // all showers
+    // notice board and switchboard beside the door (door wall)
+    const nq = sDoor - d.w / 2 - 0.95;
+    if (nq - 0.35 > cD + 0.2) { BS(nq - 0.35, nq + 0.35, 1.45, 1.9, -0.01, 0.0, FCOL.sheet); BS(nq - 0.3, nq + 0.3, 1.5, 1.56, 0.0, 0.004, FCOL.paint[0]); BS(nq - 0.3, nq + 0.1, 1.62, 1.66, 0.0, 0.004, FCOL.screen); BS(nq - 0.3, nq + 0.3, 1.78, 1.81, 0.0, 0.004, FCOL.paint[1]); }
+    const wq = sDoor + d.w / 2 + 0.35;
+    if (wq + 0.35 < sR - 0.1 || bS0 > 0.5) BS(wq, wq + 0.35, 1.2, 1.45, -0.01, 0.01, FCOL.sheet);
   } else if (type === 'study') {
     curtains(FCOL.curtainRed);
     // desks along both side walls and the far wall, plastic chairs facing the walls
@@ -309,51 +377,109 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     const tu = (doorU - a0 > a1 - doorU) ? (a0 + doorU - d.w / 2) / 2 : (a1 + doorU + d.w / 2) / 2;
     B(tu - 0.55, tu + 0.55, 1.3, 1.95, 0.0, 0.08, FCOL.curtainRed);
   } else if (type === 'common') {
-    // the open entrance hall (video): the courtyard door in the middle of the far wall stays reachable;
-    // west half: yellow wall, bench desk with plastic chairs, carrom on an X stand; east half: L-shaped bookcase,
-    // TV, whiteboard, a square table; potted plants either side of the courtyard door
+    // the open front common area (video): west, the library (L bookcase in the courtyard corner, a bench desk with
+    // plastic chairs along the wall, TV and whiteboard on stands, the wooden French doors to the courtyard);
+    // east, behind a wood-framed glass partition, the games room (yellow wall with a big painting and a long
+    // laminate desk with plastic chairs, two carrom boards on X stands). Both open onto the corridor.
     curtains(FCOL.curtainGrey);
-    wallPaint(-1, FCOL.yellow);
-    const mainU = room.mainDoorU ?? (a0 + a1) / 2, clear0 = mainU - 1.0, clear1 = mainU + 1.0;
-    const pu = along[0] + 0.07; B(pu, pu + 0.025, 1.4, 2.4, D * 0.5 - 0.7, D * 0.5 + 0.7, FCOL.paint[1]);   // portrait
-    B(pu + 0.025, pu + 0.03, 1.5, 2.3, D * 0.5 - 0.6, D * 0.5 + 0.25, FCOL.plastic);
-    const bd0 = Math.max(0.3, swingB(a0, a0 + 0.5)), bd1 = Math.max(bd0 + 0.6, Dat(a0, a0 + 0.5) - 0.2);
-    B(a0, a0 + 0.45, 0.73, 0.77, bd0, bd1, FCOL.wood);
-    for (let bq = bd0; bq <= bd1; bq += 1.1) B(a0 + 0.05, a0 + 0.4, 0, 0.73, bq, bq + 0.04, FCOL.frame);
-    for (let bq = bd0 + 0.35; bq < bd1 - 0.2; bq += 0.72) plasticChairSide(a0 + 0.72, bq, -1);
-    const cu = Math.min(clear0 - 0.95, a0 + 2.1), cb = Math.min(1.4, Dat(cu - 0.5, cu + 0.5) * 0.5);
-    if (cu - 0.9 > a0 + 1.0) {
-      B(cu - 0.35, cu + 0.35, 0, 0.68, cb - 0.015, cb + 0.015, FCOL.frame); B(cu - 0.015, cu + 0.015, 0, 0.68, cb - 0.35, cb + 0.35, FCOL.frame);
-      B(cu - 0.42, cu + 0.42, 0.68, 0.74, cb - 0.42, cb + 0.42, FCOL.wood); B(cu - 0.36, cu + 0.36, 0.74, 0.745, cb - 0.36, cb + 0.36, FCOL.lightWood);
-      plasticChairSide(cu - 0.8, cb, 1); plasticChairSide(cu + 0.8, cb, -1);
-    }
-    // east half: bookcase in the far corner, square table, TV and whiteboard on the side wall
-    const Dc = Dat(a1 - 1.8, a1);
+    // the common room's side walls are courtyard facades (0.26 m inside its cells): lay out from their faces
+    const a0 = along[0] + 0.27, a1 = along[1] - 0.27;
+    const gU = room.glassU ?? (a0 + a1) / 2, mainU = room.mainDoorU ?? (a0 + gU) / 2, top = ceil - Lv - 0.02;
+    // glass partition: wood posts and rails, clear panes; a 1 m opening by the corridor
+    const gb0 = 1.25, gb1 = faceB, nP = Math.max(1, Math.round((gb1 - gb0) / 1.2));
+    for (let i = 0; i <= nP; i++) { const bb = gb0 + (gb1 - gb0) * i / nP; B(gU - 0.04, gU + 0.04, 0, top, bb - 0.04, bb + 0.04, FCOL.lightWood); }
+    B(gU - 0.04, gU + 0.04, 0, top, 0.2, 0.28, FCOL.lightWood);
+    B(gU - 0.04, gU + 0.04, 2.15, top, 0.28, gb0, FCOL.lightWood);                 // over the opening
+    for (const [y0, y1] of [[0, 0.1], [2.1, 2.16], [top - 0.06, top]]) B(gU - 0.035, gU + 0.035, y0, y1, gb0, gb1, FCOL.lightWood);
+    B(gU - 0.006, gU + 0.006, 0.1, top - 0.06, gb0, gb1, FCOL.glass);
+    // library: bookcase in the far corner (along the courtyard wall and down the side wall)
     const book = (u0, u1, b0, b1, alongA) => {
       B(u0, u1, 0, 1.85, b0, b1, FCOL.lightWood);
       const n2 = Math.floor(((alongA ? u1 - u0 : b1 - b0) - 0.04) / 0.38);
       for (let r = 0; r < 5; r++) for (let j = 0; j < n2; j++) {
         const y = 0.08 + r * 0.36, c0 = (alongA ? u0 : b0) + 0.04 + j * 0.38;
         const col = hash(r, j, u0) < 0.7 ? FCOL.paint[(r + j) % 4] : FCOL.frame;
-        if (alongA) B(c0, c0 + 0.3, y, y + 0.27, b0 - 0.012, b0, col); else B(u0 - 0.012, u0, y, y + 0.27, c0, c0 + 0.3, col);
+        if (alongA) B(c0, c0 + 0.3, y, y + 0.27, b0 - 0.012, b0, col); else B(u1, u1 + 0.012, y, y + 0.27, c0, c0 + 0.3, col);
       }
     };
-    if (a1 - 1.8 > clear1) book(a1 - 1.8, a1 - 0.36, Dc - 0.36, Dc, true);
-    book(a1 - 0.36, a1, Math.max(0.6, Dc - 1.5), Dc, false);
-    const tu = (clear1 + a1 - 0.4) / 2;
-    if (a1 - 0.4 - clear1 > 1.2) {
-      const tb = Math.max(0.7, Dc - 1.4);
-      B(tu - 0.38, tu + 0.38, 0.72, 0.76, tb - 0.38, tb + 0.38, FCOL.lightWood);
-      for (const du of [-0.33, 0.33]) for (const db of [-0.33, 0.33]) B(tu + du - 0.02, tu + du + 0.02, 0, 0.72, tb + db - 0.02, tb + db + 0.02, FCOL.frame);
-      plasticChairSide(tu - 0.68, tb, 1); plasticChairSide(tu + 0.68, tb, -1);
+    book(a0 + 0.36, a0 + 1.55, D - 0.36, D, true);
+    book(a0, a0 + 0.36, D - 1.75, D, false);
+    // bench desk down the side wall with plastic chairs facing it, a big painting above
+    const bd0 = room.ax0 != null ? 2.35 : 0.45, bd1 = D - 1.95;                  // past the alcove by the corridor
+    if (room.ax0 != null) { const u = (room.x0 + room.ax0) / 2; C(u, 0.2, 1.0, 0.2, 0.4, 'y', FCOL.carton); C(u, 0.75, 1.0, 0.3, 0.7, 'y', FCOL.paint[3]); }
+    if (bd1 - bd0 > 1) {
+      B(a0, a0 + 0.5, 0.73, 0.77, bd0, bd1, FCOL.lightWood);
+      for (let bq = bd0; bq <= bd1 - 0.03; bq += Math.max(0.9, (bd1 - bd0 - 0.04) / Math.ceil((bd1 - bd0) / 1.4))) B(a0 + 0.03, a0 + 0.47, 0, 0.73, bq, bq + 0.04, FCOL.frame);
+      for (let bq = bd0 + 0.4; bq < bd1 - 0.2; bq += 0.75) plasticChairSide(a0 + 0.75, bq, -1);
+      const pu = a0 - 0.002; B(pu, pu + 0.02, 1.45, 2.35, (bd0 + bd1) / 2 - 0.65, (bd0 + bd1) / 2 + 0.65, FCOL.curtainRed);
+      B(pu + 0.02, pu + 0.025, 1.6, 2.2, (bd0 + bd1) / 2 - 0.5, (bd0 + bd1) / 2 + 0.1, FCOL.yellow);
     }
-    const tvU = Math.max(clear1 + 0.2, doorU + d.w / 2 + 0.2);
-    if (a1 - 0.6 - tvU > 1.2) { B(tvU, tvU + 1.2, 0, 0.5, 0, 0.42, FCOL.frame); B(tvU + 0.05, tvU + 1.15, 0.55, 1.25, 0.18, 0.22, FCOL.screen); }
-    B(a1 - 0.04, a1, 0.85, 1.7, 0.4, 1.2, FCOL.sheet);
-    // potted plants either side of the courtyard door
-    for (const s2 of [-1, 1]) { const u = mainU + s2 * 1.15, Dp = Dat(u - 0.2, u + 0.2); C(u, 0.2, Dp - 0.3, 0.2, 0.4, 'y', FCOL.carton); C(u, 0.75, Dp - 0.3, 0.35, 0.7, 'y', FCOL.paint[3]); }
-    C(a0 + W * 0.3, ceil - Lv - 0.35, D * 0.5, 0.12, 0.12, 'y', FCOL.fan);
-    B(a0 + W * 0.3 - 0.6, a0 + W * 0.3 + 0.6, ceil - Lv - 0.42, ceil - Lv - 0.4, D * 0.5 - 0.05, D * 0.5 + 0.05, FCOL.fan);
+    // TV and whiteboard on stands against the glass, facing the room
+    const tvB = D - 2.3;
+    B(gU - 0.55, gU - 0.1, 0, 0.75, tvB - 0.5, tvB + 0.5, FCOL.frame);
+    B(gU - 0.4, gU - 0.36, 0.8, 1.45, tvB - 0.6, tvB + 0.6, FCOL.screen);
+    const wbB = tvB - 1.5;
+    if (wbB > 1.2) {
+      for (const db of [-0.55, 0.55]) B(gU - 0.35, gU - 0.31, 0, 1.85, wbB + db - 0.02, wbB + db + 0.02, FCOL.steelGrey);
+      B(gU - 0.36, gU - 0.33, 0.85, 1.75, wbB - 0.6, wbB + 0.6, FCOL.sheet);
+      B(gU - 0.6, gU - 0.1, 0.05, 0.08, wbB - 0.6, wbB + 0.6, FCOL.steelGrey);
+    }
+    // plant beside the French doors
+    { const u = mainU - 1.15; C(u, 0.2, D - 0.3, 0.2, 0.4, 'y', FCOL.carton); C(u, 0.75, D - 0.3, 0.33, 0.7, 'y', FCOL.paint[3]); }
+    // games room: yellow wall, the painting, long desk with chairs facing the wall
+    B(a1 + 0.002, a1 - 0.004, 0.12, ceil - Lv - 0.02, 0.0, faceB, FCOL.yellow);
+    const py = a1 - 0.005, pc = D * 0.5;
+    B(py, py + 0.01, 1.3, 2.45, pc - 0.95, pc + 0.95, FCOL.screen);
+    B(py - 0.004, py, 1.38, 2.37, pc - 0.87, pc + 0.87, FCOL.paint[1]);
+    B(py - 0.008, py - 0.004, 1.5, 2.25, pc - 0.75, pc - 0.1, FCOL.plastic);
+    B(a1 - 0.5, a1, 0.72, 0.76, 0.35, D - 0.15, FCOL.lightWood);
+    for (const bq of [0.37, (0.35 + D - 0.15) / 2, D - 0.2]) B(a1 - 0.48, a1 - 0.02, 0, 0.72, bq - 0.02, bq + 0.02, FCOL.frame);
+    for (let bq = 0.75; bq < D - 0.4; bq += 0.78) plasticChairSide(a1 - 0.75, bq, 1);
+    // two carrom boards on X stands with chairs round them
+    const cu = (gU + 0.05 + a1 - 1.05) / 2;
+    for (const cb of [D * 0.3, D * 0.7]) {
+      B(cu - 0.35, cu + 0.35, 0, 0.68, cb - 0.015, cb + 0.015, FCOL.frame); B(cu - 0.015, cu + 0.015, 0, 0.68, cb - 0.35, cb + 0.35, FCOL.frame);
+      B(cu - 0.44, cu + 0.44, 0.68, 0.74, cb - 0.44, cb + 0.44, FCOL.wood); B(cu - 0.37, cu + 0.37, 0.74, 0.745, cb - 0.37, cb + 0.37, FCOL.lightWood);
+      for (const s2 of [-1, 1]) { plasticChairSide(cu + s2 * 0.78, cb, -s2); plasticChair(cu, cb + s2 * 0.78, -s2); }
+    }
+    // ceiling fans
+    for (const fu of [(a0 + gU) / 2, (gU + a1) / 2]) { C(fu, ceil - Lv - 0.35, D * 0.5, 0.12, 0.12, 'y', FCOL.fan); B(fu - 0.6, fu + 0.6, ceil - Lv - 0.42, ceil - Lv - 0.4, D * 0.5 - 0.05, D * 0.5 + 0.05, FCOL.fan); }
+  } else if (type === 'entry') {
+    // the entrance lobby (video): open to the corridor between pillars; the exit door in the far wall with glazed
+    // panels either side, potted plants by it, a mirror, curtained windows; a red accent wall with a landscape
+    // painting and a wooden sofa set; downlights; a CCTV camera up in the corner
+    curtains(FCOL.curtainGrey);
+    const mainU = room.mainDoorU ?? (a0 + a1) / 2;
+    wallPaint(1, FCOL.red);
+    const c = D * 0.5, sw = FCOL.wood;
+    // three-seater against the red wall
+    B(a1 - 0.75, a1 - 0.02, 0.0, 0.38, c - 0.95, c + 0.95, sw); B(a1 - 0.72, a1 - 0.15, 0.38, 0.5, c - 0.9, c + 0.9, FCOL.cushion);
+    B(a1 - 0.15, a1 - 0.02, 0.38, 0.9, c - 0.95, c + 0.95, sw); B(a1 - 0.2, a1 - 0.14, 0.5, 0.85, c - 0.88, c + 0.88, FCOL.cushion);
+    for (const s2 of [-1, 1]) B(a1 - 0.75, a1 - 0.02, 0.38, 0.65, c + s2 * 0.95 - (s2 > 0 ? 0.06 : 0), c + s2 * 0.95 + (s2 < 0 ? 0.06 : 0), sw);
+    // low table and two armchairs facing the sofa
+    B(a1 - 1.75, a1 - 1.15, 0.38, 0.42, c - 0.5, c + 0.5, sw);
+    for (const db of [-0.42, 0.42]) for (const du of [-0.27, 0.27]) B(a1 - 1.45 + du - 0.02, a1 - 1.45 + du + 0.02, 0, 0.38, c + db - 0.02, c + db + 0.02, sw);
+    for (const s2 of [-1, 1]) {
+      const ub = a1 - 2.45, bb = c + s2 * 0.6;
+      B(ub, ub + 0.65, 0.0, 0.38, bb - 0.33, bb + 0.33, sw); B(ub + 0.03, ub + 0.6, 0.38, 0.5, bb - 0.28, bb + 0.28, FCOL.cushion);
+      B(ub, ub + 0.08, 0.38, 0.85, bb - 0.33, bb + 0.33, sw);
+      for (const e of [-1, 1]) B(ub, ub + 0.65, 0.38, 0.62, bb + e * 0.33 - 0.03, bb + e * 0.33 + 0.03, sw);
+    }
+    // landscape painting on the red wall
+    const py = along[1] - 0.075;
+    B(py, py + 0.01, 1.35, 2.05, c - 0.55, c + 0.55, FCOL.frame); B(py - 0.004, py, 1.4, 2.0, c - 0.5, c + 0.5, FCOL.paint[3]);
+    B(py - 0.008, py - 0.004, 1.4, 1.62, c - 0.5, c + 0.5, FCOL.carton);
+    // plants by the door, mirror beside it, doormat
+    for (const [du, r] of [[-1.55, 0.36], [-2.15, 0.28], [1.6, 0.3]]) { const u = mainU + du; if (u - r < a0 || u + r > a1) continue; C(u, 0.2, D - 0.32, 0.2, 0.4, 'y', FCOL.carton); C(u, 0.8, D - 0.32, r, 0.8, 'y', FCOL.paint[3]); }
+    const mu = mainU + 2.2;
+    if (mu + 0.3 < a1) { B(mu - 0.32, mu + 0.32, 0.95, 2.05, faceB - 0.03, faceB, FCOL.wood); B(mu - 0.26, mu + 0.26, 1.01, 1.99, faceB - 0.035, faceB - 0.03, FCOL.mirror); }
+    B(mainU - 0.7, mainU + 0.7, 0.006, 0.016, D - 1.0, D - 0.05, FCOL.frame);
+    // a wooden bench and a painting on the other side wall
+    B(a0, a0 + 0.45, 0.4, 0.45, c - 0.9, c + 0.9, sw); for (const bq of [c - 0.85, c + 0.8]) B(a0 + 0.03, a0 + 0.42, 0, 0.4, bq, bq + 0.05, sw);
+    B(along[0] + 0.07, along[0] + 0.08, 1.3, 2.1, c - 0.45, c + 0.45, FCOL.paint[0]);
+    // downlights, CCTV
+    for (const fu of [a0 + W * 0.25, a0 + W * 0.5, a0 + W * 0.75]) for (const fb2 of [D * 0.3, D * 0.75]) C(fu, ceil - Lv - 0.012, fb2, 0.07, 0.012, 'y', FCOL.sheet);
+    B(a0 + 0.02, a0 + 0.16, ceil - Lv - 0.25, ceil - Lv - 0.15, D - 0.15, D + 0.05, FCOL.sheet);
   } else if (type === 'hp') {
     curtains(FCOL.curtainOrange);
     const bw = Math.min(1.5, W - 1.2), bu = (a0 + a1) / 2;

@@ -199,6 +199,12 @@ export class HorrorAudio {
     o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 1);
   }
 
+  rattle() {        // a locked handle: two short metallic clacks
+    if (!this.ctx) return;
+    this.burst(2400, 6, 0.12, 0.05, 'bandpass');
+    setTimeout(() => this.burst(2000, 6, 0.1, 0.05, 'bandpass'), 110);
+  }
+
   footstep(running) {
     if (!this.ctx) return;
     this.burst(130 + Math.random() * 50, 1.2, running ? 0.14 : 0.12, running ? 0.5 : 0.34, 'lowpass');

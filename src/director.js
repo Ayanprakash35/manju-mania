@@ -159,7 +159,7 @@ export class Director {
     const g = this.shape; g.position.copy(p);
     g.lookAt(this.camera.position.x, p.y, this.camera.position.z);         // it faces you
     g.visible = true;
-    this.fig = { t: 0, seen: 0, beat: false };
+    this.fig = { t: 0, seen: 0, beat: false, life: rnd(1.8, 3.2) };
   }
   vanish(flicker = true) {
     this.shape.visible = false; this.fig = null;
@@ -173,10 +173,12 @@ export class Director {
     const dir = new THREE.Vector3(p.x - cam.x, 0, p.z - cam.z).normalize();
     const look = dir.dot(this.fwd());                                        // 1 = dead ahead
     if (look > 0.8 && !s.beat) { s.beat = true; this.audio.heartbeat(5, 1.25); }
-    if (d < 5) return this.vanish();                                          // never lets you reach it
-    if (look > 0.97 && d < 10 && this.torchOn && this.torchOut <= 0) { s.seen += dt; if (s.seen > 1.2) return this.vanish(); }   // lit by the torch
-    if (s.t > 6 && look < 0.4) return this.vanish(false);                     // gone when you look back
-    if (s.t > 14) return this.vanish();
+    // owner: a glimpse, not a visitor. Gone the moment you are within 4 m, after a second in the torch,
+    // as soon as you look away, and never more than ~3 s however you play it
+    if (d < 4) { this.audio.pop(); return this.vanish(); }
+    if (look > 0.97 && d < 10 && this.torchOn && this.torchOut <= 0) { s.seen += dt; if (s.seen > 0.6) return this.vanish(); }   // lit by the torch
+    if (s.t > 1.2 && look < 0.5) return this.vanish(false);                   // gone when you look back
+    if (s.t > s.life) return this.vanish();
   }
 
   blackout() {
@@ -210,7 +212,7 @@ export class Director {
 
   nearDoors(maxD, filter) {
     const cam = this.camera.position;
-    return this.roomDoors.list.filter((d) => d.r.kind === 'room' && Math.abs(d.r.y - (cam.y - 1.43)) < 1 && Math.hypot(d.r.x - cam.x, d.r.z - cam.z) < maxD && filter(d));
+    return this.roomDoors.list.filter((d) => d.r.kind === 'room' && !d.r.locked && Math.abs(d.r.y - (cam.y - 1.43)) < 1 && Math.hypot(d.r.x - cam.x, d.r.z - cam.z) < maxD && filter(d));
   }
   doorCreak() {
     const cam = this.camera.position;
