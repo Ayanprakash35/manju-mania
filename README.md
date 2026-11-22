@@ -23,7 +23,7 @@ The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the 
   joint crackling; while he stares at you, his red eyes show even in total darkness.
 - **Chase atmosphere:** stare sting, pulsing bass, string cluster and drums; the screen edge closes in and red seeps
   into the shadows; a heartbeat speeds up as he gets near, even unseen.
-- **Caught:** camera snaps to his face, he transforms into his monster form (`manju_monster.glb`, built by `tools/manju_monster.py`), lunges and screams, then CONFISCATED (Try again / Quit to menu) with a random warden line under the title.
+- **Caught:** camera snaps to his face, scream and glitch, then CONFISCATED (Try again / Quit to menu) with a random warden line under the title.
 - Console: `manju [status|here|away|off|on|chase|stare]`, `god`.
 
 ## Cheat console (src/console.js)
