@@ -134,12 +134,20 @@ addEventListener('keyup', (e) => { keys[e.code] = false; });
 // ---------------- title / pause menu ----------------
 // state: 'menu' (title screen, live attract camera), 'play', 'pause' (Esc)
 let state = 'menu', ready = false, fresh = false;
+// colour saturation (Settings slider, 0-200 %): a CSS filter on the canvas so it works with or without the retro filter
+const SAT_KEY = 'manju.saturation';
+let saturation = 1;
+try { const v = parseFloat(localStorage.getItem(SAT_KEY)); if (v >= 0 && v <= 2) saturation = v; } catch {}
+const applySaturation = () => { renderer.domElement.style.filter = Math.abs(saturation - 1) < 0.005 ? '' : `saturate(${saturation.toFixed(2)})`; };
+applySaturation();
 const menu = new Menu({
   newGame: () => { if (!ready) return; audio.start(); controls.lock(); fresh = true; },   // play starts once the pointer is locked
   resume: () => { audio.start(); controls.lock(); },
   quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; health.reset(); },
   setRetro: (v) => retro.setEnabled(v), retro: () => retro.enabled,
   setSound: (v) => audio.setMuted(!v), sound: () => !audio.muted,
+  saturation: () => saturation,
+  setSaturation: (v) => { saturation = Math.min(2, Math.max(0, v)); applySaturation(); try { localStorage.setItem(SAT_KEY, String(saturation)); } catch {} },
   tick: () => audio.tick(),
 });
 // first interaction anywhere on the title screen starts the ambience (browsers block audio before that)

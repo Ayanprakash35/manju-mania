@@ -69,8 +69,15 @@ is (quieter and duller with distance, more muffled from another floor):
   notice board and switches by the door.
 - **Common room** (courtyard side of the front, pushed 3.4 m out into the courtyard so it has the video's depth): open
   to the corridor. West, the library: L bookcase in the courtyard corner, bench desk with plastic chairs, TV and
-  whiteboard on stands, the wooden French doors to the courtyard. East, behind a wood-framed glass partition, the games
-  room: yellow wall with a big painting and a long desk with plastic chairs, two carrom boards on X stands.
+  whiteboard on stands, the wooden French doors to the courtyard. East, open to it (no glass partition), the games
+  room: yellow wall with a big painting and a long desk with plastic chairs, two carrom boards on X stands. Outside
+  the French doors, a wide stone platform level with the floor runs the full width of the front, three steps down
+  along its edge, a potted plant at each front corner.
+- **Study room** (south wing, courtyard side, also pushed 3.4 m out into the courtyard): mint window wall, red curtains,
+  desks down both side walls and along the windows, two rows of back-to-back tables down the middle, plastic chairs,
+  a TV under a red cloth by the door.
+- **Laundry room** (south-west, video 112-120 s): steel slotted racks (low under the window, tall down the side walls)
+  with blue laundry sacks on the shelves, one desk tucked against the wall beside the door, brown curtains, a wall fan.
 - **Entrance lobby** (across the corridor; three outer rooms merged and pushed 3 m out through the north wall): open to
   the corridor between pillars; the glazed wooden exit door (locked) between glass side panels with steps outside,
   potted plants, a mirror, curtained windows, a red accent wall with a painting and a wooden sofa set, downlights.
@@ -85,7 +92,7 @@ is (quieter and duller with distance, more muffled from another floor):
   the Shapr3D model, so everything south of a cut just past the stairwells is moved 7.4 m south (`STRETCH` in
   tools/interior.mjs, applied to the model's vertices in tools/convert.mjs); the wings, slabs and courtyard stretch to
   fill the band. East wing from the stairs south: office, three bedrooms, room 18, the towel nook.
-- **Ground floor also:** H.P. residence, study room, laundry room, stores, and the house parent's office opposite the east
+- **Ground floor also:** H.P. residence, stores, and the house parent's office opposite the east
   stairs.
 
 ## Cheat console (src/console.js)
@@ -112,7 +119,9 @@ Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down re
 | `pause`, `menu` | pause menu / back to the title |
 
 ## Title menu (src/menu.js)
-Glitched wordmark and menu (new game / controls / settings); Esc opens it as a pause menu. Behind it the live
+Glitched wordmark and menu (new game / controls / settings); Esc opens it as a pause menu. Settings: retro filter,
+sound, and a saturation slider (0-200 %, a CSS `saturate()` on the canvas so it works with or without the retro
+filter; remembered in localStorage). Behind it the live
 scene plays slow camera shots cut with glitch tears, with the torch cutting in and out.
 
 ## Night, fog & horror (src/main.js, src/atmosphere.js, src/director.js, src/audio.js)

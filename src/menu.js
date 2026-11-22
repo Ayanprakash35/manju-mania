@@ -84,6 +84,17 @@ export class Menu {
       const h = document.createElement('h3'); h.textContent = 'Settings'; this.panel.appendChild(h);
       this.panel.appendChild(row('Retro filter', this.h.retro, this.h.setRetro));
       this.panel.appendChild(row('Sound', this.h.sound, this.h.setSound));
+      if (this.h.saturation) {                       // saturation slider, 0-200 %
+        const wrap = document.createElement('label'); wrap.className = 'opt slider';
+        const name = document.createElement('span'); name.textContent = 'Saturation';
+        const val = document.createElement('span'); val.className = 'v';
+        const inp = document.createElement('input'); inp.type = 'range'; inp.min = '0'; inp.max = '200'; inp.step = '5';
+        inp.value = String(Math.round(this.h.saturation() * 100));
+        const draw = () => { val.textContent = inp.value + '%'; };
+        inp.addEventListener('input', () => { this.h.setSaturation(+inp.value / 100); draw(); });
+        inp.addEventListener('keydown', (e) => e.stopPropagation());     // arrows move the slider, not the menu
+        draw(); wrap.append(name, inp, val); this.panel.appendChild(wrap);
+      }
     }
   }
 

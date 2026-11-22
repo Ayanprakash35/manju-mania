@@ -33,6 +33,9 @@
   #panel .opt { width: 100%; padding: 6px 0; font-size: 18px; display: flex; justify-content: space-between; }
   #panel .opt .v { color: #5fa49e; }
   #panel .opt:hover { color: #fff; }
+  #panel .opt.slider { align-items: center; gap: 14px; cursor: default; }
+  #panel .opt.slider input { flex: 1; accent-color: #5fa49e; cursor: pointer; }
+  #panel .opt.slider .v { min-width: 3.2em; text-align: right; }
   #loading { margin-top: 18px; font: 12px ui-monospace, Menlo, monospace; letter-spacing: 3px; color: rgba(223,228,226,.5); animation: blink 1.1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: .2; } }
   #menu .foot { position: absolute; right: 22px; bottom: 16px; font: 11px ui-monospace, Menlo, monospace; letter-spacing: 2px; color: rgba(223,228,226,.3); text-align: right; line-height: 1.7; }
