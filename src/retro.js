@@ -168,10 +168,10 @@ export function setupRetro(renderer, scene, camera) {
   // low-res target + post pass
   const rt = new THREE.WebGLRenderTarget(426, 240, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
   const post = new THREE.ShaderMaterial({
-    uniforms: { tDiffuse: { value: rt.texture }, uRes: { value: new THREE.Vector2(426, 240) }, uTime: { value: 0 }, uOut: { value: new THREE.Vector2(1, 1) } },
+    uniforms: { tDiffuse: { value: rt.texture }, uRes: { value: new THREE.Vector2(426, 240) }, uTime: { value: 0 }, uOut: { value: new THREE.Vector2(1, 1) }, uChase: { value: 0 } },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: `
-      uniform sampler2D tDiffuse; uniform vec2 uRes; uniform vec2 uOut; uniform float uTime; varying vec2 vUv;
+      uniform sampler2D tDiffuse; uniform vec2 uRes; uniform vec2 uOut; uniform float uTime; uniform float uChase; varying vec2 vUv;
       float bayer(vec2 p){ int x=int(mod(p.x,4.0)), y=int(mod(p.y,4.0)); int i=x+y*4;
         int m[16]=int[16](0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5); return float(m[i])/16.0-0.5; }
       float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
@@ -182,7 +182,7 @@ export function setupRetro(renderer, scene, camera) {
         if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_FragColor = vec4(0.0,0.0,0.0,1.0); return; }
         vec2 px = floor(uv * uRes);
         vec2 suv = (px + 0.5) / uRes;
-        float ca = 0.4 / uRes.x;                        // faint chromatic fringe
+        float ca = (0.4 + uChase * 1.6) / uRes.x;                        // faint chromatic fringe
         vec3 col = vec3(texture2D(tDiffuse, suv + vec2(ca,0.0)).r, texture2D(tDiffuse, suv).g, texture2D(tDiffuse, suv - vec2(ca,0.0)).b);
         col = clamp(col * (2.51 * col + 0.03) / (col * (2.43 * col + 0.59) + 0.14), 0.0, 1.0);   // ACES-ish tone map (target is linear)
         col = pow(col, vec3(1.0 / 2.2));                                                       // to sRGB
@@ -198,7 +198,9 @@ export function setupRetro(renderer, scene, camera) {
         float band = smoothstep(0.0, 0.02, abs(fract(uv.y * 0.7 - uTime * 0.08) - 0.5) - 0.48);
         col *= 0.985 + 0.015 * band;
         col *= 0.975 + 0.025 * sin(vUv.y * uOut.y * 3.14159);
-        col *= 1.0 - 0.7 * pow(length(cc) * 1.3, 2.2);
+        float pulse = 0.5 + 0.5 * sin(uTime * 9.5);
+        col *= 1.0 - (0.7 + uChase * (0.5 + 0.25 * pulse)) * pow(length(cc) * 1.3, 2.2 - uChase * 0.6);
+        col = mix(col, col * vec3(1.25, 0.72, 0.68), uChase * 0.55 * (1.0 - smoothstep(0.1, 0.6, lum)));   // red creeps into the shadows
                 gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
       }`,
     depthTest: false, depthWrite: false,
@@ -229,5 +231,5 @@ export function setupRetro(renderer, scene, camera) {
     renderer.setRenderTarget(null); renderer.render(postScene, postCam);
   }
   const setTubes = (v) => { for (const t of tubes) t.emissiveIntensity = v ?? 0.12; };
-  return { apply, render, setEnabled, setTubes, mist: mistU, fill, get enabled() { return enabled; } };
+  return { apply, render, setEnabled, setTubes, mist: mistU, setChase: (v) => { post.uniforms.uChase.value = v; }, fill, get enabled() { return enabled; } };
 }

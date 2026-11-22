@@ -135,6 +135,18 @@ export class DevConsole {
       sound: { h: 'sound [on|off] — mute / unmute', run: ([x]) => { a.audio.setMuted(!onoff(x, !a.audio.muted)); return `Sound ${a.audio.muted ? 'off' : 'on'}.`; } },
       volume: { h: 'volume <0-1> — master volume', run: ([x]) => { a.setVolume(Math.max(0, Math.min(1, num(x, 'volume')))); return 'Volume set.'; } },
       doors: { h: 'doors open|close — every room door at once', run: ([x]) => { if (!['open', 'close'].includes(x)) throw new Error('doors open | close'); a.setDoors(x === 'open'); return `All doors ${x === 'open' ? 'open' : 'closed'}.`; } },
+      manju: { h: 'manju [status|here|away|off|on|chase|stare] — the guard', run: ([x = 'status']) => {
+        const m = a.manju, f = a.feet0();
+        if (!m.ready || !m.nav?.ready) return 'Manju is still loading (the walkable map builds in the first few seconds).';
+        if (x === 'status') { const d = Math.hypot(m.pos.x - f.x, m.pos.z - f.z); return `state ${m.state}, ${d.toFixed(1)} m away, floor ${m.pos.y > 6.5 ? 2 : m.pos.y > 3.4 ? 1 : 0}, light ${m.light.toFixed(2)} (${m.visible ? 'visible' : 'in the dark'}), awareness ${m.awareness.toFixed(2)}`; }
+        if (x === 'here') { const dir = a.camDirNow(); dir.y = 0; dir.normalize(); const p = f.clone().addScaledVector(dir, 8); const id = m.nav.nearest(p); if (id < 0) throw new Error('no walkable spot in front of you'); m.place(m.nav.pos(id)); m.setState('idle'); return 'Manju is 8 m in front of you.'; }
+        if (x === 'away') { m.spawnFar(f); return 'Sent him far away.'; }
+        if (x === 'off') { m.enabled = false; m.state = 'off'; m.alert = 0; return 'Manju off.'; }
+        if (x === 'on') { m.enabled = true; if (m.state === 'off') m.spawnFar(f); return 'Manju on.'; }
+        if (x === 'chase' || x === 'stare') { if (m.state === 'off') m.spawnFar(f); m.lastKnown.copy(f); m.awareness = 1; m.setState(x); return x === 'chase' ? 'Run.' : 'He sees you.'; }
+        throw new Error('manju status | here | away | off | on | chase | stare');
+      } },
+      god: { h: 'god [on|off] — Manju can\'t catch you', run: ([x]) => { a.cheat.god = onoff(x, a.cheat.god); a.manju.god = a.cheat.god; return `God mode ${a.cheat.god ? 'on' : 'off'}.`; } },
       hud: { h: 'hud [on|off] — floor label, crosshair', run: ([x]) => { const on = onoff(x, !document.body.classList.contains('nohud')); document.body.classList.toggle('nohud', !on); return `HUD ${on ? 'on' : 'off'}.`; } },
     };
     return C;

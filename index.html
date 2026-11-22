@@ -51,6 +51,17 @@
   #devcon .row span { color: #5fa49e; }
   #devcon input { all: unset; flex: 1; color: #fff; caret-color: #5fa49e; }
   body.nohud #crosshair, body.nohud #hud, body.nohud #hint { display: none !important; }
+  #stamina { position: fixed; left: 50%; bottom: 26px; width: 180px; height: 3px; margin-left: -90px; background: rgba(255,255,255,.12); opacity: 0; transition: opacity .4s; pointer-events: none; }
+  #stamina > i { display: block; height: 100%; width: 100%; background: rgba(230,236,234,.75); }
+  #stamina.low > i { background: #c0453a; }
+  body.inmenu #stamina { display: none; }
+  #dead { position: fixed; inset: 0; z-index: 20; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #e8ecea; font-family: "Avenir Next", "Segoe UI", sans-serif; }
+  #dead[hidden] { display: none; }
+  #dead h1 { margin: 0; font: 900 clamp(48px, 11vw, 140px) "Arial Black", Impact, sans-serif; letter-spacing: .25em; text-indent: .25em; color: #f2f4f2; text-shadow: -4px 0 #ff2a2a, 4px 0 #22e0ff; animation: deadglitch 2.2s steps(1) infinite; }
+  @keyframes deadglitch { 0%,100% { transform: none; clip-path: none; } 7% { transform: translateX(-8px); clip-path: inset(10% 0 55% 0); } 8% { transform: none; clip-path: none; } 52% { transform: translateX(6px); clip-path: inset(60% 0 12% 0); } 53% { transform: none; clip-path: none; } }
+  #dead p { margin: 0 0 24px; font: 13px ui-monospace, Menlo, monospace; letter-spacing: 4px; text-transform: uppercase; color: rgba(232,236,234,.5); }
+  #dead button { all: unset; cursor: pointer; padding: 6px 26px; font-size: 22px; text-transform: uppercase; letter-spacing: .5px; }
+  #dead button:hover, #dead button:focus { background: #5fa49e; color: #071012; }
   body.inmenu #crosshair, body.inmenu #hud, body.inmenu #hint { display: none !important; }
   #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 2px #000; pointer-events: none; }
   #hud { position: fixed; left: 14px; top: 12px; color: #fff; font: bold 14px 'Courier New', monospace; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; line-height: 1.5; }
@@ -84,6 +95,8 @@
   <div class="foot">Headphones recommended<br>` opens the console<br>Prototype build</div>
 </div>
 <div id="tear"></div>
+<div id="stamina"><i></i></div>
+<div id="dead" hidden><h1>CAUGHT</h1><p>Manju found you</p><button id="again">Try again</button><button id="giveup">Quit to menu</button></div>
 <div id="crosshair"></div>
 <div id="hint"></div>
 <div id="hud"><b id="floor">Outside</b><br><span id="mode">Walking</span></div>
