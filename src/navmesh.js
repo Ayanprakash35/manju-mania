@@ -63,6 +63,36 @@ export class NavGrid {
     });
   }
 
+  // Restricted view over one floor, for characters that never leave it: Mutty slices y < 2.0 (ground
+  // floor), Zoya roughly 3.35-4.65 (first floor), both excluding the stair rectangles. Keeps the grid bounds/collider, remaps the kept
+  // nodes to 0..n-1 and rebuilds neighbour lists, column buckets and reachability for the subset.
+  slice(predicate) {
+    const oldToNew = new Int32Array(this.x.length).fill(-1), keep = [];
+    for (let id = 0; id < this.x.length; id++) {
+      if (!predicate(this, id)) continue;
+      oldToNew[id] = keep.length;
+      keep.push(id);
+    }
+    const s = Object.create(NavGrid.prototype);          // keeps nearest/pos/path/smooth; caches stay lazy
+    s.col = this.col;
+    s.b = this.b;
+    s.nx = this.nx; s.nz = this.nz;
+    s.x = new Array(keep.length); s.y = new Array(keep.length); s.z = new Array(keep.length);
+    s.nb = new Array(keep.length);
+    s.cols = new Array(this.nx * this.nz);
+    for (let n = 0; n < keep.length; n++) {
+      const id = keep[n];
+      s.x[n] = this.x[id]; s.y[n] = this.y[id]; s.z[n] = this.z[id];
+      s.nb[n] = [];
+      for (const m of this.nb[id]) { const m2 = oldToNew[m]; if (m2 >= 0) s.nb[n].push(m2); }
+      const c = Math.floor((s.x[n] - this.b.x0) / CELL) + Math.floor((s.z[n] - this.b.z0) / CELL) * this.nx;
+      (s.cols[c] ||= []).push(n);
+    }
+    s.ready = true;
+    s.components();                                       // empty slice: reach is empty, no throwing
+    return s;
+  }
+
   link() {
     const rc = new THREE.Raycaster(); rc.firstHitOnly = true;
     const a = new THREE.Vector3(), d = new THREE.Vector3();
@@ -125,7 +155,7 @@ export class NavGrid {
 
   // A* from node a to node b; returns node ids (start excluded) or null
   path(a, b, maxNodes = 60000) {
-    if (a < 0 || b < 0) return null;
+    if (a < 0 || b < 0 || a >= this.x.length || b >= this.x.length) return null;
     if (a === b) return [b];
     const N = this.x.length;
     const g = this._g ||= new Float32Array(N), came = this._came ||= new Int32Array(N), stamp = this._st ||= new Uint32Array(N);
