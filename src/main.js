@@ -614,6 +614,7 @@ function frame() {
     const threat = (state === 'play' || state === 'caught') ? Math.max(manju.alert, mutty.alert) : 0;
     const prox = state === 'play' ? Math.max(manju.prox, mutty.prox) : 0;
     audio.setThreat(state === 'play' || (state === 'caught' && !deadShown) ? threat : 0, state === 'play' ? prox : 0);
+    if (state !== 'play') audio.updateThreat(rawDt);          // audio.update only runs in play; keep the music fading out on the death screen, pause and menu
     retro.setChase(state === 'caught' ? 1 : threat);
     if (threat > 0.15 && director.fig) director.vanish(false);
     if (state === 'play' && wdt > 0 && !devcon?.open && threat < 0.15) director.update(wdt, { moving, torchOn });
