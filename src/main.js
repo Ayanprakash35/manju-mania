@@ -207,24 +207,17 @@ function caught() {
   state = 'caught'; caughtT = 0; caughtPos.copy(camera.position); lungeT = -1; deadShown = false;
   for (const k in keys) keys[k] = false;
 }
-// caught: he turns into the monster in front of you (~2 s), then lunges and screams into the camera, then black
+// caught: the camera snaps to his face, he screams, the screen tears, then black
 let lungeT = -1, deadShown = false;
-const catchLight = new THREE.PointLight(0xff6a55, 0, 6, 1.4); scene.add(catchLight);   // picks him out during the catch
+const catchLight = new THREE.PointLight(0xff6a55, 0, 6, 1.4); scene.add(catchLight);   // picks out his face during the catch
 function caughtUpdate(dt) {
   const t0 = caughtT; caughtT += dt;
-  const transforming = manju.monster?.phase;
-  const head = transforming ? manju.monster.head : manju.head;
-  if (head) { head.getWorldPosition(headW); if (headW.distanceTo(camera.position) > 0.7) { lookM.lookAt(camera.position, headW, camera.up); lookQ.setFromRotationMatrix(lookM); camera.quaternion.slerp(lookQ, Math.min(1, dt * 12)); } }
-  catchLight.position.copy(camera.position).y += 0.25; catchLight.intensity += (2.6 - catchLight.intensity) * Math.min(1, dt * 6);
-  if (!transforming) {
-    manju.mixer?.update(dt);
-    manju.root?.traverse((o) => { if (o.isSkinnedMesh) o.visible = true; });   // you see him now
-    if (t0 < 0.12 && caughtT >= 0.12) {
-      if (manju.startTransform(camera.position)) { audio.transformSound(2); menu.burst(320); torchFlicker = 0.3; }
-      else { audio.scream(); menu.burst(900); lungeT = caughtT; }            // monster not loaded: old jumpscare
-    }
-  } else if (manju.updateCatch(dt) === 'lunge') { audio.scream(); menu.burst(900); lungeT = caughtT; }
-  if (lungeT >= 0 && !deadShown && caughtT - lungeT >= 1.2) {
+  if (manju.head) { manju.head.getWorldPosition(headW); lookM.lookAt(camera.position, headW, camera.up); lookQ.setFromRotationMatrix(lookM); camera.quaternion.slerp(lookQ, Math.min(1, dt * 14)); }
+  catchLight.position.copy(camera.position).y += 0.25; catchLight.intensity += (2.2 - catchLight.intensity) * Math.min(1, dt * 6);
+  manju.mixer?.update(dt);
+  manju.root?.traverse((o) => { if (o.isSkinnedMesh) o.visible = true; });   // you see him now
+  if (t0 < 0.18 && caughtT >= 0.18) { audio.scream(); menu.burst(900); lungeT = caughtT; }
+  if (lungeT >= 0 && !deadShown && caughtT - lungeT >= 1.0) {
     deadShown = true; deadLineEl.textContent = pickConfiscatedLine();
     deadEl.hidden = false; document.body.classList.add('inmenu');
     if (controls.isLocked) controls.unlock();
@@ -234,11 +227,11 @@ function tryAgain() {
   catchLight.intensity = 0;
   deadEl.hidden = true; document.body.classList.remove('inmenu');
   respawn(); stamina = 1; exhausted = false; torchOn = true;
-  manju.endCatch(); manju.spawnFar(feetPos()); manju.alert = 0; manju.state = 'off'; manjuGrace = 12; director.reset();
+  manju.spawnFar(feetPos()); manju.alert = 0; manju.state = 'off'; manjuGrace = 12; director.reset();
   state = 'play'; controls.lock();
 }
 document.getElementById('again').addEventListener('click', () => tryAgain());
-document.getElementById('giveup').addEventListener('click', () => { deadEl.hidden = true; manju.endCatch(); catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; state = 'menu'; flying = false; director.reset(); audio.setHum(0); menu.open('title'); document.body.classList.add('inmenu'); });
+document.getElementById('giveup').addEventListener('click', () => { deadEl.hidden = true; catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; state = 'menu'; flying = false; director.reset(); audio.setHum(0); menu.open('title'); document.body.classList.add('inmenu'); });
 addEventListener('keydown', (e) => { if (!deadEl.hidden && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); tryAgain(); } });
 const doorsLoaded = roomDoors.load('./public/doors.json').catch((e) => console.warn('doors.json', e));
 
@@ -279,7 +272,6 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   nav = new NavGrid(collider, { x0: -35.3, x1: 29.1, z0: -12.0, z1: 20.5 });
   nav.build().then(() => { manju.nav = nav; console.log('nav nodes', nav.x.length); });
   manju.load('./public/models/manju.glb').then((root) => retro.apply(root)).catch((e) => console.warn('manju', e));
-  manju.loadMonster('./public/models/manju_monster.glb').then((root) => retro.apply(root)).catch((e) => console.warn('manju monster', e));
 
   respawn();
   await doorsLoaded;

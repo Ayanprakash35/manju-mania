@@ -84,47 +84,6 @@ export class Manju {
     return root;
   }
 
-  // monster form (separate rig, same proportions): Transform -> Caught (lunge and grab), only used when he catches you
-  async loadMonster(url) {
-    const gltf = await new GLTFLoader().loadAsync(url);
-    const root = gltf.scene; root.scale.setScalar(SCALE); root.visible = false;
-    root.traverse((o) => { if (o.isSkinnedMesh || o.isMesh) o.frustumCulled = false; });
-    const mixer = new THREE.AnimationMixer(root), actions = {};
-    for (const c of gltf.animations) actions[c.name] = mixer.clipAction(c);
-    this.monster = { root, mixer, actions, head: root.getObjectByName('head'), phase: null, t: 0 };
-    this.scene.add(root);
-    return root;
-  }
-  // he has caught you: swap in the monster facing the player and start transforming
-  startTransform(target) {
-    const M = this.monster; if (!M) return false;
-    this.root.visible = false;
-    // stand 1.7 m off the camera along his line to it, so the lunge ends in your face rather than through it
-    const dx = this.pos.x - target.x, dz = this.pos.z - target.z, L = Math.hypot(dx, dz) || 1;
-    M.root.position.set(target.x + dx / L * 1.7, this.pos.y, target.z + dz / L * 1.7);
-    M.root.rotation.y = Math.atan2(-dx, -dz);
-    M.root.visible = true; M.root.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.visible = true; });
-    M.mixer.stopAllAction();
-    const tr = M.actions.Transform; tr.reset(); tr.setLoop(THREE.LoopOnce, 1); tr.clampWhenFinished = true; tr.timeScale = 1.5; tr.play();
-    M.phase = 'transform'; M.t = 0;
-    return true;
-  }
-  // advance the catch animation; returns 'lunge' on the frame the lunge (and scream) begins
-  updateCatch(dt) {
-    const M = this.monster; if (!M || !M.phase) return null;
-    M.t += dt; M.mixer.update(dt);
-    if (M.phase === 'transform' && M.t >= M.actions.Transform.getClip().duration / 1.5) {
-      const c = M.actions.Caught; c.reset(); c.setLoop(THREE.LoopOnce, 1); c.clampWhenFinished = true; c.play();
-      M.actions.Transform.crossFadeTo(c, 0.12, false);
-      M.phase = 'lunge'; M.t = 0; return 'lunge';
-    }
-    return null;
-  }
-  endCatch() {            // back to plain Manju (after "try again")
-    if (this.monster) { this.monster.root.visible = false; this.monster.mixer.stopAllAction(); this.monster.phase = null; }
-    if (this.root) this.root.visible = true;
-  }
-
   play(name, fade = 0.25) {
     const a = this.actions[name]; if (!a || this.cur === a) return a;
     a.reset().setEffectiveWeight(1).fadeIn(fade).play();
