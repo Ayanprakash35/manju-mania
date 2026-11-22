@@ -89,7 +89,6 @@ const EXITS = [];
 // Rooms pushed out into the exterior (the player never goes outside) so they have the video's scale:
 // the common room beside the entrance and the three washrooms. face: which outer wall; u0..u1 along it; depth outward.
 const EXT = [
-  { id: 'oN6', face: 'N', u0: -15.3, u1: -8.1, depth: 3.5 },
   { id: 'oS7', face: 'S', u0: -11.7, u1: -2.5, depth: 2.5 },
   { id: 'oW2', face: 'W', u0: -5.1, u1: 2.3, depth: 2.5 },
   { id: 'oE2', face: 'E', u0: -5.1, u1: 2.3, depth: 2.5 },
@@ -101,8 +100,14 @@ const extRects = (e) => {          // [room rect, outer-wall band rect] as [x0, 
   if (e.face === 'W') { const f = OUTER.xw - e.depth; return [[f + t, IN.xw, e.u0, e.u1], [f, f + t, e.u0, e.u1]]; }
   const f = OUTER.xe + e.depth; return [[IN.xe, f - t, e.u0, e.u1], [f - t, f, e.u0, e.u1]];
 };
-// the open gap next to room 18 leading to the towel stand (video): part of the corridor, no wall, no door
-const NOOKS = ['oE8'];        // room 18 is oE7 (two rooms more since the stretch)   // owner: no doors through the outer walls (the old street entrances are removed)
+// towel nooks (video): at every corner the corridor runs on past the turn to a window in the outer wall.
+// Each is a corridor-wide dead end carved out of the corner room. end = the outer wall with the window.
+const NOOK_RECTS = [
+  { rect: [CORR.xi1, CORR.xo1, CORR.zo1, IN.zs], end: 'S' },     // SE: east corridor continues south (beside room 18)
+  { rect: [IN.xw, CORR.xo0, CORR.zi1, CORR.zo1], end: 'W' },     // SW: south corridor continues west (laundry door)
+  { rect: [CORR.xo0, CORR.xi0, IN.zn, CORR.zo0], end: 'N' },     // NW: west corridor continues north
+  { rect: [CORR.xo1, IN.xe, CORR.zo0, CORR.zi0], end: 'E' },     // NE: north corridor continues east
+];   // owner: no doors through the outer walls (the old street entrances are removed)
 
 const tallAt = () => true;
 const topAt = (z) => (tallAt(z) ? TOP_TALL : TOP_LOW);
@@ -140,6 +145,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   const Z = new Set([OUTER.zn, OUTER.zs, IN.zn, IN.zs, CORR.zo0, CORR.zi0, CORR.zi1, CORR.zo1, LOBBY.z1, LOBBY.voidZ1, SPLIT_Z, WALK.z0, WALK.z1, ...outerZ, ...innerW, ...innerE]);
   for (const r of Object.values(QUADS)) { X.add(r[0]); X.add(r[1]); Z.add(r[2]); Z.add(r[3]); }
   for (const e of EXT) for (const r of extRects(e)) { X.add(r[0]); X.add(r[1]); Z.add(r[2]); Z.add(r[3]); }
+  for (const { rect: r } of NOOK_RECTS) { X.add(r[0]); X.add(r[1]); Z.add(r[2]); Z.add(r[3]); }
   for (const st of STAIRS) {
     X.add(st.x0); X.add(st.x1); Z.add(st.z0); Z.add(st.z1); Z.add(st.z0 + STAIR.entry);
     const { laneA, laneB } = stairLanes(st); for (const v of [...laneA, ...laneB]) X.add(v);
@@ -152,6 +158,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
 
   const classify = (x, z) => {
     for (const e of EXT) { const [room, band] = extRects(e); if (inRect(x, z, room)) return e.id; if (inRect(x, z, band)) return 'wall'; }
+    for (const { rect } of NOOK_RECTS) if (inRect(x, z, rect)) return 'corr';
     if (!inRect(x, z, [IN.xw, IN.xe, IN.zn, IN.zs])) return inRect(x, z, [OUTER.xw, OUTER.xe, OUTER.zn, OUTER.zs]) ? 'wall' : 'out';
     for (const w of Object.values(WELLS)) if (inRect(x, z, w)) return 'void';
     for (const st of STAIRS) if (inRect(x, z, [st.x0, st.x1, st.z0, st.z1])) return st.id;
@@ -174,13 +181,17 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   };
   // rooms merged into one bigger space (owner's walkthrough: the bathrooms, common room and study room are big halls);
   // the partition between them disappears on every floor
-  const MERGE = { oS6: 'oS7', oS8: 'oS7', oW1: 'oW2', oE1: 'oE2', oN5: 'oN6', iS5: 'iS4' };
-  const classifyM = (x, z) => { const l = classify(x, z); if (NOOKS.includes(l)) return 'corr'; return MERGE[l] || l; };
+  // owner: bigger rooms. Shallow facade notches join their deep neighbour, doorless rooms join one with a door,
+  // the 0.8 m sliver beside the lobby joins the lobby, the corner rooms' leftovers beside the towel nooks join their neighbours
+  const MERGE = { oS6: 'oS7', oS8: 'oS7', oW1: 'oW2', oE1: 'oE2', oE0: 'oE2', oW8: 'oW7', iS5: 'iS4',
+    iN1: 'iN0', iN3: 'lobby', iS2: 'iS3', iS6: 'iS7' };
+  const classifyM = (x, z) => { const l = classify(x, z); return MERGE[l] || l; };
   const lab = [];
   for (let i = 0; i < NX; i++) { lab[i] = []; for (let k = 0; k < NZ; k++) lab[i][k] = classifyM((xs[i] + xs[i + 1]) / 2, (zs[k] + zs[k + 1]) / 2); }
   const L = (i, k) => (i < 0 || k < 0 || i >= NX || k >= NZ ? 'out' : lab[i][k]);
   const isBld = (l) => l !== 'out' && l !== 'court' && l !== 'wall' && l !== 'void';
   const isRoom = (l) => /^(o|i)[NSWE]\d/.test(l);
+  const isRoomL = (l) => isRoom(l) || l === 'lobby';
   const isStair = (l) => l.startsWith('st');
   // walkway cells: courtyard, outside the inner walkway rectangle, clear of the spiral towers and the entrance
   const isWalk = () => false;     // no covered walkway (owner: the courtyard facades are just windows)
@@ -205,7 +216,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   // each room's bounding rectangle (rooms are rectangles of grid cells)
   const roomRect = {};
   for (let i = 0; i < NX; i++) for (let k = 0; k < NZ; k++) {
-    const l = lab[i][k]; if (!isRoom(l)) continue;
+    const l = lab[i][k]; if (!isRoom(l) && l !== 'lobby') continue;
     const r = roomRect[l] ||= { id: l, x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity };
     r.x0 = Math.min(r.x0, xs[i]); r.x1 = Math.max(r.x1, xs[i + 1]); r.z0 = Math.min(r.z0, zs[k]); r.z1 = Math.max(r.z1, zs[k + 1]);
   }
@@ -286,16 +297,17 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
 
   // which wall each room's door is on, and which way is into the room; then what each room is (furnish.mjs)
   for (const [r, ds] of doorOn) for (const d of ds) {
-    const id = isRoom(r.lo) ? r.lo : isRoom(r.hi) ? r.hi : null;
+    const id = isRoomL(r.lo) ? r.lo : isRoomL(r.hi) ? r.hi : null;
     if (!id || d.kind !== 'room' || !roomRect[id]) continue;
     roomRect[id].door = { axis: r.axis, c: r.c, u: d.u, w: d.w, into: r.hi === id ? 1 : -1 };
   }
+  if (roomRect.lobby) { roomRect.lobby.mainDoorU = ENTRANCE.x; roomRect.lobby.door = { axis: 'x', c: CORR.zi0, u: (LOBBY.x0 + LOBBY.x1) / 2, w: DOOR_W, into: 1 }; }                 // the courtyard door: keep its path clear
   const roomList = Object.values(roomRect);
   const roomPlan = planRooms(roomList);
   CTX.roomPlan = roomPlan;
   for (const [r, ds] of doorOn) for (const d of [...ds]) {
     const id = isRoom(r.lo) ? r.lo : isRoom(r.hi) ? r.hi : null;
-    if (!id || roomPlan[id]?.type !== 'common' || d.kind !== 'room') continue;
+    if (!id || id === 'lobby' || roomPlan[id]?.type !== 'common' || d.kind !== 'room') continue;
     d.floors = d.floors.filter((Lv) => Lv !== LEVELS[0]);
     ds.push({ u: d.u, floors: [LEVELS[0]], kind: 'open', w: Math.min(2.6, r.u1 - r.u0 - 0.6) });   // wide doorless opening (video)
   }
@@ -344,7 +356,7 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
       holes.push([d.u - d.w / 2, d.u + d.w / 2, Lv, Lv + DOOR_H]);
       if (d.kind === 'open') continue;                                     // just an opening, no door leaf
       const rec = doorRecord(r, d.u, Lv, d.w, d.kind);
-      const rid = isRoom(r.lo) ? r.lo : isRoom(r.hi) ? r.hi : null;
+      const rid = isRoomL(r.lo) ? r.lo : isRoomL(r.hi) ? r.hi : null;
       const label = rid && d.kind === 'room' ? labelFor(typeAt(roomPlan, rid, Lv, LEVELS[0])) : null;
       if (label) rec.label = label;
       doors.push(rec);
@@ -429,6 +441,12 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
     for (const u of [(IN.zn + CORR.zo0) / 2, (CORR.zo1 + IN.zs) / 2]) for (const Lv of LEVELS) wins.push({ axis: 'z', plane, sgn, u, sill: Lv + 0.9, w: 1.2, h: 1.4 });
   }
   stats.windows = wins.length;
+  for (const { rect: [x0, x1, z0, z1], end } of NOOK_RECTS) {
+    const axis = end === 'N' || end === 'S' ? 'x' : 'z', plane = end === 'N' ? OUTER.zn : end === 'S' ? OUTER.zs : end === 'W' ? OUTER.xw : OUTER.xe;
+    const u = axis === 'x' ? (x0 + x1) / 2 : (z0 + z1) / 2, sgn = end === 'N' || end === 'W' ? -1 : 1;
+    for (let i = wins.length - 1; i >= 0; i--) if (wins[i].axis === axis && wins[i].plane === plane && Math.abs(wins[i].u - u) < 1.25) wins.splice(i, 1);
+    for (const Lv of LEVELS) wins.push({ axis, plane, sgn, u, sill: Lv + 0.9, w: 1.0, h: 1.4 });
+  }
   // extensions: drop the original windows inside each gap; build the bump's far wall (with windows) and side walls
   const gapOn = (axis, c) => EXT.filter((e) => (e.face === 'N' && axis === 'x' && c === OUTER.zn) || (e.face === 'S' && axis === 'x' && c === OUTER.zs) || (e.face === 'W' && axis === 'z' && c === OUTER.xw) || (e.face === 'E' && axis === 'z' && c === OUTER.xe));
   for (let i = wins.length - 1; i >= 0; i--) { const w = wins[i]; if (gapOn(w.axis, w.plane).some((e) => w.u > e.u0 - 0.2 && w.u < e.u1 + 0.2)) wins.splice(i, 1); }
@@ -500,13 +518,10 @@ export function buildInterior({ removed, solids = [], kept, addBox, addQuad, add
   const inRoom = (id, x, z) => { const i = idx(xs, x), k = idx(zs, z); return x > xs[0] && x < xs[NX] && z > zs[0] && z < zs[NZ] && lab[i][k] === id; };
   stats.furniture = furnishAll({ addBox, addCyl, rooms: roomList, plan: roomPlan, levels: LEVELS, windows: winRects, inRoom,
     ceilAt: (Lv) => { const i = LEVELS.indexOf(Lv); return i + 1 < LEVELS.length ? LEVELS[i + 1] - SLAB : TOP_TALL - 0.25; } });
-  for (const id of NOOKS) {                                         // the towel nook beside room 18, on every floor
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (let i = 0; i < NX; i++) for (let k = 0; k < NZ; k++) if (classify(cx(i), cz(k)) === id) { x0 = Math.min(x0, xs[i]); x1 = Math.max(x1, xs[i + 1]); z0 = Math.min(z0, zs[k]); z1 = Math.max(z1, zs[k + 1]); }
-    if (x0 < x1) for (const Lv of LEVELS) furnishNook({ addBox, addCyl, rect: [x0, x1, z0, z1], corrX: CORR.xo1, Lv });
-  }
+  for (const n of NOOK_RECTS) for (const Lv of LEVELS) furnishNook({ addBox, addCyl, rect: n.rect, end: n.end, Lv });
+  stats.skipped = [...new Set(furnishAll.skipped || [])];
   stats.roomTypes = Object.fromEntries(Object.entries(roomPlan).map(([id, p]) => [id, p.type + (p.ground ? ' (ground)' : ' (all floors)') + ` ${(roomRect[id].x1 - roomRect[id].x0).toFixed(1)}x${(roomRect[id].z1 - roomRect[id].z0).toFixed(1)} at x ${roomRect[id].x0.toFixed(1)}..${roomRect[id].x1.toFixed(1)} z ${roomRect[id].z0.toFixed(1)}..${roomRect[id].z1.toFixed(1)}`]));
-  if (process.env.DUMP_ROOMS) stats.allRooms = roomList.filter((r) => /^oN/.test(r.id)).map((r) => `${r.id} x ${r.x0.toFixed(1)}..${r.x1.toFixed(1)} z ${r.z0.toFixed(1)}..${r.z1.toFixed(1)}${r.door ? '' : ' (no door)'}`);
+  if (process.env.DUMP_ROOMS) stats.allRooms = roomList.filter((r) => /^i/.test(r.id)).map((r) => `${r.id} x ${r.x0.toFixed(1)}..${r.x1.toFixed(1)} z ${r.z0.toFixed(1)}..${r.z1.toFixed(1)}${r.door ? '' : ' (no door)'}`);
   stats.doors = doors.length;
   return { stats, doors };
 }

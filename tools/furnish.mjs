@@ -61,13 +61,12 @@ export function planRooms(rooms) {
   };
   pick('oS', (x) => Math.abs(x - 11), 'hp');
   pick('iS', (x) => Math.abs(x - 0), 'study', true, 'study');
-  pick('oS', (x) => Math.abs(x + 5), 'bath', false);
+  for (const id of ['oS7', 'oW2', 'oE2']) if (rooms.some((r) => r.id === id && r.door)) plan[id] = { type: 'bath', ground: false };   // the three washrooms (merged + pushed out)
+  if (rooms.some((r) => r.id === 'oE3' && r.door)) plan.oE3 = { type: 'office', ground: true };          // opposite the east stairs
   pick('oS', (x) => x, 'laundry');                                   // westmost on the south side
   pick('oS', (x) => Math.abs(x + 17.5), 'store');
-  pick('oW', (x, z) => Math.abs(z - 0), 'bath', false);
-  pick('oE', (x, z) => Math.abs(z - 1), 'bath', false);
-  pick('oE', (x, z) => Math.abs(z - 4.1), 'office');          // opposite the east stairs; room 18 is the next-but-one south
-  pick('oN', (x) => Math.abs(x + 11.7), 'common', true, 'study');   // beside the entrance, pushed out into the exterior; upstairs a study hall
+  if (rooms.some((r) => r.id === 'lobby')) plan.lobby = { type: 'common', ground: true, upper: 'study' };   // the open entrance hall with the courtyard door
+  for (const id of ['iN6', 'iN7']) if (rooms.some((r) => r.id === id)) plan[id] = { type: 'store', ground: false, upper: 'store' };   // video: stores east of the lobby
   pick('oN', (x) => (x > 1.4 ? Math.abs(x - 8) : 99 - x), 'store');
   return plan;
 }
@@ -80,7 +79,7 @@ const hash = (...v) => { let h = 2166136261; for (const x of v) { h ^= Math.roun
 export function furnishAll({ addBox, addCyl, rooms, plan, levels, ceilAt, windows, inRoom }) {
   let n = 0;
   for (const room of rooms) {
-    if (!room.door) continue;
+    if (!room.door) { (furnishAll.skipped ||= []).push(`${room.id} no door`); continue; }
     for (const Lv of levels) {
       const type = typeAt(plan, room.id, Lv, levels[0]);
       n += furnishRoom({ addBox, addCyl, room, Lv, ceil: ceilAt(Lv), type, windows, inRoom });
@@ -107,7 +106,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
   const Dat = (u0, u1) => { let m = Infinity; for (const [u, dd] of prof) if (u >= u0 - 0.05 && u <= u1 + 0.05) m = Math.min(m, dd); return m === Infinity ? 0 : m; };
   const D = Dat(a0, a1);                                   // depth that is inside the room all along its width
   const W = a1 - a0;
-  if (W < 1.6 || D < 1.6) return 0;
+  if (W < 1.6 || (D < 0.9 && !['default', 'store', 'common'].includes(type))) { (furnishAll.skipped ||= []).push(`${room.id} too small ${W.toFixed(1)}x${D.toFixed(1)}`); return 0; }
   let n = 0;
   const toW = (b) => d.c + into * (NEAR + b);
   const B = (u0, u1, y0, y1, b0, b1, col) => {           // box in local coords (y relative to the floor)
@@ -154,7 +153,13 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     C(u, 0.22, b, 0.03, 0.42, 'y', FCOL.frame);
     B(u - 0.25, u + 0.25, 0.0, 0.04, b - 0.04, b + 0.04, FCOL.frame); B(u - 0.04, u + 0.04, 0.0, 0.04, b - 0.25, b + 0.25, FCOL.frame);
   };
-  const bed = (u0, u1, b0, b1, headAtB1 = true, mattress = FCOL.mattress) => {   // metal frame bed
+  const bed = (u0, u1, b0, b1, headAtB1 = true, mattress = FCOL.mattress, along = 'b') => {   // metal frame bed
+    if (along === 'a') {                                    // lying along the wall: head at u0
+      B(u0, u1, 0.3, 0.36, b0, b1, FCOL.frame); B(u0 + 0.03, u1 - 0.03, 0.36, 0.5, b0 + 0.03, b1 - 0.03, mattress);
+      B(u0 + 0.08, u0 + 0.42, 0.5, 0.6, b0 + 0.12, b1 - 0.12, FCOL.sheet); B(u0 + 0.55, u0 + 1.25, 0.5, 0.56, b0 + 0.04, b1 - 0.04, FCOL.sheet);
+      B(u0, u0 + 0.04, 0, 1.0, b0, b1, FCOL.frame); B(u1 - 0.04, u1, 0, 0.7, b0, b1, FCOL.frame);
+      return;
+    }
     B(u0, u1, 0.3, 0.36, b0, b1, FCOL.frame);                                  // frame
     B(u0 + 0.03, u1 - 0.03, 0.36, 0.5, b0 + 0.03, b1 - 0.03, mattress);
     const hb = headAtB1 ? b1 : b0, sgn = headAtB1 ? -1 : 1;
@@ -187,7 +192,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     }
     if (u < u1) B(u, u1, 0.12, yTop, faceB - 0.006, faceB, col);
   };
-  const desk = (u0, u1) => {                               // study table with its own bookshelf hutch and a black chair (video)
+  const desk = (u0, u1, D = Dat(u0, u1)) => {              // study table with its own bookshelf hutch and a black chair (video)
     const dd = 0.55;
     B(u0, u1, 0.72, 0.76, D - dd, D, FCOL.wood);
     B(u0, u0 + 0.03, 0, 0.72, D - dd, D, FCOL.wood); B(u1 - 0.03, u1, 0, 0.72, D - dd, D, FCOL.wood);
@@ -198,28 +203,58 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     for (let k = 0; k < 3; k++) { const uu = u0 + 0.06 + k * (u1 - u0 - 0.2) / 3; B(uu, uu + 0.12, 1.18, 1.36 + hash(uu, k) * 0.12, D - 0.25, D - 0.05, FCOL.paint[(k + Math.floor(hash(u0) * 4)) % 4]); }
     officeChair((u0 + u1) / 2, D - dd - 0.28, 1);
   };
+  const deskAt = (u0, u1) => {                             // a table against the door wall (small rooms)
+    B(u0, u1, 0.72, 0.76, 0, 0.55, FCOL.wood); B(u0, u0 + 0.03, 0, 0.72, 0, 0.55, FCOL.wood); B(u1 - 0.03, u1, 0, 0.72, 0, 0.55, FCOL.wood);
+    B(u0, u1, 0.76, 1.5, -0.005, 0.02, FCOL.wood); B(u0, u1, 1.15, 1.18, 0, 0.28, FCOL.wood);
+    officeChair((u0 + u1) / 2, 0.85, -1);
+  };
   if (type === 'default') {
     curtains(FCOL.curtainGrey);
     paintFar(FCOL.mint); wallPaint(-1, FCOL.mint);
-    const bedW = 0.9, bedL = Math.max(1.8, Math.min(1.95, D - 0.6));
-    bed(a0, a0 + bedW, D - bedL, D);                                                       // two beds along the side walls,
-    bed(a1 - bedW, a1, D - bedL, D);                                                       // heads at the window wall
-    const du0 = a0 + bedW + 0.05, du1 = a1 - bedW - 0.05, dw = (du1 - du0 - 0.04) / 2;
-    if (dw > 0.5) { desk(du0, du0 + dw); desk(du1 - dw, du1); }                            // two tables under the window
-    else if (du1 - du0 > 0.5) desk(du0, du1);
-    // two steel cupboards by the door: first two free slots along the door wall
-    const slots = [[a0, a0 + 0.85], [a1 - 0.85, a1], [a0 + 0.9, a0 + 1.75], [a1 - 1.75, a1 - 0.9]], used = [];
-    for (const [u0, u1] of slots) {
-      if (used.length >= 2 || !clearOfDoor(u0, u1) || used.some(([p, q]) => u0 < q && u1 > p)) continue;
-      almirah(u0, u1, 0, 0.5, used.length ? FCOL.steel : FCOL.steelDark); used.push([u0, u1]);
+    // the courtyard facade zigzags: find the widest stretch deep enough for a bed and lay the room out there
+    const need = 2.15;
+    let zs0 = null, best = [a0, a0];
+    for (const [u, dd] of prof) {
+      const ok = u >= a0 - 0.05 && u <= a1 + 0.05 && dd >= need;
+      if (ok && zs0 === null) zs0 = u;
+      if ((!ok || u > a1) && zs0 !== null) { if (u - zs0 > best[1] - best[0]) best = [zs0, u - 0.1]; zs0 = null; }
     }
-    // white-framed mirror beside the door, wall fan, two blue buckets by a bed's foot
+    if (zs0 !== null && a1 - zs0 > best[1] - best[0]) best = [zs0, a1];
+    const L = Math.max(a0, best[0]), R = Math.min(a1, best[1]), Dz = Dat(L, R);
+    const bedW = 0.9, used = [];
+    if (R - L >= 2.3) {
+      const bedL = Math.max(1.8, Math.min(1.95, Dz - 0.6));
+      bed(L, L + bedW, Dz - bedL, Dz);                                                       // two beds along the walls,
+      bed(R - bedW, R, Dz - bedL, Dz);                                                       // heads at the window wall
+      used.push([L, L + bedW, Dz - bedL], [R - bedW, R, Dz - bedL]);
+      const du0 = L + bedW + 0.05, du1 = R - bedW - 0.05, dw = (du1 - du0 - 0.04) / 2;
+      if (dw > 0.5) { desk(du0, du0 + dw, Dz); desk(du1 - dw, du1, Dz); }                  // two tables under the window
+      else deskSlots(2);
+    } else {
+      // too narrow for two beds side by side: beds head to foot along the window wall where the room allows, else one
+      const Df = Dat(a0, a1);
+      if (W >= 4.0 && Df >= 1.0) { bed(a0, a0 + 1.95, Df - bedW, Df, true, FCOL.mattress, 'a'); bed(a0 + 2.05, a0 + 4.0, Df - bedW, Df, true, FCOL.mattress, 'a'); }
+      else if (Df >= 1.0) bed(a0, Math.min(a1, a0 + 1.95), Df - bedW, Df, true, FCOL.mattress, 'a');
+      deskSlots(2);
+    }
+    // two steel cupboards by the door: first free slots along the door wall
+    let nA = 0;
+    for (const [u0, u1] of [[a0, a0 + 0.85], [a1 - 0.85, a1], [a0 + 0.9, a0 + 1.75], [a1 - 1.75, a1 - 0.9]]) {
+      if (nA >= 2 || !clearOfDoor(u0, u1) || used.some(([p, q, bmin]) => u0 < q && u1 > p && (bmin === undefined || bmin < 0.55))) continue;
+      almirah(u0, u1, 0, 0.5, nA ? FCOL.steel : FCOL.steelDark); used.push([u0, u1]); nA++;
+    }
     const mu = doorU + (doorU - a0 > a1 - doorU ? -1 : 1) * (d.w / 2 + 0.3);
-    if (mu - 0.2 > a0 && mu + 0.2 < a1 && !used.some(([p, q]) => mu + 0.2 > p && mu - 0.2 < q)) { B(mu - 0.2, mu + 0.2, 1.3, 1.85, -0.005, 0.02, FCOL.fan); B(mu - 0.16, mu + 0.16, 1.34, 1.81, 0.02, 0.025, FCOL.mirror); }
-    else if (D > 1.2) { const mb = Math.min(D - bedL - 0.25, 0.9); if (mb > 0.25) { const u = along[1] - 0.07; B(u - 0.02, u, 1.3, 1.85, mb - 0.2, mb + 0.2, FCOL.fan); } }
-    C(a1 - 0.08, Math.min(ceil - Lv - 0.45, 2.35), D * 0.45, 0.22, 0.08, 'a', FCOL.fan);
-    const bb = D - bedL - 0.25;
-    if (bb > 0.6) for (const k of [0, 1]) C(a1 - 0.25 - k * 0.42, 0.17, bb, 0.17, 0.34, 'y', FCOL.bucketBlue);
+    if (mu - 0.2 > a0 && mu + 0.2 < a1 && !used.some(([p, q, bmin]) => mu + 0.2 > p && mu - 0.2 < q && (bmin === undefined || bmin < 0.1))) { B(mu - 0.2, mu + 0.2, 1.3, 1.85, -0.005, 0.02, FCOL.fan); B(mu - 0.16, mu + 0.16, 1.34, 1.81, 0.02, 0.025, FCOL.mirror); }
+    C(a1 - 0.08, Math.min(ceil - Lv - 0.45, 2.35), Math.max(0.6, Dz * 0.45), 0.22, 0.08, 'a', FCOL.fan);
+    const bb = Dz - 2.2;
+    if (bb > 0.6 && R - L >= 2.3) for (const k of [0, 1]) C(R - 0.25 - k * 0.42, 0.17, bb, 0.17, 0.34, 'y', FCOL.bucketBlue);
+    function deskSlots(nWant) {                              // tables against the door wall where the door leaves room
+      let k = 0;
+      for (const [u0, u1] of [[a1 - 0.85, a1], [a0, a0 + 0.85], [a1 - 1.75, a1 - 0.9], [a0 + 0.9, a0 + 1.75]]) {
+        if (k >= nWant || !clearOfDoor(u0, u1) || used.some(([p, q, bmin]) => u0 < q && u1 > p && (bmin === undefined || bmin < 0.65))) continue;
+        deskAt(u0, u1); used.push([u0, u1]); k++;
+      }
+    }
   } else if (type === 'bath') {
     // white tiles to 2 m with yellow bands at waist and top on every wall (video), tubelights
     const bands = (u, s2, b0, b1) => { B(u, u - s2 * 0.006, 0.12, 2.02, b0, b1, FCOL.tileW); B(u, u - s2 * 0.01, 0.84, 0.96, b0, b1, FCOL.tileY); B(u, u - s2 * 0.01, 1.86, 2.02, b0, b1, FCOL.tileY); };
@@ -274,30 +309,26 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     const tu = (doorU - a0 > a1 - doorU) ? (a0 + doorU - d.w / 2) / 2 : (a1 + doorU + d.w / 2) / 2;
     B(tu - 0.55, tu + 0.55, 1.3, 1.95, 0.0, 0.08, FCOL.curtainRed);
   } else if (type === 'common') {
-    // (video) yellow long wall with a big portrait painting and a bench desk with a row of cream plastic chairs;
-    // carrom board on an X-frame stand, small square tables, L-shaped corner bookcase, TV and whiteboard, ceiling fan
+    // the open entrance hall (video): the courtyard door in the middle of the far wall stays reachable;
+    // west half: yellow wall, bench desk with plastic chairs, carrom on an X stand; east half: L-shaped bookcase,
+    // TV, whiteboard, a square table; potted plants either side of the courtyard door
     curtains(FCOL.curtainGrey);
     wallPaint(-1, FCOL.yellow);
-    const pu = along[0] + 0.07; B(pu, pu + 0.025, 1.45, 2.55, D * 0.5 - 0.85, D * 0.5 + 0.85, FCOL.paint[1]);   // portrait
-    B(pu + 0.025, pu + 0.03, 1.55, 2.45, D * 0.5 - 0.75, D * 0.5 + 0.35, FCOL.plastic);
-    const bdb0 = Math.max(0.5, swingB(a0, a0 + 0.5)), bdb1 = D - 0.35;
-    B(a0, a0 + 0.45, 0.73, 0.77, bdb0, bdb1, FCOL.wood);
-    for (let bq = bdb0; bq <= bdb1; bq += 1.2) B(a0 + 0.05, a0 + 0.4, 0, 0.73, bq, bq + 0.04, FCOL.frame);
-    for (let bq = bdb0 + 0.35; bq < bdb1 - 0.2; bq += 0.72) plasticChairSide(a0 + 0.72, bq, -1);
-    // carrom on an X stand with four chairs
-    const cu = a0 + W * 0.42, cb = D * 0.42;
-    B(cu - 0.35, cu + 0.35, 0, 0.68, cb - 0.015, cb + 0.015, FCOL.frame); B(cu - 0.015, cu + 0.015, 0, 0.68, cb - 0.35, cb + 0.35, FCOL.frame);
-    B(cu - 0.42, cu + 0.42, 0.68, 0.74, cb - 0.42, cb + 0.42, FCOL.wood); B(cu - 0.36, cu + 0.36, 0.74, 0.745, cb - 0.36, cb + 0.36, FCOL.lightWood);
-    plasticChair(cu, cb - 0.8, 1); plasticChair(cu, cb + 0.8, -1); plasticChairSide(cu - 0.8, cb, 1); plasticChairSide(cu + 0.8, cb, -1);
-    // small square tables with chairs toward the windows
-    for (const k of [0.35, 0.68]) {
-      const tu = a0 + W * k, tb = D - 1.3;
-      if (tb < cb + 1.4) continue;
-      B(tu - 0.38, tu + 0.38, 0.72, 0.76, tb - 0.38, tb + 0.38, FCOL.lightWood);
-      for (const du of [-0.33, 0.33]) for (const db of [-0.33, 0.33]) B(tu + du - 0.02, tu + du + 0.02, 0, 0.72, tb + db - 0.02, tb + db + 0.02, FCOL.frame);
-      plasticChair(tu, tb - 0.7, 1); plasticChair(tu, tb + 0.7, -1);
+    const mainU = room.mainDoorU ?? (a0 + a1) / 2, clear0 = mainU - 1.0, clear1 = mainU + 1.0;
+    const pu = along[0] + 0.07; B(pu, pu + 0.025, 1.4, 2.4, D * 0.5 - 0.7, D * 0.5 + 0.7, FCOL.paint[1]);   // portrait
+    B(pu + 0.025, pu + 0.03, 1.5, 2.3, D * 0.5 - 0.6, D * 0.5 + 0.25, FCOL.plastic);
+    const bd0 = Math.max(0.3, swingB(a0, a0 + 0.5)), bd1 = Math.max(bd0 + 0.6, Dat(a0, a0 + 0.5) - 0.2);
+    B(a0, a0 + 0.45, 0.73, 0.77, bd0, bd1, FCOL.wood);
+    for (let bq = bd0; bq <= bd1; bq += 1.1) B(a0 + 0.05, a0 + 0.4, 0, 0.73, bq, bq + 0.04, FCOL.frame);
+    for (let bq = bd0 + 0.35; bq < bd1 - 0.2; bq += 0.72) plasticChairSide(a0 + 0.72, bq, -1);
+    const cu = Math.min(clear0 - 0.95, a0 + 2.1), cb = Math.min(1.4, Dat(cu - 0.5, cu + 0.5) * 0.5);
+    if (cu - 0.9 > a0 + 1.0) {
+      B(cu - 0.35, cu + 0.35, 0, 0.68, cb - 0.015, cb + 0.015, FCOL.frame); B(cu - 0.015, cu + 0.015, 0, 0.68, cb - 0.35, cb + 0.35, FCOL.frame);
+      B(cu - 0.42, cu + 0.42, 0.68, 0.74, cb - 0.42, cb + 0.42, FCOL.wood); B(cu - 0.36, cu + 0.36, 0.74, 0.745, cb - 0.36, cb + 0.36, FCOL.lightWood);
+      plasticChairSide(cu - 0.8, cb, 1); plasticChairSide(cu + 0.8, cb, -1);
     }
-    // L-shaped corner bookcase (far wall + a1 wall corner)
+    // east half: bookcase in the far corner, square table, TV and whiteboard on the side wall
+    const Dc = Dat(a1 - 1.8, a1);
     const book = (u0, u1, b0, b1, alongA) => {
       B(u0, u1, 0, 1.85, b0, b1, FCOL.lightWood);
       const n2 = Math.floor(((alongA ? u1 - u0 : b1 - b0) - 0.04) / 0.38);
@@ -307,19 +338,22 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
         if (alongA) B(c0, c0 + 0.3, y, y + 0.27, b0 - 0.012, b0, col); else B(u0 - 0.012, u0, y, y + 0.27, c0, c0 + 0.3, col);
       }
     };
-    book(a1 - 2.0, a1 - 0.36, D - 0.36, D, true);
-    book(a1 - 0.36, a1, D - 2.0, D, false);
-    // TV on a low cabinet and a whiteboard on a stand along the a1 wall nearer the door
-    const tvb = Math.max(1.0, swingB(a1 - 0.5, a1) + 0.3);
-    if (tvb + 1.3 < D - 2.1) {
-      B(a1 - 0.45, a1, 0, 0.5, tvb, tvb + 1.3, FCOL.frame); B(a1 - 0.3, a1 - 0.25, 0.55, 1.3, tvb + 0.05, tvb + 1.25, FCOL.screen);
-      B(a1 - 0.9, a1 - 0.86, 0.85, 1.7, tvb + 1.45, tvb + 2.3, FCOL.sheet); B(a1 - 0.89, a1 - 0.87, 0, 0.85, tvb + 1.45, tvb + 2.3, FCOL.steelGrey);
+    if (a1 - 1.8 > clear1) book(a1 - 1.8, a1 - 0.36, Dc - 0.36, Dc, true);
+    book(a1 - 0.36, a1, Math.max(0.6, Dc - 1.5), Dc, false);
+    const tu = (clear1 + a1 - 0.4) / 2;
+    if (a1 - 0.4 - clear1 > 1.2) {
+      const tb = Math.max(0.7, Dc - 1.4);
+      B(tu - 0.38, tu + 0.38, 0.72, 0.76, tb - 0.38, tb + 0.38, FCOL.lightWood);
+      for (const du of [-0.33, 0.33]) for (const db of [-0.33, 0.33]) B(tu + du - 0.02, tu + du + 0.02, 0, 0.72, tb + db - 0.02, tb + db + 0.02, FCOL.frame);
+      plasticChairSide(tu - 0.68, tb, 1); plasticChairSide(tu + 0.68, tb, -1);
     }
-    const pu2 = along[1] - 0.07; B(pu2 - 0.025, pu2, 1.4, 2.3, D * 0.3, D * 0.3 + 0.7, FCOL.paint[2]);
-    // ceiling fan
-    C(a0 + W * 0.5, ceil - Lv - 0.35, D * 0.5, 0.12, 0.12, 'y', FCOL.fan);
-    B(a0 + W * 0.5 - 0.6, a0 + W * 0.5 + 0.6, ceil - Lv - 0.42, ceil - Lv - 0.4, D * 0.5 - 0.05, D * 0.5 + 0.05, FCOL.fan);
-    B(a0 + W * 0.5 - 0.05, a0 + W * 0.5 + 0.05, ceil - Lv - 0.42, ceil - Lv - 0.4, D * 0.5 - 0.6, D * 0.5 + 0.6, FCOL.fan);
+    const tvU = Math.max(clear1 + 0.2, doorU + d.w / 2 + 0.2);
+    if (a1 - 0.6 - tvU > 1.2) { B(tvU, tvU + 1.2, 0, 0.5, 0, 0.42, FCOL.frame); B(tvU + 0.05, tvU + 1.15, 0.55, 1.25, 0.18, 0.22, FCOL.screen); }
+    B(a1 - 0.04, a1, 0.85, 1.7, 0.4, 1.2, FCOL.sheet);
+    // potted plants either side of the courtyard door
+    for (const s2 of [-1, 1]) { const u = mainU + s2 * 1.15, Dp = Dat(u - 0.2, u + 0.2); C(u, 0.2, Dp - 0.3, 0.2, 0.4, 'y', FCOL.carton); C(u, 0.75, Dp - 0.3, 0.35, 0.7, 'y', FCOL.paint[3]); }
+    C(a0 + W * 0.3, ceil - Lv - 0.35, D * 0.5, 0.12, 0.12, 'y', FCOL.fan);
+    B(a0 + W * 0.3 - 0.6, a0 + W * 0.3 + 0.6, ceil - Lv - 0.42, ceil - Lv - 0.4, D * 0.5 - 0.05, D * 0.5 + 0.05, FCOL.fan);
   } else if (type === 'hp') {
     curtains(FCOL.curtainOrange);
     const bw = Math.min(1.5, W - 1.2), bu = (a0 + a1) / 2;
@@ -385,24 +419,30 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
   }
 }
 
-// the open gap next to room 18 (video): a nook off the corridor with a window, a clothes stand with towels, a chair
-export function furnishNook({ addBox, addCyl, rect, corrX, Lv }) {
-  const [x0, x1, z0, z1] = rect, xo = x1 - 0.1;              // outer wall side is +x (east wing)
-  const n0 = addBox.length;
-  // clothes-drying stand with towels near the window
-  const zc = (z0 + z1) / 2, xs = xo - 0.6;
-  for (const dz of [-0.55, 0.53]) for (const dx of [-0.25, 0.23]) addBox(xs + dx, xs + dx + 0.02, Lv, Lv + 1.0, zc + dz, zc + dz + 0.02, FCOL.steelGrey);
-  for (let k = 0; k < 4; k++) addBox(xs - 0.25 + k * 0.16, xs - 0.24 + k * 0.16, Lv + 0.95, Lv + 0.96, zc - 0.55, zc + 0.55, FCOL.steelGrey);
-  addBox(xs - 0.27, xs - 0.2, Lv + 0.45, Lv + 0.96, zc - 0.5, zc + 0.1, FCOL.sheet);          // towels over the bars
-  addBox(xs + 0.0, xs + 0.07, Lv + 0.5, Lv + 0.96, zc - 0.2, zc + 0.45, FCOL.curtainOrange);
-  addBox(xs + 0.16, xs + 0.22, Lv + 0.55, Lv + 0.96, zc - 0.45, zc + 0.05, FCOL.frame);
-  // blue plastic chair with clothes piled on it, in the corner
-  const cz = z1 - 0.45, cx = xo - 0.35;
-  addBox(cx - 0.2, cx + 0.2, Lv + 0.42, Lv + 0.46, cz - 0.2, cz + 0.2, FCOL.bucketBlue);
-  addBox(cx + 0.16, cx + 0.2, Lv + 0.46, Lv + 0.9, cz - 0.2, cz + 0.2, FCOL.bucketBlue);
-  for (const dx of [-0.16, 0.16]) for (const dz of [-0.16, 0.16]) addBox(cx + dx - 0.02, cx + dx + 0.02, Lv, Lv + 0.42, cz + dz - 0.02, cz + dz + 0.02, FCOL.bucketBlue);
-  addBox(cx - 0.18, cx + 0.14, Lv + 0.46, Lv + 0.62, cz - 0.18, cz + 0.18, FCOL.curtainGrey);
-  // a bucket
-  addCyl([xo - 0.3, Lv + 0.2, z0 + 0.4], 0.2, 0.4, 'y', FCOL.bucket);
-  void n0; void corrX;
+// towel nooks (video): where a corridor runs on past a corner to a window in the outer wall: a clothes-drying stand
+// with towels, a plastic chair with clothes piled on it, a bucket. rect [x0,x1,z0,z1]; end: 'N'|'S'|'W'|'E' (window wall)
+export function furnishNook({ addBox, addCyl, rect, end, Lv }) {
+  const [x0, x1, z0, z1] = rect;
+  const alongX = end === 'E' || end === 'W';                // the nook's length runs toward the end wall
+  const sgn = end === 'E' || end === 'S' ? 1 : -1;
+  const endC = end === 'E' ? x1 : end === 'W' ? x0 : end === 'S' ? z1 : z0;
+  const w0 = alongX ? z0 : x0, w1 = alongX ? z1 : x1;       // across the nook
+  const P = (t, w) => (alongX ? [endC - sgn * t, w] : [w, endC - sgn * t]);    // t: distance back from the end wall
+  const box = (t0, t1, y0, y1, wa, wb, col) => {
+    const [ax, az] = P(t0, wa), [bx, bz] = P(t1, wb);
+    addBox(Math.min(ax, bx), Math.max(ax, bx), Lv + y0, Lv + y1, Math.min(az, bz), Math.max(az, bz), col);
+  };
+  const wm = (w0 + w1) / 2;
+  // clothes stand along the nook, 0.5 m back from the window wall
+  for (const t of [0.35, 0.85]) for (const dw of [-0.5, 0.48]) box(t, t + 0.02, 0, 1.0, wm + dw, wm + dw + 0.02, FCOL.steelGrey);
+  for (let k = 0; k < 4; k++) box(0.35 + k * 0.16, 0.36 + k * 0.16, 0.95, 0.96, wm - 0.5, wm + 0.5, FCOL.steelGrey);
+  box(0.37, 0.43, 0.45, 0.96, wm - 0.45, wm + 0.15, FCOL.sheet);
+  box(0.55, 0.61, 0.5, 0.96, wm - 0.2, wm + 0.4, FCOL.curtainOrange);
+  box(0.72, 0.78, 0.55, 0.96, wm - 0.4, wm + 0.05, FCOL.frame);
+  // chair with clothes in a corner by the window, bucket in the other
+  const cw = w1 - 0.35;
+  box(0.15, 0.55, 0.42, 0.46, cw - 0.2, cw + 0.2, FCOL.bucketBlue); box(0.11, 0.15, 0.46, 0.9, cw - 0.2, cw + 0.2, FCOL.bucketBlue);
+  for (const dt of [0.19, 0.51]) for (const dw of [-0.18, 0.16]) box(dt, dt + 0.04, 0, 0.42, cw + dw, cw + dw + 0.04, FCOL.bucketBlue);
+  box(0.18, 0.5, 0.46, 0.62, cw - 0.18, cw + 0.18, FCOL.curtainGrey);
+  const [bx, bz] = P(0.3, w0 + 0.3); addCyl([bx, Lv + 0.2, bz], 0.2, 0.4, 'y', FCOL.bucket);
 }

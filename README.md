@@ -64,15 +64,19 @@ is (quieter and duller with distance, more muffled from another floor):
   yellow-tiled privacy screen inside the door, a row of shower / WC cubicles with beige laminate partitions and white
   doors, black granite basin counter with framed mirrors, urinals and a "please flush" sign, white tiles with yellow
   bands, high windows with exhaust fans.
-- **Common room** (beside the entrance, two rooms merged and pushed 3.5 m out; upstairs it is a study hall): wide doorless
-  opening, yellow wall with a big portrait and a bench desk with a row of plastic chairs, carrom on an X stand, square
-  tables, L-shaped corner bookcase, TV, whiteboard, ceiling fan.
+- **Common room** = the open entrance hall (the lobby with the courtyard door; upstairs a study hall): yellow wall with a
+  big portrait and a bench desk with plastic chairs, carrom on an X stand, square table, bookcase, TV, whiteboard,
+  potted plants either side of the courtyard door, with a clear path from the corridor to that door.
+- **Towel nooks** at all four corners: the corridor runs on past the turn to a window in the outer wall; a clothes stand
+  with towels, a chair piled with clothes, a bucket.
+- **Courtyard-side rooms:** shallow facade notches are merged into their deep neighbours and laid out in the deep part;
+  the small rooms east of the lobby are stores (video).
 - **Wings stretched to the video's length:** the walkthrough shows the wings ~2 rooms longer south of each stairwell than
   the Shapr3D model, so everything south of a cut just past the stairwells is moved 7.4 m south (`STRETCH` in
   tools/interior.mjs, applied to the model's vertices in tools/convert.mjs); the wings, slabs and courtyard stretch to
   fill the band. East wing from the stairs south: office, three bedrooms, room 18, the towel nook.
 - **Ground floor also:** H.P. residence, study room, laundry room, stores, and the house parent's office opposite the east
-  stairs. Next to room 18 an open gap off the corridor leads to the towel stand by the window.
+  stairs.
 
 ## Cheat console (src/console.js)
 Press <kbd>`</kbd> (the key left of 1) to open it, Esc or ` to close. Up/Down recalls commands, Tab completes.
