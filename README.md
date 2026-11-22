@@ -6,7 +6,7 @@ First-person horror game (work in progress) set in a hostel building, built from
 ./run.sh
 ```
 
-The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, L flashlight, Space jump, F fly/no-clip (Space/C up/down), R back to start, V retro look on/off, Esc pause.
+The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, F flashlight, Space jump, Ctrl or C crouch, R back to start, V retro look on/off, Esc pause.
 
 ## Manju (src/manju.js, src/navmesh.js)
 The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the character sheet in `tools/ref/`).
@@ -85,7 +85,7 @@ scene plays slow camera shots cut with glitch tears, with the torch cutting in a
 - Fog is done in the shaders: a dark distance haze plus a pale, moonlit ground mist that is thick at knee height,
   thins with height and rolls slowly in patches (outdoors only). The sky fades from near-black overhead into the
   fog colour at the horizon, with a faint moon glow, so distant buildings melt into it. Indoors the haze goes to
-  near-black, so the far end of a corridor is just gone. The weak, yellowed torch (L) shows as a beam in the haze.
+  near-black, so the far end of a corridor is just gone. The weak, yellowed torch (F) shows as a beam in the haze.
 - Walking motion: the head dips as each foot lands and rises mid-stride, sways and rolls slightly with each step
   (bigger and quicker when running), footsteps land on the dips, a knee-bend on landing from a jump or fall,
   slow breathing when standing still, and the torch beam lags behind quick turns.

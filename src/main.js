@@ -114,10 +114,9 @@ addEventListener('keydown', (e) => {
   if (state !== 'play' || devcon?.open) return;
   keys[e.code] = true;
   if (e.repeat) return;
-  if (e.code === 'KeyF') { flying = !flying; vel.set(0, 0, 0); }
   if (e.code === 'KeyR') respawn();
   if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
-  if (e.code === 'KeyL') torchOn = !torchOn;
+  if (e.code === 'KeyF') torchOn = !torchOn;                 // flashlight (fly/no-clip is console-only: `fly`)
   if (e.code === 'Space' && onGround && !flying) { vel.y = JUMP; onGround = false; }
   if (e.code === 'KeyE') { const d = roomDoors.pick(camera); if (d) { roomDoors.toggle(d, player.position); audio.door(); } }
 });
@@ -642,7 +641,7 @@ function frame() {
     let label = FLOORS[0][1];
     for (const [h, n] of FLOORS) if (feet > h) label = n;
     floorEl.textContent = label;
-    modeEl.textContent = flying ? 'Fly mode (F to land)' : 'Walking';
+    modeEl.textContent = flying ? 'Fly mode (console: fly off)' : crouching ? 'Crouching' : 'Walking';
   }
   menu.update(rawDt);
   sky.position.copy(camera.position);
