@@ -225,13 +225,19 @@ function placeManjuNear(feet, urgent = false) {
     const dx = nav.x[i] - feet.x, dz = nav.z[i] - feet.z, d = Math.hypot(dx, dz);
     if (d < min || d > max) continue;
     const dot = (dx * look.x + dz * look.z) / d;
-    if (dot < (urgent ? 0.15 : 0.3)) behind.push({ i, score: Math.abs(d - (min + max) / 2) * 0.5 + Math.random() * 0.6 });
+    if (dot < (urgent ? 0.15 : 0.3)) behind.push({ i, d, score: Math.abs(d - (min + max) / 2) * 0.5 + Math.random() * 0.6 });
     else front.push({ i, d });
   }
+  // a real walk to you, not through a wall: the path may detour a little past the straight line,
+  // but nowhere near a trip around the building. Zoya's drop keeps upstream's 10 m cap; an urgent
+  // report has to allow the walk its 10-22 m distance already implies.
+  const realWalk = (c) => {
+    const p = nav.path(c.i, goal, 4000);
+    return p && p.length * 0.35 < (urgent ? c.d + 8 : 10);
+  };
   behind.sort((a, b) => a.score - b.score);
   for (const c of behind.slice(0, 12)) {
-    const p = nav.path(c.i, goal, 4000);
-    if (p && p.length * 0.35 < 10) { manju.place(nav.pos(c.i)); return true; }   // a real walk to you, not through a wall
+    if (realWalk(c)) { manju.place(nav.pos(c.i)); return true; }
   }
   front.sort((a, b) => a.d - b.d);
   if (urgent) {
@@ -239,14 +245,14 @@ function placeManjuNear(feet, urgent = false) {
     const doors = manju.closedDoorMeshes();
     for (let k = 0; k < front.length && k < 14; k++) {
       const q = nav.pos(front[k].i);
-      if (manju.hitWall(camera.position, new THREE.Vector3(q.x, q.y + 1.2, q.z), doors)) { manju.place(q); return true; }
+      if (!manju.hitWall(camera.position, new THREE.Vector3(q.x, q.y + 1.2, q.z), doors)) continue;
+      if (realWalk(front[k])) { manju.place(q); return true; }
     }
     return false;
   }
   // Zoya's call: a close-but-visible node still beats no arrival at all
   for (const c of front.slice(0, 12)) {
-    const p = nav.path(c.i, goal, 4000);
-    if (p && p.length * 0.35 < 10) { manju.place(nav.pos(c.i)); return true; }
+    if (realWalk(c)) { manju.place(nav.pos(c.i)); return true; }
   }
   return false;
 }
