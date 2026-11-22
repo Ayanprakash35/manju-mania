@@ -59,7 +59,7 @@
   #dead[hidden] { display: none; }
   #dead h1 { margin: 0; max-width: 96vw; font: 900 clamp(30px, 7.4vw, 112px) "Arial Black", Impact, sans-serif; letter-spacing: .12em; text-indent: .12em; white-space: nowrap; color: #f2f4f2; text-shadow: -4px 0 #ff2a2a, 4px 0 #22e0ff; animation: deadglitch 2.2s steps(1) infinite; }
   @keyframes deadglitch { 0%,100% { transform: none; clip-path: none; } 7% { transform: translateX(-8px); clip-path: inset(10% 0 55% 0); } 8% { transform: none; clip-path: none; } 52% { transform: translateX(6px); clip-path: inset(60% 0 12% 0); } 53% { transform: none; clip-path: none; } }
-  #dead p { margin: 0 0 24px; font: 13px ui-monospace, Menlo, monospace; letter-spacing: 4px; text-transform: uppercase; color: rgba(232,236,234,.5); }
+  #dead p { margin: 0 0 24px; max-width: min(760px, 82vw); text-align: center; font: 14px/1.5 ui-monospace, Menlo, monospace; letter-spacing: .4px; color: rgba(232,236,234,.72); }
   #dead button { all: unset; cursor: pointer; padding: 6px 26px; font-size: 22px; text-transform: uppercase; letter-spacing: .5px; }
   #dead button:hover, #dead button:focus { background: #5fa49e; color: #071012; }
   body.inmenu #crosshair, body.inmenu #hud, body.inmenu #hint { display: none !important; }
@@ -96,7 +96,7 @@
 </div>
 <div id="tear"></div>
 <div id="stamina"><i></i></div>
-<div id="dead" hidden><h1>CONFISCATED</h1><p>Manju found you</p><button id="again">Try again</button><button id="giveup">Quit to menu</button></div>
+<div id="dead" hidden><h1>CONFISCATED</h1><p id="deadline"></p><button id="again">Try again</button><button id="giveup">Quit to menu</button></div>
 <div id="crosshair"></div>
 <div id="hint"></div>
 <div id="hud"><b id="floor">Outside</b><br><span id="mode">Walking</span></div>
