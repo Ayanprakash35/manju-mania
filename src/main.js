@@ -144,6 +144,7 @@ addEventListener('wheel', (e) => { if (state === 'play' && controls.isLocked) st
 // ---------------- title / pause menu ----------------
 // state: 'menu' (title screen, live attract camera), 'play', 'pause' (Esc)
 let state = 'menu', ready = false, fresh = false;
+const LIVES = 3; let lives = LIVES;            // three chances a run: each death costs one, the third ends it
 // colour saturation (Settings slider, 0-200 %): a CSS filter on the canvas so it works with or without the retro filter
 const SAT_KEY = 'manju.saturation';
 let saturation = 1;
@@ -164,7 +165,7 @@ const menu = new Menu({
 // first interaction anywhere on the title screen starts the ambience (browsers block audio before that)
 addEventListener('pointerdown', () => audio.start(), { once: true });
 controls.addEventListener('lock', () => {
-  if (fresh) { respawn(); torchOn = true; fresh = false; stamina = 1; exhausted = false; manju.state = 'off'; manju.alert = 0; manjuGrace = 40; health.reset(); mutty.reset(); zoya.reset(); charGrace = 34; charSpawnT = 0; story.newGame(); }
+  if (fresh) { lives = LIVES; renderLives(); respawn(); torchOn = true; fresh = false; stamina = 1; exhausted = false; manju.state = 'off'; manju.alert = 0; manjuGrace = 40; health.reset(); mutty.reset(); zoya.reset(); charGrace = 34; charSpawnT = 0; story.newGame(); }
   menu.close(); document.body.classList.remove('inmenu'); state = 'play';
 });
 document.addEventListener('pointerlockerror', () => {
@@ -442,6 +443,12 @@ const health = new Health({
   onDeath: (source) => caught('health', source),
 });
 renderHearts(health);
+const livesEl = document.getElementById('lives');
+function renderLives() {
+  livesEl.innerHTML = `<span>LIVES</span>${Array.from({ length: LIVES }, (_, i) => `<i class="${i < lives ? '' : 'gone'}"></i>`).join('')}`;
+  livesEl.setAttribute('aria-label', `Lives: ${lives} of ${LIVES}`);
+}
+renderLives();
 Object.assign(story, { manju, mutty, zoya, health, book, komynini });
 function damagePlayer(amount = 1, source = 'mutty', force = false) { return health.damage(amount, source, force); }
 function healPlayer(amount = 1) { return health.heal(amount); }
@@ -449,8 +456,9 @@ function healPlayer(amount = 1) { return health.heal(amount); }
 const lookQ = new THREE.Quaternion(), lookM = new THREE.Matrix4(), headW = new THREE.Vector3();
 let caughtBy = 'manju', killedBy = null;
 function caught(by = 'manju', source = null) {
-  if (cheat.god) return;
+  if (cheat.god || state === 'caught') return;
   if (by !== 'health' && playerSafe()) return;              // room 15: nobody catches you in there
+  lives = Math.max(0, lives - 1); renderLives();
   caughtBy = by; killedBy = by === 'manju' ? 'manju' : source;         // for the death screen's character card
   state = 'caught'; caughtT = 0; caughtPos.copy(camera.position); lungeT = -1; deadShown = false;
   for (const k in keys) keys[k] = false;
@@ -487,7 +495,13 @@ function caughtUpdate(dt) {
   }
   if (t0 < 0.18 && caughtT >= 0.18) { audio.scream(); menu.burst(900); lungeT = caughtT; }
   if (lungeT >= 0 && !deadShown && caughtT - lungeT >= 1.0) {
-    deadShown = true; deadLineEl.textContent = pickConfiscatedLine();
+    deadShown = true;
+    const over = lives <= 0;
+    deadEl.classList.toggle('over', over);
+    deadEl.querySelector('h1').textContent = over ? 'EXPELLED' : 'CONFISCATED';
+    deadLineEl.textContent = over ? 'No chances left. Your stuff stays confiscated.' : pickConfiscatedLine();
+    deadLivesEl.innerHTML = `<span class="k">LIVES</span>${Array.from({ length: LIVES }, (_, i) => `<i class="${i < lives ? '' : 'gone'}${i === lives ? ' lost' : ''}"></i>`).join('')}<span class="n">${over ? 'game over' : lives === 1 ? 'last chance' : `${lives} left`}</span>`;
+    againBtn.textContent = over ? 'Start over' : 'Try again';
     const card = killedBy ? book.deathCard(killedBy) : '';             // who got you, what they do, how to avoid them
     if (killedBy) book.discover(killedBy, true);
     deadProfileEl.innerHTML = card; deadProfileEl.hidden = !card;
@@ -496,6 +510,7 @@ function caughtUpdate(dt) {
   }
 }
 function tryAgain() {
+  if (lives <= 0) { startOver(); return; }
   catchLight.intensity = 0;
   deadEl.hidden = true; document.body.classList.remove('inmenu');
   respawn(); stamina = 1; exhausted = false; torchOn = true;
@@ -504,10 +519,18 @@ function tryAgain() {
   mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0;
   state = 'play'; controls.lock();
 }
-document.getElementById('again').addEventListener('click', () => tryAgain());
+const againBtn = document.getElementById('again'), deadLivesEl = document.getElementById('deadlives');
+againBtn.addEventListener('click', () => tryAgain());
+// out of lives: back to the start of a whole new run (the intro plays again; space skips it)
+function startOver() {
+  quitToMenu();
+  if (!ready) return;
+  audio.start(); fresh = true; controls.lock();             // the lock handler starts the new game (and resets the lives)
+}
 const deadProfileEl = document.getElementById('deadprofile');
 document.getElementById('deadbook').addEventListener('click', () => book.open(killedBy || undefined));
-document.getElementById('giveup').addEventListener('click', () => { story.quit(); deadEl.hidden = true; catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; state = 'menu'; flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); health.reset(); hurtEl.classList.remove('on'); mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; menu.open('title'); document.body.classList.add('inmenu'); });
+const quitToMenu = () => { story.quit(); deadEl.hidden = true; catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; state = 'menu'; flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); health.reset(); hurtEl.classList.remove('on'); mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; menu.open('title'); document.body.classList.add('inmenu'); };
+document.getElementById('giveup').addEventListener('click', quitToMenu);
 addEventListener('keydown', (e) => { if (!deadEl.hidden && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); tryAgain(); } });
 const doorsLoaded = roomDoors.load('./public/doors.json').catch((e) => console.warn('doors.json', e));
 
@@ -874,4 +897,4 @@ var devcon = new DevConsole({
 });
 
 // debug hooks for automated testing
-window.__game = { book, story, komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { book, story, komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get lives() { return lives; }, set lives(v) { lives = v; renderLives(); }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };

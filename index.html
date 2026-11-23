@@ -79,7 +79,7 @@
   @keyframes heartbeat { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.14); } 60% { transform: scale(.98); } }
   #hurt { position: fixed; inset: 0; z-index: 9; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(150,20,18,.55) 100%); transition: opacity .18s; }
   #hurt.on { opacity: 1; }
-  body.inmenu #hearts, body.inmenu #hurt, body.nohud #hearts, body.nohud #hurt { display: none !important; }
+  body.inmenu #hearts, body.inmenu #hurt, body.nohud #hearts, body.nohud #hurt, body.inmenu #lives, body.nohud #lives { display: none !important; }
   #hint { position: fixed; left: 50%; top: calc(50% + 26px); transform: translateX(-50%); color: #fff; font: 600 14px -apple-system, system-ui, sans-serif; background: rgba(0,0,0,.45); padding: 4px 10px; border-radius: 6px; display: none; pointer-events: none; }
   @media (max-height: 680px) {
     #menu { overflow-y: auto; }
@@ -111,11 +111,12 @@
 <div id="tear"></div>
 <div id="hurt"></div>
 <div id="stamina"><i></i></div>
-<div id="dead" hidden><h1>CONFISCATED</h1><p id="deadline"></p><div id="deadprofile" hidden></div><div><button id="again">Try again</button><button id="deadbook">Character book</button><button id="giveup">Quit to menu</button></div></div>
+<div id="dead" hidden><h1>CONFISCATED</h1><div id="deadlives"></div><p id="deadline"></p><div id="deadprofile" hidden></div><div><button id="again">Try again</button><button id="deadbook">Character book</button><button id="giveup">Quit to menu</button></div></div>
 <div id="crosshair"></div>
 <div id="hint"></div>
 <div id="hud"><b id="floor">Outside</b><br><span id="mode">Walking</span></div>
 <div id="hearts" aria-label="Health"><i></i><i></i><i></i><i></i><i></i></div>
+<div id="lives" aria-label="Lives"></div>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

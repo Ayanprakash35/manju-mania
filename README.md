@@ -122,6 +122,10 @@ First-floor warden (`public/models/zoya.glb`); she does no damage herself.
 - She never leaves the first floor.
 
 ## Health (src/health.js)
+- **3 lives** a run (pixel skulls to the right of the hearts). Each death, caught by Manju or bitten to zero hearts,
+  costs one; the death screen shows the skulls and how many are left, and Try again respawns you in room 15 with full
+  hearts and everything you've collected and switched on kept. After the third death it's EXPELLED: Start over begins
+  a whole new run (intro and all) with three lives again.
 - **5 hearts**, 1.25 s of invulnerability after a hit, no regeneration.
 - Mutty takes one heart per bite; Manju's catch is still instant confiscation; Zoya deals no damage.
 - At zero hearts the same **CONFISCATED** screen appears (with a random warden line). Try Again / New Game
