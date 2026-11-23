@@ -726,7 +726,10 @@ export class Story {
     this.bannerEl = el('banner'); this.bannerEl.hidden = true;
     this.contextEl = el('ctx'); this.contextEl.hidden = true;
     this.lbEl = el('lb'); this.fadeEl = el('fade');
-    this.mapEl = el('map', '', 'canvas'); this.mapEl.hidden = true; this.mapEl.width = 250; this.mapEl.height = 166;
+    // the map is a tablet you're holding: bezel, front camera, a status bar, the map app on the screen
+    this.tabEl = el('tab', '<div class="dev"><div class="cam"></div><div class="scr"><div class="sb"><span class="app"></span><span class="fl"></span><span class="tm">9:52</span><span class="bat"><i></i></span></div><canvas></canvas></div></div>');
+    this.tabEl.hidden = true;
+    this.mapEl = this.tabEl.querySelector('canvas'); this.mapEl.width = 320; this.mapEl.height = 226;
   }
   // a voice blip per letter or two (Undertale-style), pitched per speaker
   blip(hz) {
@@ -823,7 +826,7 @@ export class Story {
   }
   renderBar() {
     if (!this.barEl) return;
-    if (!this.playing) { this.barEl.innerHTML = ''; this.barLabel.innerHTML = ''; this.mapEl.hidden = true; return; }
+    if (!this.playing) { this.barEl.innerHTML = ''; this.barLabel.innerHTML = ''; this.tabEl.hidden = true; return; }
     this.barEl.innerHTML = SLOTS.map((s, i) => {
       const owned = s.id === 'food' ? this.food > 0 : this.have[s.id];
       const cd = this.cd[s.id] || 0, frac = cd > 0 ? cd / CD[s.id] : 0;
@@ -832,57 +835,88 @@ export class Story {
     const s = SLOTS[this.sel];
     const tips = { laptop: '<span class="k">[M]</span> big map', tablet: 'everyone, on the map', music: '<span class="k">[click]</span> throw it', mask: '<span class="k">[click]</span> on Zoya', food: '<span class="k">[click]</span> throw to Mutty   <span class="k">[right-click]</span> eat' };
     this.barLabel.innerHTML = s && (s.id === 'food' ? this.food > 0 : this.have[s.id]) ? `${SLOTS[this.sel].name.toLowerCase()}  ·  ${tips[s.id]}` : '';
-    this.mapEl.hidden = !(this.have.laptop || this.have.tablet);
-    this.mapEl.classList.toggle('big', this.mapBig);
+    this.tabEl.hidden = !(this.have.laptop || this.have.tablet);
+    this.tabEl.classList.toggle('big', this.mapBig);
   }
   tickUi() { if (this.playing && Object.values(this.cd).some((v) => v > 0)) this.renderBar(); }
 
-  // minimap: the laptop draws the plan of the floor you're on and you; the tablet adds everyone else
+  // the map app on the tablet: the plan of the floor you're on (laptop), the people on it and roughly where your
+  // missing stuff is (tablet) — this floor only. North is up; N/E/S/W on the edges; everything labelled.
   drawMap(ctx) {
-    if (this.mapEl.hidden) return;
-    const big = this.mapBig, W = big ? 720 : 240, H = big ? 480 : 160;
+    if (this.tabEl.hidden) return;
+    const big = this.mapBig, W = big ? 960 : 320, H = big ? 640 : 226;
     if (this.mapEl.width !== W) { this.mapEl.width = W; this.mapEl.height = H; }
-    const g = this.mapEl.getContext('2d'); g.clearRect(0, 0, W, H);
+    const g = this.mapEl.getContext('2d'), k = big ? 2.2 : 1;           // k: text/marker scale
     const m = this.mapData, fl = floorOf(ctx.feet.y + 0.1);
-    const b = m?.bounds || [-38.3, 32.1, -15, 30.9], sx = W / (b[1] - b[0]), sz = H / (b[3] - b[2]), s = Math.min(sx, sz);
-    const ox = (W - (b[1] - b[0]) * s) / 2, oz = (H - (b[3] - b[2]) * s) / 2;
+    this.tabEl.querySelector('.app').textContent = this.have.tablet ? 'FIND MY' : 'MAP';
+    this.tabEl.querySelector('.fl').textContent = ['GROUND FLOOR', '1ST FLOOR', '2ND FLOOR'][fl];
+    // screen background: dark, a faint 2 m grid
+    g.fillStyle = '#0b141c'; g.fillRect(0, 0, W, H);
+    const pad = 20 * k, legendH = this.have.tablet ? 18 * k : 0;
+    const b = m?.bounds || [-38.3, 32.1, -15, 30.9], s = Math.min((W - 2 * pad) / (b[1] - b[0]), (H - 2 * pad - legendH) / (b[3] - b[2]));
+    const ox = (W - (b[1] - b[0]) * s) / 2, oz = pad + ((H - 2 * pad - legendH) - (b[3] - b[2]) * s) / 2;
     const P = (x, z) => [ox + (x - b[0]) * s, oz + (z - b[2]) * s];
+    g.strokeStyle = '#122230'; g.lineWidth = 1;
+    for (let x = Math.ceil(b[0] / 2) * 2; x < b[1]; x += 2) { const [a] = P(x, 0); g.beginPath(); g.moveTo(a, 0); g.lineTo(a, H); g.stroke(); }
+    for (let z = Math.ceil(b[2] / 2) * 2; z < b[3]; z += 2) { const [, c] = P(0, z); g.beginPath(); g.moveTo(0, c); g.lineTo(W, c); g.stroke(); }
+    const label = (t, x, y, col = 'rgba(239,233,220,.75)', size = 11) => { g.fillStyle = col; g.font = `${size * k}px VT323, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, x, y); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; };
     if (this.have.laptop && m) {
-      const fills = { corr: '#7c8a8a', room: '#2e3a3c', bath: '#3c4a5a', stair: '#4f8a5a', void: '#0a0d10' };
-      for (const [x0, x1, z0, z1, k] of m.rects) { const [a, c] = P(x0, z0), [e, f] = P(x1, z1); g.fillStyle = fills[k] || '#333'; g.fillRect(a, c, e - a, f - c); if (k === 'room' || k === 'bath') { g.strokeStyle = '#0a0d10'; g.lineWidth = 1; g.strokeRect(a + 0.5, c + 0.5, e - a - 1, f - c - 1); } }
-      if (this.phase === 'lights' || this.phase === 'done') for (const sw of this.switches) if (sw.fl === fl) { const [x, y] = P(sw.pos.x, sw.pos.z); g.fillStyle = sw.on ? '#3cff5a' : '#ffd23a'; g.fillRect(x - 2, y - 2, 4, 4); }
-      g.fillStyle = '#efe9dc'; g.font = `${big ? 26 : 17}px VT323, monospace`; g.fillText(FLOOR_NAME[fl].toUpperCase(), 6, big ? 24 : 15);
-    } else { g.fillStyle = 'rgba(239,233,220,.6)'; g.font = '17px VT323, monospace'; g.fillText('NO MAP - FIND THE LAPTOP', 6, 15); }
-    // Find My (tablet): a rough circle round each missing item on this floor, a line for the ones on other floors
+      const fills = { corr: '#8fa3ae', room: '#1d2b35', bath: '#27405a', stair: '#2f6b45', void: '#05090c' };
+      const tags = [];                                                     // one WC / ST label per place, not per block
+      const tagOnce = (t, x, y, col) => { if (tags.some(([tt, xx, yy]) => tt === t && Math.hypot(xx - x, yy - y) < 7 * s)) return; tags.push([t, x, y]); label(t, x, y, col, 12); };
+      for (const [x0, x1, z0, z1, kind] of m.rects) {
+        const [a, c] = P(x0, z0), [e, f] = P(x1, z1);
+        g.fillStyle = fills[kind] || '#333'; g.fillRect(a, c, e - a, f - c);
+        if (kind === 'room' || kind === 'bath') { g.strokeStyle = '#0b141c'; g.lineWidth = 1; g.strokeRect(a + 0.5, c + 0.5, e - a - 1, f - c - 1); }
+        if (kind === 'stair') tagOnce('ST', (a + e) / 2, (c + f) / 2, '#bff0cc');
+        if (kind === 'bath' && (e - a) * (f - c) > 120 * k * k) tagOnce('WC', (a + e) / 2, (c + f) / 2, '#a9c8ec');
+      }
+      if (fl === 0) {                                                     // home: room 15
+        const [a, c] = P(25.3, 17.11), [e, f] = P(28.58, 20.81);
+        g.strokeStyle = '#f2c14e'; g.lineWidth = 1.5 * k; g.strokeRect(a + 1, c + 1, e - a - 2, f - c - 2); label('15', (a + e) / 2, (c + f) / 2, '#f2c14e', 11);
+      }
+      if (this.phase === 'lights' || this.phase === 'done') for (const sw of this.switches) if (sw.fl === fl) { const [x, y] = P(sw.pos.x, sw.pos.z); g.fillStyle = sw.on ? '#3cff5a' : '#ffd23a'; g.fillRect(x - 2.5 * k, y - 2.5 * k, 5 * k, 5 * k); }
+    } else label('no map data — find the laptop', W / 2, H / 2 - 10 * k, 'rgba(239,233,220,.55)', 13);
+    // Find My: rough circles round your missing stuff on this floor
     if (this.have.tablet) {
-      const away = [];
+      const short = { laptop: 'LAPTOP', tablet: 'TABLET', music: 'MUSIC', mask: 'MASK' };
       for (const it of ITEMS) {
-        const m = this.items[it.id]; if (this.have[it.id] || !m.spot) continue;
-        if (m.spot.fl !== fl) { away.push(`${it.name.toUpperCase()} ${['G', '1F', '2F'][m.spot.fl]}`); continue; }
-        if (!m.fuzz) m.fuzz = [(Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4];        // not the exact spot
-        const [cx, cz] = P(m.mesh.position.x + m.fuzz[0], m.mesh.position.z + m.fuzz[1]), rr = 4.2 * s;
-        const pulse = 0.6 + 0.4 * Math.sin(performance.now() * 0.005);
-        g.strokeStyle = `rgba(242,193,78,${pulse})`; g.lineWidth = big ? 2.5 : 1.5; g.setLineDash([4, 3]);
-        g.beginPath(); g.arc(cx, cz, rr, 0, 7); g.stroke(); g.setLineDash([]);
-        g.fillStyle = '#f2c14e'; g.font = `${big ? 18 : 13}px VT323, monospace`; g.fillText(it.name.toUpperCase(), cx - rr, cz - rr - 2);
-      }
-      if (away.length) { g.fillStyle = 'rgba(242,193,78,.85)'; g.font = `${big ? 20 : 14}px VT323, monospace`; g.fillText(away.join('  '), 6, H - 6); }
-    }
-    // characters (tablet)
-    if (this.have.tablet) {
-      const dots = [[this.manju, '#ff3b30', 'M'], [this.mutty, '#ff9a1a', 'm'], [this.zoya, '#c06bff', 'Z']];
-      for (const [n, c, lab] of dots) {
-        if (!n?.pos || n.state === 'off' || n.state === 'away' || n.state === 'cutscene') continue;
-        const nf = floorOf(n.pos.y + 0.1), [x, y] = P(n.pos.x, n.pos.z);
-        g.globalAlpha = nf === fl ? 1 : 0.4; g.fillStyle = c; g.beginPath(); g.arc(x, y, big ? 6 : 3.5, 0, 7); g.fill();
-        if (nf !== fl) { g.fillStyle = '#fff'; g.font = `${big ? 18 : 13}px VT323, monospace`; g.fillText(`${lab}${nf}`, x + 4, y - 3); }
-        g.globalAlpha = 1;
+        const mm = this.items[it.id]; if (this.have[it.id] || !mm.spot || mm.spot.fl !== fl) continue;
+        if (!mm.fuzz) mm.fuzz = [(Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4];        // not the exact spot
+        const [cx, cz] = P(mm.mesh.position.x + mm.fuzz[0], mm.mesh.position.z + mm.fuzz[1]), rr = 4.2 * s;
+        const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.005);
+        g.fillStyle = `rgba(242,193,78,${0.08 * pulse})`; g.beginPath(); g.arc(cx, cz, rr, 0, 7); g.fill();
+        g.strokeStyle = `rgba(242,193,78,${pulse})`; g.lineWidth = 1.5 * k; g.setLineDash([4 * k, 3 * k]); g.beginPath(); g.arc(cx, cz, rr, 0, 7); g.stroke(); g.setLineDash([]);
+        label(short[it.id], cx, cz - rr - 6 * k, '#f2c14e', 12);
       }
     }
-    // you: an arrow
+    // people on this floor (tablet): a dot with their letters
+    const PEOPLE = [[this.manju, '#ff3b30', 'MA', 'manju'], [this.mutty, '#ff9a1a', 'MU', 'mutty'], [this.zoya, '#b86bff', 'ZO', 'zoya']];
+    if (this.have.tablet) for (const [n, col, tag] of PEOPLE) {
+      if (!n?.pos || ['off', 'away', 'cutscene', 'scripted'].includes(n.state) || floorOf(n.pos.y + 0.1) !== fl) continue;
+      const [x, y] = P(n.pos.x, n.pos.z), r = 8 * k;
+      g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.strokeStyle = '#0b141c'; g.lineWidth = 2 * k; g.stroke();
+      label(tag, x, y + 0.5 * k, '#0b141c', 11);
+    }
+    // you: a white arrow with a soft ring
     const [px, pz] = P(ctx.feet.x, ctx.feet.z), fwd = new THREE.Vector3(); this.camera.getWorldDirection(fwd);
-    const a = Math.atan2(fwd.x, fwd.z), r = big ? 9 : 5;
-    g.fillStyle = '#ffffff'; g.beginPath();
-    g.moveTo(px + Math.sin(a) * r, pz + Math.cos(a) * r); g.lineTo(px + Math.sin(a + 2.5) * r * 0.7, pz + Math.cos(a + 2.5) * r * 0.7); g.lineTo(px + Math.sin(a - 2.5) * r * 0.7, pz + Math.cos(a - 2.5) * r * 0.7); g.fill();
+    const a = Math.atan2(fwd.x, fwd.z), r = 8 * k;
+    g.fillStyle = 'rgba(255,255,255,.15)'; g.beginPath(); g.arc(px, pz, r * 1.5, 0, 7); g.fill();
+    g.fillStyle = '#ffffff'; g.strokeStyle = '#0b141c'; g.lineWidth = 1.5 * k; g.beginPath();
+    g.moveTo(px + Math.sin(a) * r, pz + Math.cos(a) * r); g.lineTo(px + Math.sin(a + 2.45) * r * 0.75, pz + Math.cos(a + 2.45) * r * 0.75);
+    g.lineTo(px + Math.sin(a - 2.45) * r * 0.75, pz + Math.cos(a - 2.45) * r * 0.75); g.closePath(); g.fill(); g.stroke();
+    // compass: N / E / S / W on the edges of the screen
+    const badge = (t, x, y) => { g.fillStyle = '#0b141c'; g.beginPath(); g.arc(x, y, 9 * k, 0, 7); g.fill(); g.strokeStyle = t === 'N' ? '#ff5a4a' : 'rgba(239,233,220,.55)'; g.lineWidth = 1.5 * k; g.stroke(); label(t, x, y + 0.5 * k, t === 'N' ? '#ff5a4a' : '#efe9dc', 13); };
+    const mapBottom = H - legendH;
+    badge('N', W / 2, 11 * k); badge('S', W / 2, mapBottom - 11 * k); badge('W', 11 * k, mapBottom / 2); badge('E', W - 11 * k, mapBottom / 2);
+    // legend
+    if (this.have.tablet) {
+      g.fillStyle = '#08101a'; g.fillRect(0, mapBottom, W, legendH);
+      let x = 10 * k; const y = mapBottom + legendH / 2;
+      g.font = `${12 * k}px VT323, monospace`; g.textBaseline = 'middle';
+      for (const [, col, tag, nm] of PEOPLE) { g.fillStyle = col; g.beginPath(); g.arc(x + 5 * k, y, 5 * k, 0, 7); g.fill(); g.fillStyle = '#efe9dc'; g.fillText(`${tag} ${nm}`, x + 13 * k, y + 1); x += g.measureText(`${tag} ${nm}`).width + 26 * k; }
+      g.strokeStyle = '#f2c14e'; g.setLineDash([3 * k, 2 * k]); g.beginPath(); g.arc(x + 5 * k, y, 5 * k, 0, 7); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#efe9dc'; g.fillText('my stuff', x + 13 * k, y + 1); g.textBaseline = 'alphabetic';
+    }
   }
 }

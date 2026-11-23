@@ -90,10 +90,23 @@
 #barlabel { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); font: 22px var(--pix); color: var(--bone); text-shadow: 0 2px 0 #000, 0 0 8px #000; pointer-events: none; z-index: 6; white-space: nowrap; }
 #barlabel .k { color: var(--amber); }
 
-/* ---------------------------------------------------------------- minimap: the laptop's screen */
-#map { position: fixed; left: 14px; top: 62px; width: min(250px, 30vw); z-index: 6; pointer-events: none; border: 6px solid #1b1d20; border-bottom-width: 12px; border-radius: 6px 6px 3px 3px; background: #050607; box-shadow: 0 0 0 1px #3a3d42, 0 8px 18px rgba(0,0,0,.55); image-rendering: pixelated; }
-#map[hidden] { display: none; }
-#map.big { left: 50%; top: 50%; width: min(760px, 92vw); transform: translate(-50%, -50%); }
+/* ---------------------------------------------------------------- the map: a tablet you're holding (bottom left) */
+#tab { position: fixed; left: 18px; bottom: 16px; width: clamp(240px, 26vw, 340px); z-index: 6; pointer-events: none; perspective: 900px; }
+#tab[hidden] { display: none; }
+#tab .dev { position: relative; padding: 13px 13px 15px; border-radius: 22px; background: linear-gradient(155deg, #3a3e44 0%, #1d2024 45%, #121417 100%);
+  box-shadow: inset 0 0 0 1.5px #4a4f56, inset 0 0 0 4px #15171a, 0 18px 30px rgba(0,0,0,.6), 0 2px 0 #050607;
+  transform: rotateX(13deg) rotateY(15deg) rotateZ(-3deg); transform-origin: left bottom; transition: transform .35s ease; }
+#tab .cam { position: absolute; top: 5px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: #0a0b0d; box-shadow: 0 0 0 1px #2e3238, inset 1px 1px 1px #2a4a6a; }
+#tab .scr { position: relative; border-radius: 9px; overflow: hidden; background: #0b141c; box-shadow: inset 0 0 0 1px #000; }
+#tab .scr::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(118deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 32%, transparent 33%); }
+#tab .sb { display: flex; align-items: center; gap: 8px; padding: 3px 9px 1px; white-space: nowrap; overflow: hidden; font: 15px/1 var(--pix); color: #dfe6ea; background: #08101a; letter-spacing: .5px; }
+#tab .sb .app { color: var(--amber); } #tab .sb .fl { flex: 1; color: rgba(223,230,234,.7); } #tab .sb .tm { color: #dfe6ea; }
+#tab .sb .bat { width: 18px; height: 8px; border: 1.5px solid #dfe6ea; border-radius: 2px; position: relative; } #tab .sb .bat::after { content: ''; position: absolute; right: -4px; top: 1.5px; width: 2px; height: 3px; background: #dfe6ea; }
+#tab .sb .bat i { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 40%; background: #ff5a4a; }
+#tab canvas { display: block; width: 100%; height: auto; image-rendering: auto; }
+#tab.big { left: 50%; bottom: 50%; width: min(820px, 92vw); transform: translate(-50%, 50%); perspective: none; }
+#tab.big .dev { transform: none; padding: 18px 18px 22px; border-radius: 30px; }
+#tab.big .sb { font-size: 22px; padding: 5px 14px 3px; }
 
 /* ---------------------------------------------------------------- intro: the notice, the clock */
 #ctx { position: fixed; inset: 0; z-index: 15; background: #000; display: flex; align-items: center; justify-content: center; }
@@ -122,8 +135,8 @@
 #lb.on::before, #lb.on::after { height: 11vh; }
 #fade { position: fixed; inset: 0; background: #000; pointer-events: none; z-index: 14; opacity: 0; transition: opacity .6s; }
 #fade.on { opacity: 1; }
-body.cut #crosshair, body.cut #hud, body.cut #hint, body.cut #hearts, body.cut #bar, body.cut #barlabel, body.cut #obj, body.cut #map, body.cut #stamina { display: none !important; }
-body.inmenu #obj, body.inmenu #bar, body.inmenu #barlabel, body.inmenu #map, body.inmenu #toast, body.inmenu #banner, body.inmenu #dlg, body.inmenu #lb { display: none !important; }
+body.cut #crosshair, body.cut #hud, body.cut #hint, body.cut #hearts, body.cut #bar, body.cut #barlabel, body.cut #obj, body.cut #map, body.cut #tab, body.cut #stamina { display: none !important; }
+body.inmenu #obj, body.inmenu #bar, body.inmenu #barlabel, body.inmenu #map, body.inmenu #tab, body.inmenu #toast, body.inmenu #banner, body.inmenu #dlg, body.inmenu #lb { display: none !important; }
 
 /* ---------------------------------------------------------------- character cards: the game's own bestiary */
 /* Same voice as the dialogue box: black, a thick white frame, pixel type. A portrait on a little scanline screen,

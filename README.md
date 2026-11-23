@@ -17,9 +17,11 @@ noise, and every light that comes on lets Manju, Mutty and Zoya see you from fur
 3. the finale (not built yet).
 
 **Items** (1-5 to pick, click to use; each explains itself when you pick it up):
-- **Laptop**: the minimap (top left: rooms, corridors, stairs, you; the switches during the lights objective). M or
-  clicking it: the big map.
-- **Tablet**: Manju, Mutty and Zoya on the map, wherever they are (faded with their floor number when not on yours).
+- **Laptop**: the map, shown as a tablet you're holding (bottom left, tilted; FIND MY / MAP app with floor, clock and
+  battery): the floor you're on, north up with N/E/S/W on the edges, stairs (ST), toilets (WC), room 15 and the switches
+  during the lights objective. M or clicking it: the big map.
+- **Tablet**: the people on your floor as lettered dots (MA Manju, MU Mutty, ZO Zoya) and Find My circles round your
+  missing stuff on that floor; a legend along the bottom. Only the floor you're on.
 - **Music player**: thrown, it plays a tune where it lands for 15 s and pulls everyone on that floor within ~32 m
   over to it. 90 s cooldown.
 - **Face mask**: click it on Zoya from up close: she can't call Manju for 60 s. 2 min cooldown.
