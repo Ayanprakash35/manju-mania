@@ -28,6 +28,7 @@ export class Menu {
       { t: 'Resume', go: () => this.h.resume() },
       { t: 'Controls', go: () => this.show('controls') },
       { t: 'Settings', go: () => this.show('settings') },
+      { t: 'Character book', go: () => this.h.book?.() },
       { t: 'Quit to menu', go: () => this.h.quit() },
     ];
     return [
@@ -35,6 +36,7 @@ export class Menu {
       { t: 'Continue', off: true },
       { t: 'Controls', go: () => this.show('controls') },
       { t: 'Settings', go: () => this.show('settings') },
+      { t: 'Character book', go: () => this.h.book?.() },
     ];
   }
 

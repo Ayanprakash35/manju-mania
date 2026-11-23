@@ -20,6 +20,7 @@ import { Health } from './health.js';
 import { buildRoom15, inSafe15 } from './room15.js';
 import { Komynini } from './komynini.js';
 import { Story, floorOf } from './story.js';
+import { Book } from './book.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -158,6 +159,7 @@ const menu = new Menu({
   saturation: () => saturation,
   setSaturation: (v) => { saturation = Math.min(2, Math.max(0, v)); applySaturation(); try { localStorage.setItem(SAT_KEY, String(saturation)); } catch {} },
   tick: () => audio.tick(),
+  book: () => book.open(),
 });
 // first interaction anywhere on the title screen starts the ambience (browsers block audio before that)
 addEventListener('pointerdown', () => audio.start(), { once: true });
@@ -242,6 +244,8 @@ const listener = () => ({ pos: camera.position, dir: camera.getWorldDirection(ne
 // CowShit Komynini: harmless, on the right-hand bed in room 15, scrolling reels; yells at you to close the door
 const komynini = new Komynini({ scene, audio, voices });
 let room15Door = null;
+// the character book: unlocks on first sight (or first death), read from the menus and the death screen (src/book.js)
+const book = new Book({ renderer, camera, getCollider: () => collider, chars: () => ({ manju, mutty, zoya, komynini, director }), toast: (t, s) => story.toast(t, s) });
 // the story: intro cutscene, items, objectives, light switches, stall hiding, minimap (src/story.js)
 const story = new Story({
   scene, camera, player, roomDoors, audio, voices, health: null, getCollider: () => collider, room15: null,
@@ -436,7 +440,7 @@ const health = new Health({
   canDamage: () => state === 'play' && !cheat.god && !devcon?.open && !playerSafe(),   // room 15 is safe
   onChange: renderHearts,
   onDamage: () => { flashDamage(); menu.burst(180); },
-  onDeath: () => caught('health'),
+  onDeath: (source) => caught('health', source),
 });
 renderHearts(health);
 Object.assign(story, { manju, mutty, zoya, health });
@@ -444,11 +448,11 @@ function damagePlayer(amount = 1, source = 'mutty', force = false) { return heal
 function healPlayer(amount = 1) { return health.heal(amount); }
 
 const lookQ = new THREE.Quaternion(), lookM = new THREE.Matrix4(), headW = new THREE.Vector3();
-let caughtBy = 'manju';
-function caught(by = 'manju') {
+let caughtBy = 'manju', killedBy = null;
+function caught(by = 'manju', source = null) {
   if (cheat.god) return;
   if (by !== 'health' && playerSafe()) return;              // room 15: nobody catches you in there
-  caughtBy = by;
+  caughtBy = by; killedBy = by === 'manju' ? 'manju' : source;         // for the death screen's character card
   state = 'caught'; caughtT = 0; caughtPos.copy(camera.position); lungeT = -1; deadShown = false;
   for (const k in keys) keys[k] = false;
 }
@@ -485,6 +489,9 @@ function caughtUpdate(dt) {
   if (t0 < 0.18 && caughtT >= 0.18) { audio.scream(); menu.burst(900); lungeT = caughtT; }
   if (lungeT >= 0 && !deadShown && caughtT - lungeT >= 1.0) {
     deadShown = true; deadLineEl.textContent = pickConfiscatedLine();
+    const card = killedBy ? book.deathCard(killedBy) : '';             // who got you, what they do, how to avoid them
+    if (killedBy) book.discover(killedBy, true);
+    deadProfileEl.innerHTML = card; deadProfileEl.hidden = !card;
     deadEl.hidden = false; document.body.classList.add('inmenu');
     if (controls.isLocked) controls.unlock();
   }
@@ -499,6 +506,8 @@ function tryAgain() {
   state = 'play'; controls.lock();
 }
 document.getElementById('again').addEventListener('click', () => tryAgain());
+const deadProfileEl = document.getElementById('deadprofile');
+document.getElementById('deadbook').addEventListener('click', () => book.open(killedBy || undefined));
 document.getElementById('giveup').addEventListener('click', () => { story.quit(); deadEl.hidden = true; catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; state = 'menu'; flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); health.reset(); hurtEl.classList.remove('on'); mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; menu.open('title'); document.body.classList.add('inmenu'); });
 addEventListener('keydown', (e) => { if (!deadEl.hidden && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); tryAgain(); } });
 const doorsLoaded = roomDoors.load('./public/doors.json').catch((e) => console.warn('doors.json', e));
@@ -752,6 +761,7 @@ function frame() {
       camera.getWorldDirection(camDir);
       const safe = playerSafe();
       story.update(wdt, { feet: feetPos(), safe });
+      book.update(wdt, { safe, cutscene: story.cutscene });
       document.body.classList.toggle('cut', story.busy);
       const hiddenNow = safe || story.hidden || story.busy;     // room 15, a shut rest-room cubicle, or the intro
       const ctx = { feet: feetPos(), eyePos: camera.position, camDir, torchOn, torchI: torch.intensity, noise: safe ? 0 : Math.max(noise, story.noise), crouch: crouching, hidden: hiddenNow, inRoom: inStudentRoom || safe, safe, lit: story.lit };
@@ -861,4 +871,4 @@ var devcon = new DevConsole({
 });
 
 // debug hooks for automated testing
-window.__game = { story, komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { book, story, komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };

@@ -35,6 +35,13 @@ tissue, a bloody handprint on a mirror.
 stops at the first floor), a body in every room (kids in uniform, adults), blood pooled, dragged and sprayed, more in
 the corridors, and figures that stand far down a corridor for a heartbeat and are gone.
 
+## Character book (src/book.js)
+Manju, Mutty, Dr Zoya, CowShit Komynini and the figures each have a page: what they do and how to get past them, with
+a portrait rendered from the game's own model. A page unlocks the first time you properly see that character (in
+front of you, close enough, lit, not behind a wall), Manju during the intro, the figures once you've looked at one,
+or when one of them gets you. Unlocks are saved in the browser. Open the book from the title or pause menu, or from
+the death screen, which also shows the card of whoever caught you (Manju) or bit you to death (Mutty).
+
 **Room 15 (src/room15.js)** is where you start and the one safe place: inside it nobody can see, hear, catch or hurt
 you (Manju and Mutty's nav grids leave it out, so they stop at the door), its tube light never goes out, and there's
 food: two Choco Pies and a Lay's packet (E takes them; see the items below); the food comes back on a new game. The room is a recreation of the owner's video (IMG_2567): two
