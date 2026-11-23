@@ -1,7 +1,7 @@
 /* Manju Mania — game UI.
-   One idea: everything on screen is either the student's own stuff (a torn notebook page for the to-do list, the
-   "who to avoid" notebook with taped polaroids, handwriting, red pen) or the game speaking (black box, white frame,
-   pixel type, typed out a letter at a time). No glass panels, no accent stripes, no emoji. */
+   Two voices: the student's own stuff (the torn notebook page with the to-do list, pencil, red pen) and the game
+   speaking (black box, thick white frame, pixel type typed out a letter at a time) — dialogue, pickups and the
+   character cards. No glass panels, no accent stripes, no emoji. */
 
 :root {
   --ink: #23211e; --graphite: #3a3833; --red-pen: #b3261e; --blue-pen: #23418f;
@@ -125,61 +125,54 @@
 body.cut #crosshair, body.cut #hud, body.cut #hint, body.cut #hearts, body.cut #bar, body.cut #barlabel, body.cut #obj, body.cut #map, body.cut #stamina { display: none !important; }
 body.inmenu #obj, body.inmenu #bar, body.inmenu #barlabel, body.inmenu #map, body.inmenu #toast, body.inmenu #banner, body.inmenu #dlg, body.inmenu #lb { display: none !important; }
 
-/* ---------------------------------------------------------------- the notebook: who to avoid */
-#book { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 45%, #1b1712 0%, #070605 70%); }
+/* ---------------------------------------------------------------- character cards: the game's own bestiary */
+/* Same voice as the dialogue box: black, a thick white frame, pixel type. A portrait on a little scanline screen,
+   the name big, a few hard facts in rows, an Undertale-style one-liner, then what it does and how to survive. */
+#book { position: fixed; inset: 0; z-index: 30; background: #000; color: #fff; display: flex; flex-direction: column; font: 26px/1.15 var(--pix); }
 #book[hidden] { display: none; }
-#book .nb { position: relative; display: flex; width: min(1040px, 96vw); height: min(640px, 88vh); transform: rotate(-.6deg); filter: drop-shadow(0 30px 40px rgba(0,0,0,.8)); animation: nbopen .5s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes nbopen { from { opacity: 0; transform: rotate(-.6deg) translateY(24px) scale(.98); } }
-#book .pg { position: relative; flex: 1; overflow: hidden; color: var(--ink); font: 21px/28px var(--hand);
-  background: linear-gradient(transparent 0 27px, var(--rule) 27px 28px) 0 18px / 100% 28px, var(--paper); }
-#book .pg.l { border-radius: 8px 0 0 8px; padding: 30px 28px 24px 46px; box-shadow: inset -24px 0 30px -18px rgba(60,40,10,.45);
-  background: linear-gradient(90deg, transparent 0 36px, var(--margin) 36px 37.5px, transparent 37.5px), linear-gradient(transparent 0 27px, var(--rule) 27px 28px) 0 18px / 100% 28px, var(--paper); }
-#book .pg.r { border-radius: 0 8px 8px 0; padding: 30px 34px 24px 30px; box-shadow: inset 24px 0 30px -18px rgba(60,40,10,.45); overflow-y: auto; }
-#book .pg::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 100% 100%, rgba(100,70,30,.25), transparent 55%), radial-gradient(ellipse at 0% 0%, rgba(100,70,30,.18), transparent 50%); }
-#book .spine { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(60,40,10,.35); z-index: 2; }
-#book .rings { position: absolute; left: calc(50% - 9px); top: 30px; bottom: 30px; width: 18px; z-index: 3; background: radial-gradient(circle at 50% 50%, #8c8f93 0 5px, #3d3f42 5px 7px, transparent 7px) 0 0 / 18px 40px repeat-y; }
-#book h2 { margin: 0 0 10px; font: 40px/1 var(--hand); color: var(--graphite); }
-#book h2 u { text-decoration: none; background: linear-gradient(var(--red-pen), var(--red-pen)) 0 92% / 100% 3px no-repeat; }
-#book .idx { list-style: none; margin: 8px 0 0; padding: 0; position: relative; z-index: 1; }
-#book .idx li { cursor: pointer; padding: 0 0 0 4px; height: 56px; line-height: 28px; position: relative; }
-#book .idx li b { font-weight: normal; font-size: 26px; display: block; } #book .idx li i { font-style: normal; font-size: 17px; color: var(--blue-pen); display: block; margin-top: -4px; }
-#book .idx li.sel b::before { content: '→'; position: absolute; left: -30px; color: var(--red-pen); }
-#book .idx li.sel b { color: var(--red-pen); }
-#book .idx li.locked b { color: rgba(35,33,30,.35); } #book .idx li.locked i { color: rgba(35,33,30,.3); }
-#book .idx li:hover b { text-decoration: underline wavy rgba(179,38,30,.5); }
-#book .doodle { position: absolute; left: 46px; bottom: 26px; font-size: 17px; color: rgba(35,33,30,.55); transform: rotate(-2deg); z-index: 1; }
-#book .close { all: unset; position: absolute; top: 14px; right: 18px; z-index: 35; cursor: pointer; font: 22px var(--pix); color: var(--bone); padding: 4px 10px; background: #000; border: 2px solid var(--bone); }
-#book .close:hover { background: var(--bone); color: #000; }
-#book .entry { position: relative; z-index: 1; }
-#book .entry h3 { margin: 0; font: 46px/1 var(--hand); color: var(--ink); }
-#book .entry .role { font-size: 20px; color: var(--blue-pen); margin: 2px 0 12px; }
-#book .entry .what { margin: 0 0 6px; }
-#book .entry h5 { margin: 12px 0 0; font: 24px/28px var(--hand); color: var(--red-pen); }
-#book .entry h5 span { background: linear-gradient(transparent 60%, rgba(179,38,30,.18) 60%); }
-#book .entry ul { margin: 0; padding: 0; list-style: none; }
-#book .entry ul li { position: relative; padding-left: 22px; } #book .entry ul li::before { content: '–'; position: absolute; left: 4px; color: var(--red-pen); }
-#book .entry.locked { color: rgba(35,33,30,.45); }
-.polaroid { float: right; margin: 0 0 12px 18px; width: 172px; padding: 9px 9px 34px; background: #f5f2ea; box-shadow: 0 6px 14px rgba(0,0,0,.35); transform: rotate(3deg); position: relative; }
-.polaroid img, .polaroid .blank { display: block; width: 154px; height: 192px; object-fit: cover; image-rendering: pixelated; background: #14181b; filter: sepia(.18) contrast(1.05) saturate(.85) brightness(1.18); }
-.polaroid .blank { display: flex; align-items: center; justify-content: center; font: 90px var(--hand); color: rgba(239,233,220,.25); filter: none; }
-.polaroid .cap { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 22px/1 var(--hand); color: var(--ink); }
-.polaroid::before { content: ''; position: absolute; top: -12px; left: 50%; width: 70px; height: 22px; transform: translateX(-50%) rotate(-5deg); background: rgba(232, 222, 190, .7); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
-.polaroid .x { position: absolute; inset: 9px 9px 34px; pointer-events: none; }
-.polaroid .x::before, .polaroid .x::after { content: ''; position: absolute; left: -6%; right: -6%; top: 50%; height: 4px; background: rgba(179,38,30,.8); transform: rotate(51deg); border-radius: 2px; }
-.polaroid .x::after { transform: rotate(-51deg); }
+#book::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, rgba(255,255,255,.025) 2px 3px); }
+#book .top { display: flex; align-items: baseline; justify-content: space-between; padding: 22px 34px 10px; }
+#book .top h2 { margin: 0; font: 46px/1 var(--pix); letter-spacing: 4px; }
+#book .top h2 small { font-size: 24px; color: var(--dim); letter-spacing: 1px; margin-left: 14px; }
+#book .close { all: unset; cursor: pointer; font: 26px var(--pix); color: var(--dim); }
+#book .close:hover { color: #fff; }
+#book .main { flex: 1; display: flex; gap: 34px; padding: 6px 34px 30px; min-height: 0; }
+#book .menu { list-style: none; margin: 0; padding: 4px 0 0; width: 230px; flex: none; }
+#book .menu li { position: relative; padding: 4px 0 4px 30px; cursor: pointer; font-size: 32px; color: rgba(255,255,255,.55); letter-spacing: 1px; }
+#book .menu li:hover { color: #fff; }
+#book .menu li.sel { color: #fff; } #book .menu li.sel::before { content: '▶'; position: absolute; left: 2px; top: 6px; font-size: 22px; color: var(--amber); animation: blink 1s steps(1) infinite; }
+#book .menu li.locked { color: rgba(255,255,255,.22); }
+#book .menu .count { margin-top: 18px; padding-left: 30px; font-size: 22px; color: var(--dim); }
+.card { position: relative; flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 6px 26px; align-content: start; padding: 22px 26px 24px; border: 4px solid #fff; box-shadow: 0 0 0 4px #000, inset 0 0 0 2px #000; background: #000; overflow-y: auto; max-height: 100%; box-sizing: border-box; }
+.card .scr { grid-row: span 3; position: relative; width: 200px; height: 250px; border: 3px solid #fff; background: #0d1114; overflow: hidden; }
+.card .scr img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; filter: contrast(1.12) saturate(.75) brightness(1.1); display: block; }
+.card .scr::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.28) 2px 4px), radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,.55)); pointer-events: none; }
+.card .scr .q { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 120px var(--pix); color: rgba(255,255,255,.12); }
+.card .nm { font: 60px/0.9 var(--pix); letter-spacing: 2px; margin-top: -4px; }
+.card .rl { font-size: 24px; color: var(--amber); letter-spacing: 2px; text-transform: uppercase; }
+.card .stats { display: grid; grid-template-columns: auto 1fr; gap: 0 16px; font-size: 24px; align-self: start; margin-top: 6px; }
+.card .stats dt { color: var(--dim); } .card .stats dd { margin: 0; }
+.card .pip { display: inline-block; width: 13px; height: 13px; margin-right: 4px; border: 2px solid #fff; vertical-align: -1px; }
+.card .pip.on { background: var(--blood); border-color: var(--blood); }
+.card .chk { grid-column: 1 / -1; margin-top: 16px; font-size: 28px; color: #fff; }
+.card .chk::before { content: '* '; }
+.card h4 { grid-column: 1 / -1; margin: 16px 0 2px; font: 22px var(--pix); letter-spacing: 4px; color: var(--blood); }
+.card p, .card ul { grid-column: 1 / -1; margin: 0; font-size: 25px; line-height: 1.18; color: rgba(255,255,255,.88); }
+.card ul { list-style: none; padding: 0; } .card ul li { position: relative; padding-left: 22px; margin: 3px 0; }
+.card ul li::before { content: '▸'; position: absolute; left: 2px; color: var(--amber); }
+.card.locked .nm, .card.locked .rl { color: rgba(255,255,255,.3); }
+@media (max-width: 760px) { #book .main { flex-direction: column; } #book .menu { width: auto; display: flex; flex-wrap: wrap; gap: 0 10px; } .card { grid-template-columns: 1fr; } .card .scr { grid-row: auto; width: 150px; height: 188px; } }
 
-/* ---------------------------------------------------------------- death: the note about who got you */
-#deadprofile { position: relative; width: min(620px, 90vw); margin: 0 0 18px; padding: 18px 22px 16px 22px; color: var(--ink); font: 19px/25px var(--hand); text-align: left;
-  background: linear-gradient(transparent 0 24px, var(--rule) 24px 25px) 0 14px / 100% 25px, var(--paper); transform: rotate(-1deg); box-shadow: 0 18px 40px rgba(0,0,0,.7);
-  clip-path: polygon(0 2%, 8% 0, 18% 1.5%, 30% 0, 44% 2%, 57% 0, 70% 1.5%, 83% 0, 100% 1.5%, 100% 98%, 90% 100%, 76% 98.5%, 61% 100%, 47% 98%, 33% 100%, 18% 98.5%, 6% 100%, 0 98%); animation: notein .7s .5s cubic-bezier(.2,.8,.2,1) both; }
+/* death: the same card, compact, under CONFISCATED */
+#deadprofile { width: min(680px, 92vw); margin: 0 0 18px; text-align: left; animation: notein .6s .5s cubic-bezier(.2,.8,.2,1) both; }
 #deadprofile[hidden] { display: none; }
-@keyframes notein { from { opacity: 0; transform: rotate(-1deg) translateY(30px); } }
-#deadprofile .polaroid { width: 118px; padding: 6px 6px 26px; margin: 2px 0 6px 16px; }
-#deadprofile .polaroid img { width: 106px; height: 132px; }
-#deadprofile .polaroid .cap { font-size: 17px; }
-#deadprofile .got { font-size: 25px; color: var(--red-pen); margin-bottom: 4px; }
-#deadprofile ul { margin: 6px 0 0; padding: 0; list-style: none; } #deadprofile li { padding-left: 20px; position: relative; } #deadprofile li::before { content: '–'; position: absolute; left: 4px; color: var(--red-pen); }
-#deadprofile::after { content: ''; display: block; clear: both; }
+#deadprofile .card { grid-template-columns: auto 1fr; padding: 14px 18px 16px; gap: 2px 18px; }
+#deadprofile .card .scr { width: 110px; height: 138px; grid-row: span 3; }
+#deadprofile .card .nm { font-size: 40px; } #deadprofile .card .rl { color: var(--blood); }
+#deadprofile .card .chk { font-size: 24px; margin-top: 8px; }
+#deadprofile .card ul { font-size: 23px; }
+@keyframes notein { from { opacity: 0; transform: translateY(24px); } }
+
 body.cut #dlg { bottom: calc(11vh + 14px); }
 #dlg.item { bottom: 150px; width: min(560px, 90vw); padding: 12px 16px 14px; gap: 12px; }
 #dlg.item .face { width: 72px; height: 72px; }
@@ -190,3 +183,15 @@ body.cut #dlg { bottom: calc(11vh + 14px); }
 #dead button { font: 30px/1 var(--pix) !important; letter-spacing: 1px; padding: 6px 18px !important; border: 3px solid transparent; text-transform: none !important; color: var(--bone); }
 #dead button:hover, #dead button:focus { background: var(--bone) !important; color: #000 !important; border-color: var(--bone); }
 #dead button::before { content: '> '; opacity: 0; } #dead button:hover::before, #dead button:focus::before { opacity: 1; }
+/* clues on the to-do page: what I've been told, in blue pen */
+#obj .note { margin: -3px 0 2px 21px; font-size: 15px; line-height: 17px; color: var(--blue-pen); white-space: normal; }
+#obj .note span { color: rgba(35,33,30,.5); }
+#obj .note.dim { color: rgba(35,33,30,.45); }
+#obj .tip { margin-top: 4px; font-size: 15px; line-height: 17px; color: var(--red-pen); }
+/* Manju muttering to himself: smaller, quieter, no frame flash */
+#dlg.mutter { bottom: 150px; width: min(560px, 90vw); padding: 10px 14px 12px; border-color: rgba(255,255,255,.55); opacity: .92; }
+#dlg.mutter .face { width: 64px; height: 64px; border-color: rgba(255,255,255,.5); filter: grayscale(.5) brightness(.8); }
+#dlg.mutter .say { font-size: 23px; color: rgba(255,255,255,.75); min-height: 0; }
+#dlg.mutter .who { color: var(--blood); font-size: 18px; }
+.card, .card * { font-family: var(--pix); }
+.card { color: #fff; font-size: 25px; line-height: 1.15; }

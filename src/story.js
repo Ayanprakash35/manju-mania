@@ -78,6 +78,7 @@ export class Story {
       for (const s of this.switches) this.setSwitch(s, false);
       for (const id in this.items) { const it = this.items[id]; it.taken = false; it.mesh.visible = false; it.sprite.visible = false; }
       this.room15?.reset();
+      this.notes = {}; this.askedKomy = false; this.komyCd = 0; this.mutterCd = 25;   // clues (Komynini, Manju muttering)
     }
     for (const t of this.thrown) { this.scene.remove(t.mesh); t.sound?.stop(); }
     this.thrown = [];
@@ -234,7 +235,7 @@ export class Story {
     this.scatter();
     this.phase = 'items';
     this.respawn();
-    this.banner('NEW OBJECTIVE', 'get my stuff back', 'Manju scattered it across all three floors');
+    this.banner('NEW OBJECTIVE', 'get my stuff back', 'ask cowshit komynini (right behind you). he saw where it went.');
     this.render();
   }
 
@@ -344,6 +345,75 @@ export class Story {
     this.audio.stepAt?.(Math.max(-1, Math.min(1, to.normalize().dot(r))), Math.min(1, d / 10), Math.max(0.12, 0.6 - d * 0.05));
   }
 
+  // ------------------------------------------------------------------------------------------ clues
+  inRoom15() { const p = this.camera.position; return p.x > 25.3 && p.x < 28.6 && p.z > 17.11 && p.z < 20.81 && p.y < 3.4; }
+  // where an item is, in words: floor, wing, which side of the corridor, a landmark nearby, the room number
+  where(id) {
+    const it = this.items[id], d = it?.spot?.room; if (!d) return null;
+    const r = d.r, fl = floorOf(r.y + 0.1);
+    const wing = r.z < -6 ? 'north wing' : r.z > 21 ? 'south wing' : r.x < -27 ? 'west wing' : 'east wing';
+    const outer = Math.abs(r.z + 8.75) < 0.3 || Math.abs(r.z - 24.5) < 0.3 || Math.abs(r.x + 31.2) < 0.3 || Math.abs(r.x - 25.3) < 0.3;
+    const side = outer ? 'outer side' : 'courtyard side';
+    const marks = [['the west stairs', -27.8, 6.5], ['the east stairs', 22.1, 6.5], ['the common room', -3.5, -5.5], ['the exit lobby', -3.5, -10.5],
+      ['the north-east corner', 21, -4.5], ['the north-west corner', -27, -4.5], ['the south-east corner', 21, 20], ['the south-west corner', -27, 20]];
+    for (const dd of this.roomDoors.list) if (dd.r.label === 'REST ROOM' && floorOf(dd.r.y + 0.1) === fl) marks.push(['the toilets', dd.r.x, dd.r.z]);
+    if (fl === 0) marks.push(['the study room', 1, 22.8], ['the office', 25.3, 4.2], ['our room', 25.3, 17.8]);
+    let lm = null, best = 9;
+    for (const [n, x, z] of marks) { const dist = Math.hypot(x - r.x, z - r.z); if (dist < best) { best = dist; lm = n; } }
+    const plate = (this.roomDoors._plates || []).find((p) => p.r === r)?.text;
+    return { fl, floor: FLOOR_NAME[fl].toLowerCase(), wing, side, lm, room: plate && /^\d+$/.test(plate) ? plate : null };
+  }
+  addNote(id, text, from) { this.notes[id] = { text, from }; this.render(); }
+  // dialogue lines one after another (each waits for the previous to finish typing)
+  async dialogSeq(lines, who, opts = {}) {
+    const token = (this._seq = (this._seq || 0) + 1);
+    for (let i = 0; i < lines.length; i++) {
+      if (token !== this._seq) return;
+      await this.dialog(lines[i], who, { ...opts, hold: i === lines.length - 1 ? (opts.hold || 4200) : 0 });
+      if (i < lines.length - 1) await new Promise((r) => setTimeout(r, 850));
+    }
+  }
+  // CowShit Komynini, on his reels: one clue per visit. He always starts with the tablet (it has Find My on it).
+  komyTalk() {
+    const K = this.komynini;
+    if (this.komyCd > 0) { this.dialog('…', 'COWSHIT KOMYNINI', { face: null, blip: 210, speed: 12, hold: 1400 }); return; }
+    K?.play?.('Glance');
+    const opts = { blip: 210, speed: 34, face: 'komynini' }, who = 'COWSHIT KOMYNINI';
+    const missing = ITEMS.filter((i) => !this.have[i.id]);
+    if (!missing.length) { this.dialogSeq(['you got it all back?', 'nice. now the lights, i guess.', 'and _close the door._'], who, opts); this.komyCd = 8; return; }
+    const pick = !this.have.tablet ? 'tablet' : (missing.find((i) => !this.notes[i.id]) || missing[0]).id;
+    const w = this.where(pick), name = ITEMS.find((i) => i.id === pick).name.toLowerCase();
+    if (!w) return;
+    const at = `${w.floor}. ${w.wing}, ${w.side}${w.lm ? `, near ${w.lm}` : ''}`;
+    if (!this.askedKomy) {
+      this.askedKomy = true;
+      const line = `your tablet's on the ${w.floor}. ${w.wing}, ${w.side}${w.room ? `. room ${w.room} i think` : ''}.`;
+      this.dialogSeq(['bro.', 'he took *everything.*  i saw him chuck it all over the place.', line, 'get that first. it’s got _find my_ on it.', 'now let me watch my reels.'], who, opts);
+      this.addNote('tablet', `${w.floor}, ${w.wing}, ${w.side}${w.room ? ` · room ${w.room}` : ''}`, 'komynini');
+    } else {
+      const extra = pick === 'tablet' && w.room ? ` room ${w.room}.` : '';
+      this.dialogSeq([`your ${name}? …`, `${at}.${extra}`, ['go away now.', 'that’s all i know. shh.', 'i’m on a streak here.'][Math.floor(Math.random() * 3)]], who, opts);
+      this.addNote(pick, `${w.floor}, ${w.wing}, ${w.side}${w.lm ? `, near ${w.lm}` : ''}`, 'komynini');
+    }
+    this.komyCd = 18;
+  }
+  // Manju, patrolling, mutters to himself where he dumped things — if you're close and he hasn't seen you
+  mutter(dt, ctx) {
+    this.mutterCd -= dt;
+    const m = this.manju; if (this.mutterCd > 0 || !m?.pos || this.phase !== 'items') return;
+    if (!['roam', 'idle', 'search'].includes(m.state) || m.seeing) return;
+    const fp = ctx.feet; if (Math.abs(m.pos.y - fp.y) > 1.5 || Math.hypot(m.pos.x - fp.x, m.pos.z - fp.z) > 10) return;
+    const pool = ITEMS.filter((i) => !this.have[i.id] && this.notes[i.id]?.from !== 'manju' && this.notes[i.id]?.from !== 'komynini');
+    const pickI = pool[Math.floor(Math.random() * pool.length)] || ITEMS.find((i) => !this.have[i.id] && !this.notes[i.id]);
+    if (!pickI) return;
+    const w = this.where(pickI.id); if (!w) return;
+    const n = pickI.name.toLowerCase();
+    const lines = [`…threw that ${n} in some room on the ${w.floor}… ${w.wing}…  let him cry about it…`, `…${n}… ${w.floor}, ${w.wing}… nobody\'s getting it back…`, `…nine-thirty, i said… ${n} is on the ${w.floor} now… ${w.wing}… hm.`];
+    this.dialog(lines[Math.floor(Math.random() * lines.length)], 'MANJU (muttering)', { cls: 'mutter', face: 'manju', blip: 70, speed: 22, hold: 3800 });
+    if (!this.notes[pickI.id] || this.notes[pickI.id].from === 'manju') this.addNote(pickI.id, `${w.floor}, ${w.wing}`, 'manju');
+    this.mutterCd = 35;
+  }
+
   // ------------------------------------------------------------------------------------------ scatter
   scatter() {
     const col = this.getCollider(); if (!col) return;
@@ -381,6 +451,12 @@ export class Story {
     for (const f of this.room15?.foods || []) if (f.visible) targets.push(f);
     for (const t of this.thrown) if (t.landed && t.kind === 'food' && !t.eaten) targets.push(t.mesh);
     for (const s of this.switches) targets.push(s.plate);
+    // Komynini on his bed in room 15: talk to him
+    const K = this.komynini;
+    if (K?.root && this.inRoom15()) {
+      const kp = K.root.position.clone().add(new THREE.Vector3(0.3, 0.2, 0)), to = kp.sub(this.camera.position), d = to.length(), f = new THREE.Vector3(); this.camera.getWorldDirection(f);
+      if (d < 3.2 && to.normalize().dot(f) > 0.72) { const hs = rc.intersectObjects(targets, true); if (!hs.length || hs[0].distance > d - 0.4) return { kind: 'komy' }; }
+    }
     const hits = rc.intersectObjects(targets, true); if (!hits.length) return null;
     const h = hits[0];
     const col = this.getCollider(); if (col) { const o = rc.intersectObject(col, false)[0]; if (o && o.distance < h.distance - 0.05) return null; }
@@ -397,6 +473,7 @@ export class Story {
     const L = this.lookAt;
     if (!L) return null;
     const K = (k, t) => `<span class="key">${k}</span>${t}`;
+    if (L.kind === 'komy') return K('E', this.komyCd > 0 ? 'talk to cowshit  (he\'s busy…)' : 'talk to cowshit komynini');
     if (L.kind === 'item') return K('E', `pick up the ${ITEMS.find((i) => i.id === L.id).name.toLowerCase()}`);
     if (L.kind === 'food' || L.kind === 'thrownFood') return this.food >= 3 ? 'my pockets are full of food' : K('E', 'take it');
     if (L.kind === 'switch') {
@@ -413,6 +490,7 @@ export class Story {
   interact() {
     if (this.cut) return true;
     const L = this.lookAt || this.look(); if (!L) return false;
+    if (L.kind === 'komy') { this.komyTalk(); return true; }
     if (L.kind === 'item') { this.collect(L.id); return true; }
     if (L.kind === 'food') { if (this.food < 3) { this.food++; L.mesh.visible = false; this.toast('Food +1', 'Select it with 5.'); this.audio.tick?.(); this.render(); } return true; }
     if (L.kind === 'thrownFood') { if (this.food < 3) { this.food++; this.scene.remove(L.t.mesh); this.thrown = this.thrown.filter((t) => t !== L.t); this.render(); } return true; }
@@ -548,6 +626,8 @@ export class Story {
     if (this.cut) { this.updateCutscene(dt); return; }
     if (!this.playing) return;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
+    this.komyCd = Math.max(0, (this.komyCd || 0) - dt);
+    this.mutter(dt, ctx);
     if (this.zoyaMaskT > 0) { this.zoyaMaskT -= dt; if (this.zoyaMaskT <= 0) { this.removeZoyaMask(); this.toast('Zoya\'s mask is off', ''); } }
     this.updateThrown(dt);
     // glow pulse on the items still out there
@@ -659,7 +739,7 @@ export class Story {
         n++; draw();
         const ch = segs.map(([, t]) => t).join('')[n - 1];
         if (blipHz && ch && /\S/.test(ch) && n % 2) this.blip(blipHz);
-        if (n >= total) { clearInterval(elm._typing); res(); }
+        if (n >= total) { clearInterval(elm._typing); elm._typing = null; res(); }
       }, 1000 / cps);
     });
   }
@@ -669,12 +749,12 @@ export class Story {
     D.hidden = false; D.className = opts.cls || '';
     D.querySelector('.who').textContent = who;
     let url = null;
-    if (opts.face === 'manju') url = this.book?.portrait('manju');
+    if (['manju', 'komynini', 'mutty', 'zoya'].includes(opts.face)) url = this.book?.portrait(opts.face);
     else if (opts.face) url = icon(opts.face, 8);
     face.style.backgroundImage = url ? `url(${url})` : ''; D.classList.toggle('noface', !url);
     D.querySelector('.more').hidden = true;
     clearTimeout(this._dlgT);
-    this.typeInto(D.querySelector('.say'), text, opts.speed || 30, opts.blip || 0).then(() => {
+    return this.typeInto(D.querySelector('.say'), text, opts.speed || 30, opts.blip || 0).then(() => {
       D.querySelector('.more').hidden = !opts.hold;
       if (opts.hold) this._dlgT = setTimeout(() => this.dlgHide(), opts.hold);
     });
@@ -704,13 +784,26 @@ export class Story {
     if (!this.playing) { this.objEl.innerHTML = ''; this._objKey = ''; return; }
     const got = ITEMS.filter((i) => this.have[i.id]).length, on = this.switches.filter((s) => s.on).length, tot = this.switches.length;
     const itemsDone = got === ITEMS.length, lightsDone = tot > 0 && on === tot;
-    const key = `${got}|${on}|${this.phase}`; if (key === this._objKey) return;
+    const key = `${got}|${on}|${this.phase}|${this.askedKomy}|${Object.values(this.notes || {}).map((n) => n.text).join(';')}`; if (key === this._objKey) return;
     const bump = this._objKey && this._objKey !== key; this._objKey = key;
     const it = (done, lbl, extra = '') => `<div class="item${done ? ' done' : ''}"><span class="box"></span><span class="lbl">${lbl}</span>${extra}</div>`;
     const names = { laptop: 'laptop', tablet: 'tablet', music: 'music player', mask: 'face mask' };
     let h = '<div class="page"><div class="tape"></div><h4>to do</h4>';
     h += it(itemsDone, 'get my stuff back', itemsDone ? '' : `<span class="count">${got}/4</span>`);
-    if (!itemsDone) h += '<div class="sub">' + ITEMS.map((i) => it(this.have[i.id], names[i.id])).join('') + '</div>';
+    if (!itemsDone) {
+      h += '<div class="sub">';
+      h += it(this.askedKomy, 'ask cowshit (room 15)');
+      // the tablet first, the way Komynini tells it; each with the clue I've got so far, in blue pen
+      for (const i of [...ITEMS].sort((a, b) => (a.id === 'tablet' ? -1 : b.id === 'tablet' ? 1 : 0))) {
+        h += it(this.have[i.id], names[i.id]);
+        const nt = this.notes?.[i.id];
+        if (!this.have[i.id] && nt) h += `<div class="note">${nt.text}<span> — ${nt.from === 'manju' ? 'manju said' : 'cowshit'}</span></div>`;
+      }
+      h += '</div>';
+      const unknown = ITEMS.some((i) => !this.have[i.id] && !this.notes?.[i.id]);
+      if (this.askedKomy && unknown) h += '<div class="tip">no clue yet? ask cowshit again, or sneak close to manju — he mutters</div>';
+      if (this.have.tablet) h += '<div class="tip">tablet: my stuff is circled on the map</div>';
+    }
     if (itemsDone) {
       h += it(lightsDone, 'turn every corridor light on', lightsDone ? '' : `<span class="count">${on}/${tot}</span>`);
       if (!lightsDone) h += '<div class="sub">' + ['ground floor', 'first floor', 'second floor'].map((n, f) => { const a = this.switches.filter((s) => s.fl === f), b = a.filter((s) => s.on).length; return it(b === a.length, n, `<span class="count">${b}/${a.length}</span>`); }).join('') + '</div>';
@@ -751,6 +844,21 @@ export class Story {
       if (this.phase === 'lights' || this.phase === 'done') for (const sw of this.switches) if (sw.fl === fl) { const [x, y] = P(sw.pos.x, sw.pos.z); g.fillStyle = sw.on ? '#3cff5a' : '#ffd23a'; g.fillRect(x - 2, y - 2, 4, 4); }
       g.fillStyle = '#efe9dc'; g.font = `${big ? 26 : 17}px VT323, monospace`; g.fillText(FLOOR_NAME[fl].toUpperCase(), 6, big ? 24 : 15);
     } else { g.fillStyle = 'rgba(239,233,220,.6)'; g.font = '17px VT323, monospace'; g.fillText('NO MAP - FIND THE LAPTOP', 6, 15); }
+    // Find My (tablet): a rough circle round each missing item on this floor, a line for the ones on other floors
+    if (this.have.tablet) {
+      const away = [];
+      for (const it of ITEMS) {
+        const m = this.items[it.id]; if (this.have[it.id] || !m.spot) continue;
+        if (m.spot.fl !== fl) { away.push(`${it.name.toUpperCase()} ${['G', '1F', '2F'][m.spot.fl]}`); continue; }
+        if (!m.fuzz) m.fuzz = [(Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4];        // not the exact spot
+        const [cx, cz] = P(m.mesh.position.x + m.fuzz[0], m.mesh.position.z + m.fuzz[1]), rr = 4.2 * s;
+        const pulse = 0.6 + 0.4 * Math.sin(performance.now() * 0.005);
+        g.strokeStyle = `rgba(242,193,78,${pulse})`; g.lineWidth = big ? 2.5 : 1.5; g.setLineDash([4, 3]);
+        g.beginPath(); g.arc(cx, cz, rr, 0, 7); g.stroke(); g.setLineDash([]);
+        g.fillStyle = '#f2c14e'; g.font = `${big ? 18 : 13}px VT323, monospace`; g.fillText(it.name.toUpperCase(), cx - rr, cz - rr - 2);
+      }
+      if (away.length) { g.fillStyle = 'rgba(242,193,78,.85)'; g.font = `${big ? 20 : 14}px VT323, monospace`; g.fillText(away.join('  '), 6, H - 6); }
+    }
     // characters (tablet)
     if (this.have.tablet) {
       const dots = [[this.manju, '#ff3b30', 'M'], [this.mutty, '#ff9a1a', 'm'], [this.zoya, '#c06bff', 'Z']];

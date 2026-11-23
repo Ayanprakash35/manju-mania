@@ -99,7 +99,7 @@ export class Doors {
   // Ground floor 1.., first 101.., second 201..; numbered clockwise round the building from the north.
   numberPlates(recs) {
     const cx = -3, cz = 7.95;
-    const floors = [...new Set(recs.map((r) => r.y))].sort((a, b) => a - b);
+    const floors = [...new Set(recs.filter((r) => r.kind !== 'stall').map((r) => r.y))].sort((a, b) => a - b);   // cubicle doors hang 0.17 m up: not floors
     const ang = (r) => (Math.atan2(r.x - cx, -(r.z - cz)) + Math.PI * 2) % (Math.PI * 2);
     floors.forEach((y, fi) => {
       for (const r of recs) if (r.y === y && r.into && r.label) this.plate(r, r.label);          // named rooms (bathroom, office, ...)

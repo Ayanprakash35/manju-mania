@@ -36,13 +36,19 @@ stops at the first floor), a body in every room (kids in uniform, adults), blood
 the corridors, and figures that stand far down a corridor for a heartbeat and are gone.
 
 ## Look and feel of the UI (src/ui.css, src/icons.js)
-Everything on screen is either the student's own stuff or the game speaking. The to-do list is a torn notebook page
-taped to the top-right corner, written in pencil, with things struck through in red pen as you do them. The
-character book is your "people to avoid" notebook: taped polaroids (rendered from the models) and handwritten notes.
-The death screen adds a torn page about whoever got you. The game itself speaks in black boxes with a white frame and
-pixel type, typed out a letter at a time with voice blips (Manju low, the narrator higher) and the speaker's portrait,
-in the spirit of Undertale; item pickups use the same box with the item's pixel icon. The hotbar uses pixel-art icons
-with a radial cooldown sweep. Fonts: Patrick Hand (handwriting), VT323 (pixel), Special Elite (the printed notice).
+Two voices. The student's own stuff: the to-do list is a torn notebook page taped top-right, in pencil, struck through
+in red pen as you go, with the clues you've picked up written in blue pen. The game speaking: black boxes with a thick
+white frame and pixel type typed out with voice blips and the speaker's portrait, in the spirit of Undertale (dialogue,
+item pickups, Manju muttering). Character cards are the game's own bestiary in that voice: a portrait on a scanline
+screen, the name, threat pips, floors, sight and hearing, a one-line description, what it does and how to survive;
+the death screen shows the compact card of whoever got you. Pixel-art hotbar icons with a radial cooldown sweep. Fonts:
+Patrick Hand (handwriting), VT323 (pixel), Special Elite (the printed notice).
+
+**Finding your stuff (clues):** CowShit Komynini (E, in room 15) saw where everything went: one clue per visit, the
+tablet first (floor, wing, which side of the corridor, the room number), then the rest (floor, wing, side, a landmark
+nearby). Creep close to Manju while he patrols without seeing you and he mutters where he dumped something (floor and
+wing). Every clue is written onto the to-do page under its item. Once you have the tablet, Find My circles roughly
+where each missing item is on the map, and lists the ones on other floors.
 
 **The intro** is the warden's printed notice ("devices by 9:30 PM, or CONFISCATED") with the stamp coming down, then a
 red alarm clock reading 9:52 and two typed lines, then the cutscene behind letterbox bars. You hear him coming, the door

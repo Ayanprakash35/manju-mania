@@ -7,7 +7,7 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 export const ENTRIES = [
   {
-    id: 'manju', name: 'Manju', short: 'manju', role: 'The warden',
+    id: 'manju', name: 'Manju', short: 'manju', role: 'The warden', threat: 5, floors: 'Ground · First', sees: 'torch 22 m · dark 8 m', hears: 'running, landing', chk: 'Smokes. Stares. Charges.',
     what: 'Patrols the ground and first floors, stopping for a smoke. If he notices you he stares for a moment, then charges — and if he reaches you, you\'re caught. Zoya and Mutty both report to him, and he comes running.',
     avoid: [
       'He sees a torch from about 22 m, but only about 8 m without one — switch it off when you hear him.',
@@ -18,7 +18,7 @@ export const ENTRIES = [
     ],
   },
   {
-    id: 'mutty', name: 'Mutty', short: 'mutty', role: 'The crawler',
+    id: 'mutty', name: 'Mutty', short: 'mutty', role: 'The crawler', threat: 3, floors: 'Ground', sees: 'torch 18 m · dark 10 m', hears: 'running, from far off', chk: 'Crawls. Listens. Bites. Tells.',
     what: 'Crawls the ground floor. He hears running from far off, closes in fast and pounces from a metre or two — every bite takes a heart. After biting he scuttles off to tell Manju exactly where you are.',
     avoid: [
       'Walk or crouch on the ground floor; never run near him.',
@@ -28,7 +28,7 @@ export const ENTRIES = [
     ],
   },
   {
-    id: 'zoya', name: 'Dr Zoya', short: 'zoya', role: 'The spotter',
+    id: 'zoya', name: 'Dr Zoya', short: 'zoya', role: 'The spotter', threat: 2, floors: 'First', sees: '14 m, straight ahead', hears: '—', chk: '"THESE BOYS!"',
     what: 'Walks the first floor. She won\'t touch you — she spots you, shouts "These boys!", points, and calls Manju, who turns up close by within seconds.',
     avoid: [
       'Her eyes are narrow but sharp: about 14 m straight ahead. Stay out of the line of the corridor she\'s facing.',
@@ -37,12 +37,12 @@ export const ENTRIES = [
     ],
   },
   {
-    id: 'komynini', name: 'CowShit Komynini', short: 'komynini', role: 'Room 15',
-    what: 'Lives on the bed on the right in room 15, scrolling reels under his duvet. Completely harmless. Very loud.',
-    avoid: ['Close the door behind you.'],
+    id: 'komynini', name: 'CowShit Komynini', short: 'komynini', role: 'Room 15', threat: 0, floors: 'Room 15', sees: 'his reels', hears: 'the door', chk: 'Scrolling. Always scrolling. Knows things.',
+    what: 'Lives on the bed on the right in room 15, scrolling reels under his duvet. Completely harmless. Very loud. He saw where Manju dumped your stuff — ask him (E).',
+    avoid: ['Close the door behind you.', 'Talk to him: one clue per visit. The tablet first.'],
   },
   {
-    id: 'figure', name: 'The figures', short: 'them?', role: 'Second floor',
+    id: 'figure', name: 'The figures', short: 'them?', role: 'Second floor', threat: -1, floors: 'Second · dark corridors', sees: '?', hears: '?', chk: 'It was there. Wasn\'t it?',
     what: 'Something stands at the far end of the dark corridors, and all over the second floor, where Manju has already been. It\'s there for a heartbeat. Then it isn\'t.',
     avoid: ['You can\'t. Don\'t stare.'],
   },
@@ -136,16 +136,16 @@ export class Book {
   }
 
   // ------------------------------------------------------------------ UI (styles: src/ui.css)
-  // the book is the student's own notebook: "people to avoid", a taped polaroid per person, notes in pen
+  // the game's own bestiary: a menu down the left, the card on the right (same voice as the dialogue boxes)
   ui() {
     const el = this.el = document.createElement('div'); el.id = 'book'; el.hidden = true;
-    el.innerHTML = `<div class="nb"><div class="pg l"><h2><u>people to avoid</u></h2><ul class="idx"></ul><div class="doodle"></div></div><div class="spine"></div><div class="rings"></div><div class="pg r"></div></div><button class="close">[esc] close</button>`;
+    el.innerHTML = `<div class="top"><h2>WHO'S OUT THERE<small></small></h2><button class="close">[esc] close</button></div><div class="main"><ul class="menu"></ul><div class="slot"></div></div>`;
     document.body.appendChild(el);
     el.querySelector('.close').addEventListener('click', () => this.close());
     addEventListener('keydown', (e) => {
       if (el.hidden) return;
       if (e.code === 'Escape' || e.code === 'Backspace') { e.stopImmediatePropagation(); this.close(); }
-      if (e.code === 'ArrowDown' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyS') { e.stopImmediatePropagation(); const i = ENTRIES.findIndex((x) => x.id === this.sel), d = e.code === 'ArrowDown' || e.code === 'KeyS' ? 1 : -1; this.sel = ENTRIES[(i + d + ENTRIES.length) % ENTRIES.length].id; this.render(); }
+      if (['ArrowDown', 'ArrowUp', 'KeyW', 'KeyS'].includes(e.code)) { e.stopImmediatePropagation(); const i = ENTRIES.findIndex((x) => x.id === this.sel), d = e.code === 'ArrowDown' || e.code === 'KeyS' ? 1 : -1; this.sel = ENTRIES[(i + d + ENTRIES.length) % ENTRIES.length].id; this.render(); }
     }, true);
     this.sel = 'manju';
   }
@@ -157,24 +157,25 @@ export class Book {
   }
   close() { this.el.hidden = true; this.onClose?.(); }
   get isOpen() { return !this.el.hidden; }
-  polaroid(e, known, crossed = false) {
+  card(e, known, compact = false, caughtBy = false) {
     const pic = known ? this.portrait(e.id) : null;
-    return `<div class="polaroid">${pic ? `<img alt="${e.name}" src="${pic}">` : '<div class="blank">?</div>'}${crossed ? '<div class="x"></div>' : ''}<div class="cap">${known ? e.short || e.name.split(' ').pop().toLowerCase() : '???'}</div></div>`;
+    const scr = `<div class="scr">${pic ? `<img alt="${e.name}" src="${pic}">` : '<div class="q">?</div>'}</div>`;
+    if (!known) return `<div class="card locked">${scr}<div class="nm">? ? ?</div><div class="rl">not met yet</div><p class="chk">You haven't seen this one. Yet.</p></div>`;
+    const pips = e.threat < 0 ? '?' : [0, 1, 2, 3, 4].map((k) => `<span class="pip${k < e.threat ? ' on' : ''}"></span>`).join('');
+    const stats = `<dl class="stats"><dt>THREAT</dt><dd>${pips}</dd><dt>FLOORS</dt><dd>${e.floors}</dd><dt>SEES</dt><dd>${e.sees}</dd><dt>HEARS</dt><dd>${e.hears}</dd></dl>`;
+    if (compact) return `<div class="card">${scr}<div class="nm">${e.name.toUpperCase()}</div><div class="rl">${caughtBy ? 'got you' : e.role}</div><div class="chk">${e.chk}</div><ul>${e.avoid.slice(0, 3).map((a) => `<li>${a}</li>`).join('')}</ul></div>`;
+    return `<div class="card">${scr}<div class="nm">${e.name.toUpperCase()}</div><div class="rl">${e.role}</div>${stats}<div class="chk">${e.chk}</div><h4>WHAT IT DOES</h4><p>${e.what}</p><h4>HOW TO SURVIVE</h4><ul>${e.avoid.map((a) => `<li>${a}</li>`).join('')}</ul></div>`;
   }
   render() {
-    const list = this.el.querySelector('.idx'), pg = this.el.querySelector('.pg.r');
+    const menu = this.el.querySelector('.menu'), slot = this.el.querySelector('.slot');
     const n = ENTRIES.filter((e) => this.seen.has(e.id)).length;
-    list.innerHTML = ENTRIES.map((e) => { const s = this.seen.has(e.id); return `<li data-id="${e.id}" class="${s ? '' : 'locked'}${e.id === this.sel ? ' sel' : ''}"><b>${s ? e.name.toLowerCase() : '???'}</b><i>${s ? e.role.toLowerCase() : 'haven\'t seen them yet'}</i></li>`; }).join('');
-    list.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => { this.sel = li.dataset.id; this.render(); }));
-    this.el.querySelector('.doodle').textContent = n === ENTRIES.length ? 'that\'s everyone. i hope.' : `${n} of ${ENTRIES.length}.  there are more out there.`;
+    this.el.querySelector('.top small').textContent = `${n}/${ENTRIES.length}`;
+    menu.innerHTML = ENTRIES.map((e) => { const s = this.seen.has(e.id); return `<li data-id="${e.id}" class="${s ? '' : 'locked'}${e.id === this.sel ? ' sel' : ''}">${s ? e.short.toUpperCase() : '? ? ?'}</li>`; }).join('') + `<div class="count">${n === ENTRIES.length ? 'that\'s everyone. probably.' : 'there are more out there.'}</div>`;
+    menu.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => { this.sel = li.dataset.id; this.render(); }));
+    slot.style.cssText = 'flex:1;display:flex;min-height:0';
     const e = this.entry(this.sel);
-    if (!this.seen.has(e.id)) { pg.innerHTML = `<div class="entry locked">${this.polaroid(e, false)}<h3>???</h3><div class="role">haven't seen this one yet</div><p class="what">keep my eyes open. this page fills in when i do.</p></div>`; return; }
-    pg.innerHTML = `<div class="entry">${this.polaroid(e, true)}<h3>${e.name}</h3><div class="role">${e.role.toLowerCase()}</div><p class="what">${e.what}</p><h5><span>how to get past</span></h5><ul>${e.avoid.map((a) => `<li>${a}</li>`).join('')}</ul></div>`;
+    slot.innerHTML = this.card(e, this.seen.has(e.id));
   }
-  // the death screen: a torn page — who got you, and what to do next time
-  deathCard(id) {
-    const e = this.entry(id); if (!e) return '';
-    const got = { manju: 'Manju caught me.', mutty: 'Mutty got me.', zoya: 'Zoya got me.' }[id] || `${e.name} got me.`;
-    return `${this.polaroid(e, true)}<div class="got">${got}</div><div>${e.what}</div><div style="margin-top:6px;color:var(--red-pen)">next time:</div><ul>${e.avoid.slice(0, 3).map((a) => `<li>${a}</li>`).join('')}</ul>`;
-  }
+  // the death screen: the compact card of whoever got you
+  deathCard(id) { const e = this.entry(id); return e ? this.card(e, true, true, true) : ''; }
 }

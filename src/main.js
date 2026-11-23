@@ -443,7 +443,7 @@ const health = new Health({
   onDeath: (source) => caught('health', source),
 });
 renderHearts(health);
-Object.assign(story, { manju, mutty, zoya, health, book });
+Object.assign(story, { manju, mutty, zoya, health, book, komynini });
 function damagePlayer(amount = 1, source = 'mutty', force = false) { return health.damage(amount, source, force); }
 function healPlayer(amount = 1) { return health.heal(amount); }
 
