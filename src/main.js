@@ -443,7 +443,7 @@ const health = new Health({
   onDeath: (source) => caught('health', source),
 });
 renderHearts(health);
-Object.assign(story, { manju, mutty, zoya, health });
+Object.assign(story, { manju, mutty, zoya, health, book });
 function damagePlayer(amount = 1, source = 'mutty', force = false) { return health.damage(amount, source, force); }
 function healPlayer(amount = 1) { return health.heal(amount); }
 
@@ -761,7 +761,7 @@ function frame() {
       camera.getWorldDirection(camDir);
       const safe = playerSafe();
       story.update(wdt, { feet: feetPos(), safe });
-      book.update(wdt, { safe, cutscene: story.cutscene });
+      book.update(wdt, { safe, cutscene: story.cutscene, busy: story.busy });
       document.body.classList.toggle('cut', story.busy);
       const hiddenNow = safe || story.hidden || story.busy;     // room 15, a shut rest-room cubicle, or the intro
       const ctx = { feet: feetPos(), eyePos: camera.position, camDir, torchOn, torchI: torch.intensity, noise: safe ? 0 : Math.max(noise, story.noise), crouch: crouching, hidden: hiddenNow, inRoom: inStudentRoom || safe, safe, lit: story.lit };
@@ -815,8 +815,8 @@ function frame() {
     if (++pickFrame % 4 === 0) looked = controls.isLocked && !storyHint ? roomDoors.pick(camera) : null;
     if (pickFrame % 15 === 0) story.tickUi();
     hintEl.style.display = storyHint || looked ? 'block' : 'none';
-    if (storyHint) hintEl.textContent = storyHint;
-    else if (looked) hintEl.textContent = looked.r.locked ? 'Locked' : (looked.target ? 'E  close' : 'E  open') + (looked.r.kind === 'glass' ? ' — stairs' : '');
+    if (storyHint) hintEl.innerHTML = storyHint;
+    else if (looked) hintEl.innerHTML = looked.r.locked ? 'locked.' : `<span class="key">E</span>${looked.target ? 'close' : 'open'}${looked.r.kind === 'glass' ? '  · stairs' : looked.r.kind === 'stall' ? (looked.target ? '' : '  · hide inside') : ''}`;
     const feet = player.position.y - PLAYER.segment - PLAYER.radius;
     let label = FLOORS[0][1];
     for (const [h, n] of FLOORS) if (feet > h) label = n;

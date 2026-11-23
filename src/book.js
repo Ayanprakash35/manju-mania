@@ -7,7 +7,7 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 export const ENTRIES = [
   {
-    id: 'manju', name: 'Manju', role: 'The warden',
+    id: 'manju', name: 'Manju', short: 'manju', role: 'The warden',
     what: 'Patrols the ground and first floors, stopping for a smoke. If he notices you he stares for a moment, then charges — and if he reaches you, you\'re caught. Zoya and Mutty both report to him, and he comes running.',
     avoid: [
       'He sees a torch from about 22 m, but only about 8 m without one — switch it off when you hear him.',
@@ -18,7 +18,7 @@ export const ENTRIES = [
     ],
   },
   {
-    id: 'mutty', name: 'Mutty', role: 'The crawler',
+    id: 'mutty', name: 'Mutty', short: 'mutty', role: 'The crawler',
     what: 'Crawls the ground floor. He hears running from far off, closes in fast and pounces from a metre or two — every bite takes a heart. After biting he scuttles off to tell Manju exactly where you are.',
     avoid: [
       'Walk or crouch on the ground floor; never run near him.',
@@ -28,7 +28,7 @@ export const ENTRIES = [
     ],
   },
   {
-    id: 'zoya', name: 'Dr Zoya', role: 'The spotter',
+    id: 'zoya', name: 'Dr Zoya', short: 'zoya', role: 'The spotter',
     what: 'Walks the first floor. She won\'t touch you — she spots you, shouts "These boys!", points, and calls Manju, who turns up close by within seconds.',
     avoid: [
       'Her eyes are narrow but sharp: about 14 m straight ahead. Stay out of the line of the corridor she\'s facing.',
@@ -37,12 +37,12 @@ export const ENTRIES = [
     ],
   },
   {
-    id: 'komynini', name: 'CowShit Komynini', role: 'Room 15',
+    id: 'komynini', name: 'CowShit Komynini', short: 'komynini', role: 'Room 15',
     what: 'Lives on the bed on the right in room 15, scrolling reels under his duvet. Completely harmless. Very loud.',
     avoid: ['Close the door behind you.'],
   },
   {
-    id: 'figure', name: 'The figures', role: 'Second floor',
+    id: 'figure', name: 'The figures', short: 'them?', role: 'Second floor',
     what: 'Something stands at the far end of the dark corridors, and all over the second floor, where Manju has already been. It\'s there for a heartbeat. Then it isn\'t.',
     avoid: ['You can\'t. Don\'t stare.'],
   },
@@ -65,7 +65,7 @@ export class Book {
   discover(id, quiet = false) {
     if (!this.entry(id) || this.seen.has(id)) return false;
     this.seen.add(id); this.save();
-    if (!quiet) this.toast?.('New in the character book', this.entry(id).name + '  ·  open it from the pause menu');
+    if (!quiet) this.toast?.('new page in my notebook', `${this.entry(id).name.toLowerCase()}  ·  pause menu → character book`);
     if (!this.el.hidden) this.render();
     return true;
   }
@@ -89,7 +89,8 @@ export class Book {
       if (!n.root.visible || n.visible === false) continue;           // in the dark you can't see him: no sighting
       if (sees(n.pos.clone().add(new THREE.Vector3(0, h, 0)), id === 'mutty' ? 12 : 18)) this.discover(id);
     }
-    if (ctx?.cutscene && !this.seen.has('manju')) this.discover('manju');
+    if (ctx?.cutscene && !this.seen.has('manju')) { this.discover('manju', true); this.pending = 'manju'; }   // no pop-ups during the intro
+    if (this.pending && !ctx?.cutscene && !ctx?.busy) { const id = this.pending; this.pending = null; setTimeout(() => this.toast?.('new page in my notebook', `${this.entry(id).name.toLowerCase()}  ·  pause menu → character book`), 7000); }
     if (!this.seen.has('komynini') && komynini?.root && ctx?.safe && sees(komynini.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 6)) this.discover('komynini');
     if (!this.seen.has('figure') && director?.fig?.beat) this.discover('figure');
   }
@@ -102,8 +103,9 @@ export class Book {
     if (!src) return null;
     const W = 240, H = 300, R = this.renderer;
     const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b1013);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const key = new THREE.DirectionalLight(0xfff2e0, 2.2); key.position.set(1.2, 2, 2.5); scene.add(key);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.7));
+    const key = new THREE.DirectionalLight(0xfff2e0, 3.2); key.position.set(1.2, 2, 2.5); scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 1.2); fill.position.set(-1.5, 0.5, 2); scene.add(fill);
     const rim = new THREE.DirectionalLight(0x6fb4ff, 1.2); rim.position.set(-2, 1.5, -2); scene.add(rim);
     let obj;
     try { obj = id === 'figure' ? src.clone(true) : cloneSkinned(src); } catch { return null; }
@@ -133,39 +135,18 @@ export class Book {
     return (this.portraits[id] = cv.toDataURL('image/png'));
   }
 
-  // ------------------------------------------------------------------ UI
+  // ------------------------------------------------------------------ UI (styles: src/ui.css)
+  // the book is the student's own notebook: "people to avoid", a taped polaroid per person, notes in pen
   ui() {
-    const css = document.createElement('style');
-    css.textContent = `
-      #book { position: fixed; inset: 0; z-index: 30; background: rgba(2,5,7,.985); color: #e8ecea; display: flex; flex-direction: column; font: 14px/1.55 ui-monospace, Menlo, monospace; }
-      #book[hidden] { display: none; }
-      #book header { display: flex; align-items: center; justify-content: space-between; padding: 18px 26px 6px; }
-      #book h2 { margin: 0; font: 900 clamp(22px, 3.4vw, 38px) "Arial Black", Impact, sans-serif; letter-spacing: .1em; text-shadow: -3px 0 #ff2a2a, 3px 0 #22e0ff; }
-      #book .close { all: unset; cursor: pointer; padding: 6px 16px; border: 1px solid rgba(232,236,234,.3); font-size: 13px; }
-      #book .close:hover { background: #5fa49e; color: #071012; }
-      #book .wrap { flex: 1; display: flex; gap: 22px; padding: 10px 26px 24px; min-height: 0; }
-      #book ul { list-style: none; margin: 0; padding: 0; width: 220px; flex: none; overflow: auto; }
-      #book li { padding: 8px 12px; cursor: pointer; border-left: 3px solid transparent; }
-      #book li:hover { background: rgba(95,164,158,.15); } #book li.sel { border-left-color: #5fa49e; background: rgba(95,164,158,.2); }
-      #book li.locked { color: rgba(232,236,234,.35); } #book li small { display: block; font-size: 11px; opacity: .6; }
-      #book .detail { flex: 1; display: flex; gap: 22px; overflow: auto; align-items: flex-start; }
-      #book .detail img, #book .detail .sil { width: 240px; height: 300px; flex: none; border: 2px solid rgba(232,236,234,.18); background: #0b1013; image-rendering: pixelated; }
-      #book .detail .sil { display: flex; align-items: center; justify-content: center; font: 900 90px "Arial Black", sans-serif; color: rgba(232,236,234,.12); }
-      #book .detail h3 { margin: 0; font: 900 26px "Arial Black", Impact, sans-serif; letter-spacing: .06em; } #book .detail .role { color: #5fa49e; letter-spacing: 3px; font-size: 12px; text-transform: uppercase; margin-bottom: 10px; }
-      #book .detail h4 { margin: 14px 0 4px; font-size: 12px; letter-spacing: 3px; color: #ff8a6a; } #book .detail ul.av { width: auto; padding-left: 18px; list-style: square; } #book .detail ul.av li { padding: 2px 0; cursor: default; border: 0; background: none; }
-      @media (max-width: 760px) { #book .wrap { flex-direction: column; } #book ul { width: auto; display: flex; flex-wrap: wrap; } #book .detail { flex-direction: column; } }
-      #deadprofile { display: flex; gap: 16px; align-items: flex-start; max-width: min(760px, 88vw); margin: 0 0 14px; padding: 12px 14px; background: rgba(0,0,0,.55); border-left: 3px solid #ff5a3a; text-align: left; font: 13px/1.5 ui-monospace, Menlo, monospace; color: rgba(232,236,234,.9); }
-      #deadprofile[hidden] { display: none; }
-      #deadprofile img { width: 112px; height: 140px; flex: none; border: 1px solid rgba(232,236,234,.25); image-rendering: pixelated; }
-      #deadprofile b.n { display: block; font: 900 18px "Arial Black", Impact, sans-serif; letter-spacing: .06em; color: #fff; }
-      #deadprofile .h { margin-top: 6px; color: #ff8a6a; font-size: 11px; letter-spacing: 2px; }
-      #deadprofile ul { margin: 2px 0 0; padding-left: 16px; }`;
-    document.head.appendChild(css);
     const el = this.el = document.createElement('div'); el.id = 'book'; el.hidden = true;
-    el.innerHTML = '<header><h2>CHARACTER BOOK</h2><button class="close">Close  (Esc)</button></header><div class="wrap"><ul class="list"></ul><div class="detail"></div></div>';
+    el.innerHTML = `<div class="nb"><div class="pg l"><h2><u>people to avoid</u></h2><ul class="idx"></ul><div class="doodle"></div></div><div class="spine"></div><div class="rings"></div><div class="pg r"></div></div><button class="close">[esc] close</button>`;
     document.body.appendChild(el);
     el.querySelector('.close').addEventListener('click', () => this.close());
-    addEventListener('keydown', (e) => { if (!el.hidden && (e.code === 'Escape' || e.code === 'Backspace')) { e.stopImmediatePropagation(); this.close(); } }, true);
+    addEventListener('keydown', (e) => {
+      if (el.hidden) return;
+      if (e.code === 'Escape' || e.code === 'Backspace') { e.stopImmediatePropagation(); this.close(); }
+      if (e.code === 'ArrowDown' || e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'KeyS') { e.stopImmediatePropagation(); const i = ENTRIES.findIndex((x) => x.id === this.sel), d = e.code === 'ArrowDown' || e.code === 'KeyS' ? 1 : -1; this.sel = ENTRIES[(i + d + ENTRIES.length) % ENTRIES.length].id; this.render(); }
+    }, true);
     this.sel = 'manju';
   }
   open(id) {
@@ -176,19 +157,24 @@ export class Book {
   }
   close() { this.el.hidden = true; this.onClose?.(); }
   get isOpen() { return !this.el.hidden; }
-  render() {
-    const list = this.el.querySelector('.list'), det = this.el.querySelector('.detail');
-    list.innerHTML = ENTRIES.map((e) => { const s = this.seen.has(e.id); return `<li data-id="${e.id}" class="${s ? '' : 'locked'}${e.id === this.sel ? ' sel' : ''}">${s ? e.name : '???'}<small>${s ? e.role : 'not met yet'}</small></li>`; }).join('');
-    list.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => { this.sel = li.dataset.id; this.render(); }));
-    const e = this.entry(this.sel);
-    if (!this.seen.has(e.id)) { det.innerHTML = '<div class="sil">?</div><div><h3>???</h3><div class="role">Not met yet</div><p>Keep exploring. This page fills in when you first see them.</p></div>'; return; }
-    const pic = this.portrait(e.id);
-    det.innerHTML = `${pic ? `<img alt="${e.name}" src="${pic}">` : '<div class="sil">?</div>'}<div><h3>${e.name}</h3><div class="role">${e.role}</div><p>${e.what}</p><h4>HOW TO GET PAST</h4><ul class="av">${e.avoid.map((a) => `<li>${a}</li>`).join('')}</ul></div>`;
+  polaroid(e, known, crossed = false) {
+    const pic = known ? this.portrait(e.id) : null;
+    return `<div class="polaroid">${pic ? `<img alt="${e.name}" src="${pic}">` : '<div class="blank">?</div>'}${crossed ? '<div class="x"></div>' : ''}<div class="cap">${known ? e.short || e.name.split(' ').pop().toLowerCase() : '???'}</div></div>`;
   }
-  // the death screen: who got you, what they do, how to avoid them
+  render() {
+    const list = this.el.querySelector('.idx'), pg = this.el.querySelector('.pg.r');
+    const n = ENTRIES.filter((e) => this.seen.has(e.id)).length;
+    list.innerHTML = ENTRIES.map((e) => { const s = this.seen.has(e.id); return `<li data-id="${e.id}" class="${s ? '' : 'locked'}${e.id === this.sel ? ' sel' : ''}"><b>${s ? e.name.toLowerCase() : '???'}</b><i>${s ? e.role.toLowerCase() : 'haven\'t seen them yet'}</i></li>`; }).join('');
+    list.querySelectorAll('li').forEach((li) => li.addEventListener('click', () => { this.sel = li.dataset.id; this.render(); }));
+    this.el.querySelector('.doodle').textContent = n === ENTRIES.length ? 'that\'s everyone. i hope.' : `${n} of ${ENTRIES.length}.  there are more out there.`;
+    const e = this.entry(this.sel);
+    if (!this.seen.has(e.id)) { pg.innerHTML = `<div class="entry locked">${this.polaroid(e, false)}<h3>???</h3><div class="role">haven't seen this one yet</div><p class="what">keep my eyes open. this page fills in when i do.</p></div>`; return; }
+    pg.innerHTML = `<div class="entry">${this.polaroid(e, true)}<h3>${e.name}</h3><div class="role">${e.role.toLowerCase()}</div><p class="what">${e.what}</p><h5><span>how to get past</span></h5><ul>${e.avoid.map((a) => `<li>${a}</li>`).join('')}</ul></div>`;
+  }
+  // the death screen: a torn page — who got you, and what to do next time
   deathCard(id) {
     const e = this.entry(id); if (!e) return '';
-    const pic = this.portrait(id);
-    return `${pic ? `<img alt="${e.name}" src="${pic}">` : ''}<div><b class="n">${e.name}</b><span>${e.what}</span><div class="h">HOW TO AVOID</div><ul>${e.avoid.slice(0, 3).map((a) => `<li>${a}</li>`).join('')}</ul></div>`;
+    const got = { manju: 'Manju caught me.', mutty: 'Mutty got me.', zoya: 'Zoya got me.' }[id] || `${e.name} got me.`;
+    return `${this.polaroid(e, true)}<div class="got">${got}</div><div>${e.what}</div><div style="margin-top:6px;color:var(--red-pen)">next time:</div><ul>${e.avoid.slice(0, 3).map((a) => `<li>${a}</li>`).join('')}</ul>`;
   }
 }

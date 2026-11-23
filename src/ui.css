@@ -1,0 +1,192 @@
+/* Manju Mania — game UI.
+   One idea: everything on screen is either the student's own stuff (a torn notebook page for the to-do list, the
+   "who to avoid" notebook with taped polaroids, handwriting, red pen) or the game speaking (black box, white frame,
+   pixel type, typed out a letter at a time). No glass panels, no accent stripes, no emoji. */
+
+:root {
+  --ink: #23211e; --graphite: #3a3833; --red-pen: #b3261e; --blue-pen: #23418f;
+  --paper: #e6dfcf; --paper-dark: #cfc6b2; --rule: rgba(64, 98, 168, .30); --margin: rgba(196, 58, 52, .45);
+  --night: #07090b; --bone: #efe9dc; --dim: rgba(239, 233, 220, .55); --blood: #c4291f; --amber: #f2c14e;
+  --hand: 'Patrick Hand', 'Comic Sans MS', 'Marker Felt', cursive;
+  --pix: 'VT323', 'Courier New', monospace;
+  --type: 'Special Elite', 'Courier New', monospace;
+}
+
+/* ---------------------------------------------------------------- the to-do page (top right) */
+#obj { position: fixed; right: 18px; top: 16px; width: 252px; z-index: 6; pointer-events: none; transform: rotate(1.2deg); transform-origin: top right;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.55)); transition: opacity .4s; }
+#obj:empty { display: none; }
+#obj .page { position: relative; padding: 22px 16px 14px 34px; color: var(--ink); font: 19px/26px var(--hand);
+  background: linear-gradient(transparent 0 25px, var(--rule) 25px 26px) 0 12px / 100% 26px, linear-gradient(90deg, transparent 0 25px, var(--margin) 25px 26.5px, transparent 26.5px), var(--paper);
+  background-color: var(--paper);
+  clip-path: polygon(0 3%, 6% 0, 14% 2%, 23% 0, 35% 1.5%, 47% 0, 60% 2%, 72% 0, 84% 1.6%, 93% 0, 100% 2%, 100% 100%, 0 100%); opacity: .93; }
+#obj .page::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 70% 110%, rgba(90,70,40,.22), transparent 60%), radial-gradient(ellipse at 0% 0%, rgba(90,70,40,.18), transparent 50%); }
+#obj .tape { position: absolute; top: -10px; left: 50%; width: 74px; height: 22px; transform: translateX(-50%) rotate(-4deg); background: rgba(232, 222, 190, .62); box-shadow: 0 1px 2px rgba(0,0,0,.2); z-index: 1; }
+#obj h4 { margin: 0 0 2px; font: 24px/26px var(--hand); letter-spacing: 1px; color: var(--graphite); }
+#obj h4 span { color: var(--red-pen); font-size: 18px; margin-left: 6px; }
+#obj .item { position: relative; display: flex; gap: 8px; align-items: baseline; white-space: nowrap; }
+#obj .item .box { flex: none; width: 13px; height: 13px; border: 2px solid var(--graphite); border-radius: 2px; transform: translateY(1px) rotate(-3deg); position: relative; }
+#obj .item.done .box::after { content: '✓'; position: absolute; left: -1px; top: -12px; font: 24px/1 var(--hand); color: var(--red-pen); }
+#obj .item.done .lbl { color: rgba(35,33,30,.55); position: relative; }
+#obj .item.done .lbl::after { content: ''; position: absolute; left: -2px; right: -4px; top: 55%; height: 2px; background: var(--red-pen); transform: rotate(-1.5deg); animation: strike .5s ease-out both; }
+#obj .sub { margin-left: 20px; font-size: 17px; }
+#obj .locked { color: rgba(35,33,30,.38); }
+#obj .count { color: var(--blue-pen); margin-left: 4px; }
+#obj .later { margin-top: 4px; color: rgba(35,33,30,.5); font-size: 16px; }
+@keyframes strike { from { right: 100%; } to { right: -4px; } }
+#obj .page.bump { animation: bump .6s ease-out; }
+@keyframes bump { 0% { transform: translateY(0); } 30% { transform: translateY(-6px) rotate(-1deg); } 100% { transform: none; } }
+
+/* ---------------------------------------------------------------- the game speaking: dialogue box */
+#dlg { position: fixed; left: 50%; bottom: 7vh; transform: translateX(-50%); width: min(760px, 92vw); z-index: 9; pointer-events: none;
+  display: flex; gap: 16px; align-items: flex-start; padding: 16px 20px 18px; background: #000; color: #fff;
+  border: 4px solid #fff; box-shadow: 0 0 0 4px #000, 0 10px 30px rgba(0,0,0,.6); image-rendering: pixelated; }
+#dlg[hidden] { display: none; }
+#dlg .face { flex: none; width: 96px; height: 96px; border: 3px solid #fff; background: #000 center / cover no-repeat; image-rendering: pixelated; filter: contrast(1.15) saturate(.85); }
+#dlg .face:empty[style=""], #dlg.noface .face { display: none; }
+#dlg .who { font: 22px/1 var(--pix); letter-spacing: 2px; color: var(--amber); margin-bottom: 6px; }
+#dlg .who:empty { display: none; }
+#dlg .say { font: 30px/1.12 var(--pix); letter-spacing: .5px; min-height: 66px; white-space: pre-wrap; }
+#dlg .say .shout { color: #ff4a3a; display: inline-block; animation: shake .08s steps(2) infinite; }
+#dlg .say .quiet { color: var(--dim); }
+#dlg .more { position: absolute; right: 14px; bottom: 8px; font: 22px var(--pix); animation: blink 1s steps(1) infinite; }
+#dlg .more[hidden] { display: none; }
+#dlg.item .who { color: #8fe08f; }
+#dlg.item .face { background-color: #111; background-size: 70%; }
+@keyframes shake { 0% { transform: translate(0, 0); } 50% { transform: translate(1px, -1px); } 100% { transform: translate(-1px, 1px); } }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---------------------------------------------------------------- objective banner, toasts, hint */
+#banner { position: fixed; left: 0; right: 0; top: 18vh; text-align: center; pointer-events: none; z-index: 8; color: var(--bone); }
+#banner[hidden] { display: none; }
+#banner .k { font: 24px var(--pix); letter-spacing: 6px; color: var(--blood); }
+#banner .t { font: 46px/1.05 var(--hand); text-shadow: 0 3px 0 #000, 0 0 24px rgba(0,0,0,.9); margin-top: 4px; }
+#banner .s { font: 24px var(--pix); color: var(--dim); margin-top: 6px; }
+#banner.in .t, #banner.in .k, #banner.in .s { animation: rise .7s cubic-bezier(.2,.8,.2,1) both; }
+#banner.in .s { animation-delay: .25s; } #banner.out { animation: fadeout .8s forwards; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes fadeout { to { opacity: 0; } }
+#toast { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); pointer-events: none; z-index: 8; text-align: center; font: 26px/1.1 var(--pix); color: var(--bone); text-shadow: 0 2px 0 #000, 0 0 10px #000; }
+#toast[hidden] { display: none; } #toast small { display: block; font-size: 20px; color: var(--dim); }
+#toast.in { animation: rise .35s ease-out both; }
+#hint { font: 24px/1 var(--pix) !important; letter-spacing: .5px; background: transparent !important; color: var(--bone) !important; text-shadow: 0 2px 0 #000, 0 0 8px #000; padding: 0 !important; }
+#hint .key { display: inline-block; min-width: 18px; padding: 0 5px; margin-right: 6px; border: 2px solid var(--bone); text-align: center; line-height: 20px; }
+#hint .bar { display: block; height: 4px; margin-top: 6px; background: rgba(239,233,220,.2); }
+#hint .bar i { display: block; height: 100%; background: var(--amber); }
+#hud { font: 24px/1.05 var(--pix) !important; letter-spacing: .5px; }
+#hud b { font: 28px/1 var(--pix) !important; }
+
+/* ---------------------------------------------------------------- hotbar */
+#bar { position: fixed; left: 50%; bottom: 66px; transform: translateX(-50%); display: flex; gap: 8px; z-index: 6; pointer-events: none; }
+#bar:empty { display: none; }
+#bar .s { position: relative; width: 52px; height: 52px; background: rgba(6, 8, 10, .72); border: 2px solid rgba(239,233,220,.22); border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: transform .15s, border-color .15s; }
+#bar .s img { width: 36px; height: 36px; image-rendering: pixelated; }
+#bar .s.off img { opacity: .18; filter: grayscale(1) brightness(.6); }
+#bar .s.sel { border-color: var(--bone); transform: translateY(-5px); box-shadow: 0 6px 14px rgba(0,0,0,.5); }
+#bar .s .n { position: absolute; left: 4px; top: 1px; font: 16px/1 var(--pix); color: var(--dim); }
+#bar .s .q { position: absolute; right: 3px; bottom: 0; font: 18px/1 var(--pix); color: var(--bone); text-shadow: 0 1px 0 #000; }
+#bar .s .cd { position: absolute; inset: 0; border-radius: 4px; }
+#bar .s .cdt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 22px var(--pix); color: var(--bone); text-shadow: 0 2px 0 #000; }
+#barlabel { position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%); font: 22px var(--pix); color: var(--bone); text-shadow: 0 2px 0 #000, 0 0 8px #000; pointer-events: none; z-index: 6; white-space: nowrap; }
+#barlabel .k { color: var(--amber); }
+
+/* ---------------------------------------------------------------- minimap: the laptop's screen */
+#map { position: fixed; left: 14px; top: 62px; width: min(250px, 30vw); z-index: 6; pointer-events: none; border: 6px solid #1b1d20; border-bottom-width: 12px; border-radius: 6px 6px 3px 3px; background: #050607; box-shadow: 0 0 0 1px #3a3d42, 0 8px 18px rgba(0,0,0,.55); image-rendering: pixelated; }
+#map[hidden] { display: none; }
+#map.big { left: 50%; top: 50%; width: min(760px, 92vw); transform: translate(-50%, -50%); }
+
+/* ---------------------------------------------------------------- intro: the notice, the clock */
+#ctx { position: fixed; inset: 0; z-index: 15; background: #000; display: flex; align-items: center; justify-content: center; }
+#ctx[hidden] { display: none; }
+#ctx .notice { position: relative; width: min(500px, 84vw); padding: 34px 38px 30px; background: #ece6d6; color: #1f1d1a; font: 17px/1.55 var(--type); transform: rotate(-1.2deg);
+  box-shadow: 0 30px 60px rgba(0,0,0,.8); background-image: radial-gradient(ellipse at 20% 10%, rgba(120,100,60,.18), transparent 50%), radial-gradient(ellipse at 90% 90%, rgba(120,100,60,.25), transparent 55%); }
+#ctx .notice h1 { margin: 0 0 4px; font: 24px var(--type); letter-spacing: 3px; text-align: center; }
+#ctx .notice .sub { text-align: center; font-size: 13px; letter-spacing: 2px; margin-bottom: 18px; border-bottom: 2px solid #1f1d1a; padding-bottom: 10px; }
+#ctx .notice b { background: #1f1d1a; color: #ece6d6; padding: 0 4px; }
+#ctx .notice .sig { margin-top: 18px; text-align: right; font: 26px var(--hand); }
+#ctx .stamp { position: absolute; left: 30px; bottom: 16px; width: 104px; height: 104px; border: 4px double rgba(179,38,30,.85); border-radius: 50%; color: rgba(179,38,30,.85); display: flex; align-items: center; justify-content: center; text-align: center; font: 15px/1.15 var(--type); letter-spacing: 2px; transform: rotate(-16deg) scale(2.2); opacity: 0; mix-blend-mode: multiply; }
+#ctx .stamp.down { animation: stamp .35s cubic-bezier(.3,1.6,.6,1) forwards; }
+@keyframes stamp { to { transform: rotate(-16deg) scale(1); opacity: 1; } }
+#ctx .clock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; opacity: 0; transition: opacity .8s; }
+#ctx .clock.on { opacity: 1; }
+#ctx .digits { font: 120px/1 var(--pix); color: #ff2a1a; text-shadow: 0 0 18px rgba(255,42,26,.65), 0 0 2px #ff6a5a; letter-spacing: 6px; }
+#ctx .digits .c { animation: blink 1s steps(1) infinite; }
+#ctx .line { font: 30px/1.3 var(--pix); color: var(--bone); min-height: 40px; text-align: center; max-width: 80vw; }
+#ctx .notice.gone { transition: opacity .6s, transform .6s; opacity: 0; transform: rotate(-1.2deg) translateY(20px); }
+#ctx .skip { position: absolute; right: 22px; bottom: 16px; font: 20px var(--pix); color: rgba(239,233,220,.35); }
+
+/* ---------------------------------------------------------------- cutscene frame */
+#lb { position: fixed; inset: 0; pointer-events: none; z-index: 7; }
+#lb::before, #lb::after { content: ''; position: absolute; left: 0; right: 0; height: 0; background: #000; transition: height .7s cubic-bezier(.2,.8,.2,1); }
+#lb::before { top: 0; } #lb::after { bottom: 0; }
+#lb.on::before, #lb.on::after { height: 11vh; }
+#fade { position: fixed; inset: 0; background: #000; pointer-events: none; z-index: 14; opacity: 0; transition: opacity .6s; }
+#fade.on { opacity: 1; }
+body.cut #crosshair, body.cut #hud, body.cut #hint, body.cut #hearts, body.cut #bar, body.cut #barlabel, body.cut #obj, body.cut #map, body.cut #stamina { display: none !important; }
+body.inmenu #obj, body.inmenu #bar, body.inmenu #barlabel, body.inmenu #map, body.inmenu #toast, body.inmenu #banner, body.inmenu #dlg, body.inmenu #lb { display: none !important; }
+
+/* ---------------------------------------------------------------- the notebook: who to avoid */
+#book { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 45%, #1b1712 0%, #070605 70%); }
+#book[hidden] { display: none; }
+#book .nb { position: relative; display: flex; width: min(1040px, 96vw); height: min(640px, 88vh); transform: rotate(-.6deg); filter: drop-shadow(0 30px 40px rgba(0,0,0,.8)); animation: nbopen .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes nbopen { from { opacity: 0; transform: rotate(-.6deg) translateY(24px) scale(.98); } }
+#book .pg { position: relative; flex: 1; overflow: hidden; color: var(--ink); font: 21px/28px var(--hand);
+  background: linear-gradient(transparent 0 27px, var(--rule) 27px 28px) 0 18px / 100% 28px, var(--paper); }
+#book .pg.l { border-radius: 8px 0 0 8px; padding: 30px 28px 24px 46px; box-shadow: inset -24px 0 30px -18px rgba(60,40,10,.45);
+  background: linear-gradient(90deg, transparent 0 36px, var(--margin) 36px 37.5px, transparent 37.5px), linear-gradient(transparent 0 27px, var(--rule) 27px 28px) 0 18px / 100% 28px, var(--paper); }
+#book .pg.r { border-radius: 0 8px 8px 0; padding: 30px 34px 24px 30px; box-shadow: inset 24px 0 30px -18px rgba(60,40,10,.45); overflow-y: auto; }
+#book .pg::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 100% 100%, rgba(100,70,30,.25), transparent 55%), radial-gradient(ellipse at 0% 0%, rgba(100,70,30,.18), transparent 50%); }
+#book .spine { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(60,40,10,.35); z-index: 2; }
+#book .rings { position: absolute; left: calc(50% - 9px); top: 30px; bottom: 30px; width: 18px; z-index: 3; background: radial-gradient(circle at 50% 50%, #8c8f93 0 5px, #3d3f42 5px 7px, transparent 7px) 0 0 / 18px 40px repeat-y; }
+#book h2 { margin: 0 0 10px; font: 40px/1 var(--hand); color: var(--graphite); }
+#book h2 u { text-decoration: none; background: linear-gradient(var(--red-pen), var(--red-pen)) 0 92% / 100% 3px no-repeat; }
+#book .idx { list-style: none; margin: 8px 0 0; padding: 0; position: relative; z-index: 1; }
+#book .idx li { cursor: pointer; padding: 0 0 0 4px; height: 56px; line-height: 28px; position: relative; }
+#book .idx li b { font-weight: normal; font-size: 26px; display: block; } #book .idx li i { font-style: normal; font-size: 17px; color: var(--blue-pen); display: block; margin-top: -4px; }
+#book .idx li.sel b::before { content: '→'; position: absolute; left: -30px; color: var(--red-pen); }
+#book .idx li.sel b { color: var(--red-pen); }
+#book .idx li.locked b { color: rgba(35,33,30,.35); } #book .idx li.locked i { color: rgba(35,33,30,.3); }
+#book .idx li:hover b { text-decoration: underline wavy rgba(179,38,30,.5); }
+#book .doodle { position: absolute; left: 46px; bottom: 26px; font-size: 17px; color: rgba(35,33,30,.55); transform: rotate(-2deg); z-index: 1; }
+#book .close { all: unset; position: absolute; top: 14px; right: 18px; z-index: 35; cursor: pointer; font: 22px var(--pix); color: var(--bone); padding: 4px 10px; background: #000; border: 2px solid var(--bone); }
+#book .close:hover { background: var(--bone); color: #000; }
+#book .entry { position: relative; z-index: 1; }
+#book .entry h3 { margin: 0; font: 46px/1 var(--hand); color: var(--ink); }
+#book .entry .role { font-size: 20px; color: var(--blue-pen); margin: 2px 0 12px; }
+#book .entry .what { margin: 0 0 6px; }
+#book .entry h5 { margin: 12px 0 0; font: 24px/28px var(--hand); color: var(--red-pen); }
+#book .entry h5 span { background: linear-gradient(transparent 60%, rgba(179,38,30,.18) 60%); }
+#book .entry ul { margin: 0; padding: 0; list-style: none; }
+#book .entry ul li { position: relative; padding-left: 22px; } #book .entry ul li::before { content: '–'; position: absolute; left: 4px; color: var(--red-pen); }
+#book .entry.locked { color: rgba(35,33,30,.45); }
+.polaroid { float: right; margin: 0 0 12px 18px; width: 172px; padding: 9px 9px 34px; background: #f5f2ea; box-shadow: 0 6px 14px rgba(0,0,0,.35); transform: rotate(3deg); position: relative; }
+.polaroid img, .polaroid .blank { display: block; width: 154px; height: 192px; object-fit: cover; image-rendering: pixelated; background: #14181b; filter: sepia(.18) contrast(1.05) saturate(.85) brightness(1.18); }
+.polaroid .blank { display: flex; align-items: center; justify-content: center; font: 90px var(--hand); color: rgba(239,233,220,.25); filter: none; }
+.polaroid .cap { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font: 22px/1 var(--hand); color: var(--ink); }
+.polaroid::before { content: ''; position: absolute; top: -12px; left: 50%; width: 70px; height: 22px; transform: translateX(-50%) rotate(-5deg); background: rgba(232, 222, 190, .7); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.polaroid .x { position: absolute; inset: 9px 9px 34px; pointer-events: none; }
+.polaroid .x::before, .polaroid .x::after { content: ''; position: absolute; left: -6%; right: -6%; top: 50%; height: 4px; background: rgba(179,38,30,.8); transform: rotate(51deg); border-radius: 2px; }
+.polaroid .x::after { transform: rotate(-51deg); }
+
+/* ---------------------------------------------------------------- death: the note about who got you */
+#deadprofile { position: relative; width: min(620px, 90vw); margin: 0 0 18px; padding: 18px 22px 16px 22px; color: var(--ink); font: 19px/25px var(--hand); text-align: left;
+  background: linear-gradient(transparent 0 24px, var(--rule) 24px 25px) 0 14px / 100% 25px, var(--paper); transform: rotate(-1deg); box-shadow: 0 18px 40px rgba(0,0,0,.7);
+  clip-path: polygon(0 2%, 8% 0, 18% 1.5%, 30% 0, 44% 2%, 57% 0, 70% 1.5%, 83% 0, 100% 1.5%, 100% 98%, 90% 100%, 76% 98.5%, 61% 100%, 47% 98%, 33% 100%, 18% 98.5%, 6% 100%, 0 98%); animation: notein .7s .5s cubic-bezier(.2,.8,.2,1) both; }
+#deadprofile[hidden] { display: none; }
+@keyframes notein { from { opacity: 0; transform: rotate(-1deg) translateY(30px); } }
+#deadprofile .polaroid { width: 118px; padding: 6px 6px 26px; margin: 2px 0 6px 16px; }
+#deadprofile .polaroid img { width: 106px; height: 132px; }
+#deadprofile .polaroid .cap { font-size: 17px; }
+#deadprofile .got { font-size: 25px; color: var(--red-pen); margin-bottom: 4px; }
+#deadprofile ul { margin: 6px 0 0; padding: 0; list-style: none; } #deadprofile li { padding-left: 20px; position: relative; } #deadprofile li::before { content: '–'; position: absolute; left: 4px; color: var(--red-pen); }
+#deadprofile::after { content: ''; display: block; clear: both; }
+body.cut #dlg { bottom: calc(11vh + 14px); }
+#dlg.item { bottom: 150px; width: min(560px, 90vw); padding: 12px 16px 14px; gap: 12px; }
+#dlg.item .face { width: 72px; height: 72px; }
+#dlg.item .say { font-size: 25px; min-height: 52px; }
+#dlg.item .who { font-size: 19px; }
+/* death screen text and buttons in the game's voice */
+#dead p#deadline { font: 26px/1.2 var(--pix) !important; color: var(--dim) !important; letter-spacing: .5px; margin-bottom: 18px !important; }
+#dead button { font: 30px/1 var(--pix) !important; letter-spacing: 1px; padding: 6px 18px !important; border: 3px solid transparent; text-transform: none !important; color: var(--bone); }
+#dead button:hover, #dead button:focus { background: var(--bone) !important; color: #000 !important; border-color: var(--bone); }
+#dead button::before { content: '> '; opacity: 0; } #dead button:hover::before, #dead button:focus::before { opacity: 1; }

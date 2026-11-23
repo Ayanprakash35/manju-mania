@@ -35,6 +35,21 @@ tissue, a bloody handprint on a mirror.
 stops at the first floor), a body in every room (kids in uniform, adults), blood pooled, dragged and sprayed, more in
 the corridors, and figures that stand far down a corridor for a heartbeat and are gone.
 
+## Look and feel of the UI (src/ui.css, src/icons.js)
+Everything on screen is either the student's own stuff or the game speaking. The to-do list is a torn notebook page
+taped to the top-right corner, written in pencil, with things struck through in red pen as you do them. The
+character book is your "people to avoid" notebook: taped polaroids (rendered from the models) and handwritten notes.
+The death screen adds a torn page about whoever got you. The game itself speaks in black boxes with a white frame and
+pixel type, typed out a letter at a time with voice blips (Manju low, the narrator higher) and the speaker's portrait,
+in the spirit of Undertale; item pickups use the same box with the item's pixel icon. The hotbar uses pixel-art icons
+with a radial cooldown sweep. Fonts: Patrick Hand (handwriting), VT323 (pixel), Special Elite (the printed notice).
+
+**The intro** is the warden's printed notice ("devices by 9:30 PM, or CONFISCATED") with the stamp coming down, then a
+red alarm clock reading 9:52 and two typed lines, then the cutscene behind letterbox bars. You hear him coming, the door
+bursts open with a camera jolt, he walks in and turns to you, the camera leans in to his glowing eyes as he shouts. The
+camera then swings to your desk as everything starts shaking, follows your things as they rip past you into his hands,
+and watches him turn and walk out. The door slams, there's a fade to black and a closing line, then you play.
+
 ## Character book (src/book.js)
 Manju, Mutty, Dr Zoya, CowShit Komynini and the figures each have a page: what they do and how to get past them, with
 a portrait rendered from the game's own model. A page unlocks the first time you properly see that character (in

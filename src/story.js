@@ -13,6 +13,7 @@
 // Rest-room cubicles: shut yourself in and nobody can see you, but stay longer than 10 s and Mutty comes in under
 // the door.
 import * as THREE from 'three';
+import { icon } from './icons.js';
 
 const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 22.8, zo1: 24.5 };
 const FLOOR_Y = [0.766, 4.03, 7.17], CEIL_Y = [3.83, 6.97, 10.67];
@@ -161,99 +162,186 @@ export class Story {
     this.showContext();
   }
   retry() { this.reset(false); if (this.phase === 'intro' || this.phase === 'menu') this.finishIntro(); this.render(); }
-  quit() { this.endCutscene(true); this.reset(true); this.contextEl.hidden = true; this.subEl.hidden = true; }
+  quit() { this.introT?.forEach(clearTimeout); this.endCutscene(true); this.reset(true); this.contextEl.hidden = true; this.dlgHide(); this.fadeTo(false); }
 
   placeOnDesk() {        // your things laid out in room 15, where the cutscene finds them
     const at = { laptop: [28.22, 1.516, 18.55, -Math.PI / 2], tablet: [27.55, 1.326, 17.55, 0.4], music: [28.3, 1.516, 19.28, 0.3], mask: [28.15, 1.516, 19.62, -0.5] };
     for (const [id, [x, y, z, ry]] of Object.entries(at)) { const it = this.items[id]; it.mesh.position.set(x, y, z); it.mesh.rotation.set(0, ry, 0); it.mesh.scale.setScalar(1); it.mesh.visible = true; it.sprite.visible = false; it.home = it.mesh.position.clone(); }
   }
 
+  // the intro: the warden's notice (stamped), then the clock, then two lines — and then him
   showContext() {
-    const lines = ['ROOM 15  ·  9:52 PM', 'Laptop submission closed at 9:30.', 'Yours is still sitting on your desk. So are your tablet, your music player and your face mask.', 'Footsteps in the corridor.', 'It\'s Manju.'];
-    this.contextEl.hidden = false; this.contextEl.querySelector('.lines').innerHTML = '';
-    lines.forEach((t, i) => setTimeout(() => { if (this.phase !== 'intro' || this.contextEl.hidden) return; const p = document.createElement('p'); p.textContent = t; if (i === lines.length - 1) p.className = 'big'; this.contextEl.querySelector('.lines').appendChild(p); }, 300 + i * 1100));
-    this.contextT = 300 + lines.length * 1100 + 1600;
-    this.contextStart = performance.now();
+    const C = this.contextEl;
+    C.innerHTML = `<div class="notice"><h1>BOYS' HOSTEL</h1><div class="sub">NOTICE TO ALL RESIDENTS</div>
+      All laptops, tablets and personal devices are to be handed in to the Warden by <b>9:30 PM</b> sharp.<br><br>
+      Anything found after that time will be <b>CONFISCATED</b>. No exceptions. No excuses.<div class="sig">— Warden</div>
+      <div class="stamp">WARDEN<br>· · ·<br>OFFICE</div></div>
+      <div class="clock"><div class="digits">9<span class="c">:</span>52</div><div class="line"></div></div><div class="skip">[space] skip</div>`;
+    C.hidden = false;
+    const at = (ms, fn) => this.introT.push(setTimeout(() => { if (this.phase === 'intro' && !C.hidden) fn(); }, ms));
+    this.introT?.forEach(clearTimeout); this.introT = [];
+    at(1300, () => { C.querySelector('.stamp').classList.add('down'); this.audio.pop?.(); });
+    at(4200, () => C.querySelector('.notice').classList.add('gone'));
+    at(4900, () => { C.querySelector('.clock').classList.add('on'); this.audio.tick?.(); });
+    const line = C.querySelector('.line');
+    at(5900, () => this.typeInto(line, 'You never handed yours in.', 28, 330));
+    at(8600, () => this.typeInto(line, 'Footsteps in the corridor.', 24, 330));
+    at(11000, () => this.fadeTo(true));
+    at(11700, () => { C.hidden = true; this.startCutscene(); this.fadeTo(false); });
   }
   skip() {
     if (this.phase !== 'intro') return false;
-    if (!this.contextEl.hidden) { this.contextEl.hidden = true; this.startCutscene(); return true; }
-    if (this.cut) { this.endCutscene(); return true; }
+    if (!this.contextEl.hidden) { this.introT?.forEach(clearTimeout); this.contextEl.hidden = true; this.startCutscene(); return true; }
+    if (this.cut && !this.cut.ending) { this.cut.ending = true; this.fadeTo(true); setTimeout(() => { this.endCutscene(); this.fadeTo(false); }, 600); return true; }
     return false;
   }
+  fadeTo(on) { this.fadeEl.classList.toggle('on', on); }
 
+  // ---- the cutscene: you're on your bed. Footsteps. The door bursts open, Manju steps in, shouts, and everything
+  // you own trembles and rips across the room into his hands. He turns, walks out, the door slams. Black.
   startCutscene() {
-    const m = this.manju;
-    this.cut = { t: 0, sucked: 0, said: 0, slam: false, opened: false, manjuOut: false };
+    const m = this.manju, V = THREE.Vector3;
+    const P = { far: new V(24.45, 0.766, 13.6), out: new V(24.45, 0.766, 17.77), inn: new V(25.55, 0.766, 17.85), stand: new V(25.78, 0.766, 17.98), away: new V(24.45, 0.766, 14.2) };
+    this.cut = { t: 0, phase: 'approach', pt: 0, P, path: [P.far, P.out], yaw: Math.PI, step: 0.3, shake: 0, look: new V(25.3, 1.85, 17.8), push: 0, said: [] };
     this.prevManjuState = m.state; m.state = 'cutscene';
-    if (m.root) { m.root.visible = true; m.root.traverse((o) => { if (o.isSkinnedMesh || o.isMesh) o.visible = true; }); for (const e of m.eyes || []) e.visible = false; m.root.position.set(24.35, 0.766, 17.77); m.root.rotation.y = Math.PI / 2; m.play?.('Walk', 0.1); }
-    this.seatCam();
+    if (m.root) {
+      m.root.visible = true; m.root.traverse((o) => { if (o.isSkinnedMesh || o.isMesh) o.visible = true; });
+      for (const e of m.eyes || []) e.visible = false;
+      m.root.position.copy(P.far); m.root.rotation.y = Math.PI; m.play?.('Walk', 0.1);
+    }
+    this.lbEl.classList.add('on');
+    this.lightBase = [this.room15?.light?.intensity ?? 0, this.room15?.light2?.intensity ?? 0];
+    this.seatCam(0);
   }
-  seatCam() { const c = this.camera; c.position.set(27.25, 0.766 + 1.12, 18.2); c.lookAt(25.3, 1.9, 17.8); }
+  seatCam(push) {         // sitting on the edge of bed 1, a little forward when he looms
+    const c = this.camera, cut = this.cut, t = cut ? cut.t : 0;
+    c.position.set(27.25 - push * 0.35, 0.766 + 1.1 + Math.sin(t * 1.3) * 0.006, 18.25 - push * 0.08);
+    c.position.x += Math.sin(t * 0.7) * 0.004;                               // breathing, a hand-held camera
+  }
   endCutscene(silent = false) {
     if (!this.cut) return;
     const m = this.manju, d = this.room15Door;
     this.cut = null;
-    for (const id in this.items) { const it = this.items[id]; it.mesh.visible = false; }
-    if (d && d.target !== 0) this.roomDoors.toggle(d, this.camera.position);
+    for (const id in this.items) this.items[id].mesh.visible = false;
+    if (d && d.target !== 0) { this.roomDoors.toggle(d, this.camera.position); d.speed = 0; }
     m.state = 'off'; if (m.root) m.root.visible = false;
-    this.subEl.hidden = true;
+    for (const e of m.eyes || []) e.visible = false;
+    if (this.room15?.light) { this.room15.light.intensity = this.lightBase?.[0] ?? this.room15.light.intensity; if (this.room15.light2) this.room15.light2.intensity = this.lightBase?.[1] ?? this.room15.light2.intensity; }
+    this.lbEl.classList.remove('on'); this.dlgHide();
     if (!silent) this.finishIntro();
   }
   finishIntro() {
     this.scatter();
     this.phase = 'items';
     this.respawn();
-    this.banner('GET YOUR STUFF BACK', 'Manju scattered it across all three floors.');
+    this.banner('NEW OBJECTIVE', 'get my stuff back', 'Manju scattered it across all three floors');
     this.render();
   }
 
   updateCutscene(dt) {
-    const c = this.cut, m = this.manju, d = this.room15Door; c.t += dt;
-    const T = c.t, cam = this.camera;
-    const sub = (txt) => { this.subEl.hidden = !txt; if (txt) this.subEl.innerHTML = txt; };
-    // the door bursts open
-    if (!c.opened && T > 0.2) { c.opened = true; if (d && d.target === 0) this.roomDoors.toggle(d, new THREE.Vector3(24.3, 1.5, 17.77)); this.audio.door?.(); }
-    const head = new THREE.Vector3();
-    if (m.root) {
-      // walk in (0.4 - 2.4 s), stare and shout, then walk back out (8.4 - 10.4 s)
-      const a = new THREE.Vector3(24.35, 0.766, 17.77), b = new THREE.Vector3(26.0, 0.766, 17.95), out = new THREE.Vector3(24.45, 0.766, 15.6);
-      if (T < 2.4) { const k = THREE.MathUtils.smoothstep(T, 0.4, 2.4); m.root.position.lerpVectors(a, b, k); m.root.rotation.y = Math.PI / 2; }
-      else if (T < 8.4) { m.root.position.copy(b); if (!c.stared) { c.stared = true; m.play?.('Stare', 0.15); this.audio.stareSting?.(); } }
-      else if (T < 10.6) {
-        if (!c.leaving) { c.leaving = true; m.play?.('Walk', 0.2); }
-        const k = THREE.MathUtils.smoothstep(T, 8.4, 10.6), mid = new THREE.Vector3(24.45, 0.766, 17.77);
-        if (k < 0.5) { m.root.position.lerpVectors(b, mid, k * 2); m.root.rotation.y = -Math.PI / 2; } else { m.root.position.lerpVectors(mid, out, k * 2 - 1); m.root.rotation.y = Math.PI; }
-      } else m.root.visible = false;
-      m.mixer?.update(dt);
-      m.root.updateMatrixWorld(true);
-      if (m.head) m.head.getWorldPosition(head); else head.copy(m.root.position).add(new THREE.Vector3(0, 1.7, 0));
-    }
-    // what he says
-    if (T > 2.6 && T < 4.6) sub('<b>MANJU:</b> Laptop submission was at <i>nine-thirty</i>.');
-    else if (T > 4.6 && T < 8.2) sub('<b>MANJU:</b> You think the rules don\'t apply to you? <b>Everything. Confiscated.</b>');
-    else if (T > 10.4 && T < 13) sub('Your stuff is scattered across all three floors. <b>Get it back.</b>');
-    else sub('');
-    // everything gets sucked out of the room into him (5.2 - 8.0 s)
+    const c = this.cut, m = this.manju, d = this.room15Door, cam = this.camera, V = THREE.Vector3;
+    c.t += dt; c.pt += dt;
+    const go = (ph) => { c.phase = ph; c.pt = 0; };
+    const walk = (speed) => {                                                // along c.path at walking pace, turning smoothly
+      if (!m.root || !c.path.length) return true;
+      const p = m.root.position, tgt = c.path[0], to = new V(tgt.x - p.x, 0, tgt.z - p.z), dist = to.length();
+      if (dist < 0.04) { c.path.shift(); return !c.path.length; }
+      const want = Math.atan2(to.x, to.z);
+      let dy = want - c.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+      c.yaw += dy * Math.min(1, dt * 7);
+      const v = Math.min(dist, speed * dt * (Math.abs(dy) > 1.2 ? 0.35 : 1));
+      p.addScaledVector(to.normalize(), v);
+      c.step -= dt; if (c.step <= 0) { c.step = 0.5; this.footAt(p); }
+      return false;
+    };
+    const face = (yaw) => { let dy = yaw - c.yaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2; c.yaw += dy * Math.min(1, dt * 5); };
+    const lights = (k) => { if (!this.room15?.light) return; this.room15.light.intensity = this.lightBase[0] * k; if (this.room15.light2) this.room15.light2.intensity = this.lightBase[1] * k; };
+    const say = (key, text, who, opts) => { if (!c.said.includes(key)) { c.said.push(key); this.dialog(text, who, opts); } };
     const ids = ['laptop', 'tablet', 'music', 'mask'];
-    ids.forEach((id, i) => {
-      const it = this.items[id], t0 = 5.2 + i * 0.5, k = THREE.MathUtils.clamp((T - t0) / 0.9, 0, 1);
-      if (T < t0) return;
-      if (!it.whoosh) { it.whoosh = true; this.audio.burst?.(600 + i * 200, 1.2, 0.5, 0.08, 'bandpass', 3200); }
-      const p = it.home.clone().lerp(head.clone().add(new THREE.Vector3(0.2, -0.35, 0)), k * k);
-      p.y += Math.sin(k * Math.PI) * 0.35;
-      it.mesh.position.copy(p); it.mesh.rotation.y += dt * 14; it.mesh.rotation.x += dt * 9;
-      it.mesh.scale.setScalar(1 - k * 0.85); it.mesh.visible = k < 1;
-    });
-    if (T > 5.0 && T < 8.0) { cam.position.x += (Math.random() - 0.5) * 0.012; cam.position.y += (Math.random() - 0.5) * 0.012; }
-    // the door slams behind him
-    if (!c.slam && T > 10.7) { c.slam = true; if (d && d.target !== 0) this.roomDoors.toggle(d, this.camera.position); this.audio.door?.(); this.audio.rattle?.(); }
-    // camera: seated on the bed, watching him (and the stuff flying)
-    this.seatCam();
-    const look = T < 0.5 ? new THREE.Vector3(25.3, 1.9, 17.77) : T < 10.6 ? head : new THREE.Vector3(25.3, 1.7, 17.77);
-    const q0 = cam.quaternion.clone(); cam.lookAt(look);
-    if (this.camQ) { cam.quaternion.copy(this.camQ.slerp(cam.quaternion, Math.min(1, dt * 4))); } this.camQ = cam.quaternion.clone(); void q0;
-    if (T > 13.2) this.endCutscene();
+    switch (c.phase) {
+      case 'approach':                                                      // you hear him first
+        if (walk(1.25)) { go('burst'); if (d && d.target === 0) { this.roomDoors.toggle(d, new V(24.3, 1.5, 17.77)); d.speed = 9; } this.audio.door?.(); this.audio.pop?.(); c.shake = 0.06; lights(0.35); m.play?.('Idle', 0.2); }
+        break;
+      case 'burst':
+        lights(c.pt < 0.15 ? 0.3 : 1);
+        if (c.pt > 0.55) { go('enter'); c.path = [c.P.inn, c.P.stand]; m.play?.('Walk', 0.2); }
+        break;
+      case 'enter':
+        if (walk(1.15)) { go('stare'); m.play?.('Stare', 0.25); this.audio.stareSting?.(); for (const e of m.eyes || []) { e.visible = true; e.material.opacity = 1; } }
+        break;
+      case 'stare': {
+        face(Math.atan2(cam.position.x - m.root.position.x, cam.position.z - m.root.position.z));
+        c.push = Math.min(0.55, c.push + dt * 0.12);
+        if (c.pt > 0.3) say('a', 'Laptop submission was at *NINE-THIRTY.*', 'MANJU', { face: 'manju', blip: 92, speed: 26 });
+        if (c.pt > 3.1) say('b', 'And you thought I wouldn\'t _check?_', 'MANJU', { face: 'manju', blip: 92, speed: 26 });
+        if (c.pt > 5.6) say('c', '*EVERYTHING.  CONFISCATED.*', 'MANJU', { face: 'manju', blip: 80, speed: 18 });
+        if (c.pt > 7.6) { go('tremble'); this.dlgHide(); this.audio.burst?.(90, 0.8, 1.1, 0.12, 'lowpass'); }
+        break;
+      }
+      case 'tremble':                                                       // everything you own starts to shake
+        lights(0.55 + Math.random() * 0.5);
+        for (const id of ids) { const it = this.items[id]; it.mesh.position.copy(it.home).add(new V((Math.random() - 0.5) * 0.02, Math.random() * 0.012 * (c.pt / 0.8), (Math.random() - 0.5) * 0.02)); }
+        c.shake = Math.max(c.shake, 0.008 * c.pt);
+        if (c.pt > 1.3) { go('suck'); }
+        break;
+      case 'suck': {                                                        // ...and rips across the room into his hands
+        lights(Math.random() < 0.25 ? 0.15 : 0.9);
+        const hand = m.root.position.clone().add(new V(0, 1.15, 0)).addScaledVector(new V(Math.sin(c.yaw), 0, Math.cos(c.yaw)), 0.35);
+        let done = 0;
+        ids.forEach((id, i) => {
+          const it = this.items[id], t0 = i * 0.2, k = THREE.MathUtils.clamp((c.pt - t0) / 0.55, 0, 1);
+          if (c.pt < t0) { it.mesh.position.copy(it.home).add(new V((Math.random() - 0.5) * 0.02, 0.01, (Math.random() - 0.5) * 0.02)); return; }
+          if (!it.whooshed) { it.whooshed = true; this.audio.burst?.(500 + i * 160, 1.4, 0.45, 0.1, 'bandpass', 2600); c.shake = 0.05; }
+          const e = k * k * k;                                              // slow to tear loose, then gone
+          const prev = it.mesh.position.clone();
+          it.mesh.position.lerpVectors(it.home, hand, e); it.mesh.position.y += Math.sin(k * Math.PI) * 0.22;
+          const vel = it.mesh.position.clone().sub(prev).length() / Math.max(dt, 1e-3);
+          it.mesh.rotation.y += dt * (4 + 18 * e); it.mesh.rotation.z += dt * 10 * e;
+          it.mesh.scale.set(1, 1, 1 + Math.min(1.6, vel * 0.12)).multiplyScalar(k > 0.85 ? (1 - k) / 0.15 : 1);
+          it.mesh.visible = k < 1; if (k >= 1) done++;
+        });
+        if (done === ids.length && c.pt > 1.3) { go('turn'); lights(1); this.audio.pop?.(); c.shake = 0.03; m.play?.('Idle', 0.3); }
+        break;
+      }
+      case 'turn':
+        face(-Math.PI / 2);
+        if (c.pt > 0.9) { go('leave'); c.path = [c.P.out, c.P.away]; m.play?.('Walk', 0.25); for (const e of m.eyes || []) e.visible = false; }
+        break;
+      case 'leave':
+        if (m.root && m.root.position.x < 25.2 && !c.slammed) { c.slammed = true; c.slamT = 0.7; }
+        if (c.slamT != null && (c.slamT -= dt) <= 0 && !c.shut) { c.shut = true; if (d && d.target !== 0) { this.roomDoors.toggle(d, cam.position); d.speed = 10; } this.audio.door?.(); this.audio.pop?.(); c.shake = 0.07; lights(0.25); }
+        if (c.shut) lights(Math.min(1, 0.25 + c.slamT * -2));
+        if (walk(1.3) || (c.shut && c.slamT < -1.0)) { go('black'); this.fadeTo(true); }
+        break;
+      case 'black':
+        if (m.root) m.root.visible = false;
+        if (c.pt > 0.7) say('n1', 'Your stuff is out there now.  Somewhere on every floor.', '', { blip: 330, speed: 30 });
+        if (c.pt > 3.6) say('n2', 'Get it back.', '', { blip: 330, speed: 22 });
+        if (c.pt > 5.4 && !c.ending) { c.ending = true; this.endCutscene(); this.fadeTo(false); }
+        return;
+    }
+    if (m.root) { m.root.rotation.y = c.yaw; m.mixer?.update(dt); m.root.updateMatrixWorld(true); }
+    // camera: sitting on your bed; it follows him (smoothed), leans in when he looms, jolts on the door
+    const head = new V(); if (m.head) m.head.getWorldPosition(head); else head.copy(m.root.position).add(new V(0, 1.7, 0));
+    let target = head;
+    if (c.phase === 'approach' || c.phase === 'burst') target = new V(25.3, 1.8, 17.8);
+    if (c.phase === 'tremble') target = new V(28.2, 1.5, 18.75);                 // your desk: everything on it shaking
+    if (c.phase === 'suck') {                                                // follow your things as they rip past you into his hands
+      const fly = ids.map((id) => this.items[id].mesh).filter((m2) => m2.visible);
+      target = fly.length ? fly.reduce((a, m2) => a.add(m2.position), new V()).multiplyScalar(1 / fly.length) : head.clone().add(new V(0, -0.5, 0));
+    }
+    if (c.phase === 'leave' && c.shut) target = new V(25.3, 1.7, 17.8);
+    c.look.lerp(target, Math.min(1, dt * (c.phase === 'suck' ? 5 : c.phase === 'tremble' ? 3.2 : 2.6)));
+    this.seatCam(c.push);
+    c.shake *= Math.pow(0.02, dt);
+    cam.lookAt(c.look);
+    if (c.shake > 0.001) { cam.rotateX((Math.random() - 0.5) * c.shake); cam.rotateY((Math.random() - 0.5) * c.shake); }
+  }
+  // a footstep from where he is (panned, quieter when far)
+  footAt(p) {
+    const cam = this.camera, to = p.clone().sub(cam.position), d = to.length(), r = new THREE.Vector3();
+    cam.getWorldDirection(r); r.set(-r.z, 0, r.x).normalize();
+    this.audio.stepAt?.(Math.max(-1, Math.min(1, to.normalize().dot(r))), Math.min(1, d / 10), Math.max(0.12, 0.6 - d * 0.05));
   }
 
   // ------------------------------------------------------------------------------------------ scatter
@@ -308,13 +396,14 @@ export class Story {
     if (this.cut) return null;
     const L = this.lookAt;
     if (!L) return null;
-    if (L.kind === 'item') return `E  pick up ${ITEMS.find((i) => i.id === L.id).name}`;
-    if (L.kind === 'food' || L.kind === 'thrownFood') return this.food >= 3 ? 'Pockets full of food' : 'E  take the food';
+    const K = (k, t) => `<span class="key">${k}</span>${t}`;
+    if (L.kind === 'item') return K('E', `pick up the ${ITEMS.find((i) => i.id === L.id).name.toLowerCase()}`);
+    if (L.kind === 'food' || L.kind === 'thrownFood') return this.food >= 3 ? 'my pockets are full of food' : K('E', 'take it');
     if (L.kind === 'switch') {
-      if (L.sw.on) return 'Light switch — on';
-      if (this.phase !== 'lights' && this.phase !== 'done') return 'Light switch — dead. Find your stuff first.';
-      if (this.hold?.sw === L.sw) return `Hold E…  ${Math.round(this.hold.t / this.holdNeed() * 100)}%`;
-      return `Hold E  turn on the lights  (${this.holdNeed().toFixed(1)} s)`;
+      if (L.sw.on) return 'it\'s on';
+      if (this.phase !== 'lights' && this.phase !== 'done') return 'dead. find your stuff first.';
+      if (this.hold?.sw === L.sw) return `${K('E', 'keep holding…')}<span class="bar"><i style="width:${Math.min(100, this.hold.t / this.holdNeed() * 100).toFixed(0)}%"></i></span>`;
+      return K('E', `hold to switch the lights on  (${this.holdNeed().toFixed(1)}s)`);
     }
     return null;
   }
@@ -342,7 +431,7 @@ export class Story {
     this.audio.pickup?.() ?? this.audio.tick?.();
     if (ITEMS.every((i) => this.have[i.id]) && this.phase === 'items') {
       this.phase = 'lights';
-      setTimeout(() => this.banner('NEW OBJECTIVE', 'Turn on all the corridor lights — 6 switches on every floor.'), 2600);
+      setTimeout(() => this.banner('NEW OBJECTIVE', 'turn every corridor light on', 'six switches on each floor.  they won\'t like it.'), 5600);
     }
     this.render();
   }
@@ -456,7 +545,6 @@ export class Story {
   // ctx: { feet, safe, state }   returns nothing; read .hidden / .noise / .lit
   update(dt, ctx) {
     // the context card times out into the cutscene
-    if (this.phase === 'intro' && !this.contextEl.hidden && performance.now() - this.contextStart > this.contextT) { this.contextEl.hidden = true; this.startCutscene(); }
     if (this.cut) { this.updateCutscene(dt); return; }
     if (!this.playing) return;
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
@@ -480,7 +568,7 @@ export class Story {
           this.setSwitch(sw, true); this.audio.rattle?.(); this.audio.pop?.();
           this.noise = 16;                                               // the clunk carries
           this.lure(sw.pos, 18 + 10 * this.lit, 6);                       // and they come to see who turned the lights on
-          if (this.switches.every((x) => x.on)) { this.phase = 'done'; this.banner('ALL THE LIGHTS ARE ON', 'Something is waiting. (The finale comes later.)'); }
+          if (this.switches.every((x) => x.on)) { this.phase = 'done'; this.banner('ALL THE LIGHTS ARE ON', 'something is waiting', 'the finale comes later'); }
           this.render();
         }
       }
@@ -540,86 +628,108 @@ export class Story {
     }
   }
 
-  // ------------------------------------------------------------------------------------------ UI
+  // ------------------------------------------------------------------------------------------ UI (styles: src/ui.css)
   ui() {
-    const css = document.createElement('style');
-    css.textContent = `
-      #obj { position: fixed; right: 16px; top: 14px; width: 270px; color: #e8ecea; font: 13px/1.45 ui-monospace, Menlo, monospace; text-shadow: 0 1px 3px #000; pointer-events: none; z-index: 6; }
-      #obj h4 { margin: 0 0 6px; font: 600 11px ui-monospace, Menlo, monospace; letter-spacing: 3px; color: #5fa49e; }
-      #obj .o { margin: 0 0 6px; } #obj .o.done { opacity: .45; } #obj .o.locked { opacity: .35; }
-      #obj .t { font-weight: 700; } #obj .sub { margin-left: 16px; } #obj .sub .ok { color: #8fe08f; } #obj .sub .no { color: rgba(232,236,234,.75); }
-      #bar { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); display: flex; gap: 6px; z-index: 6; pointer-events: none; }
-      #bar .s { position: relative; width: 50px; height: 50px; background: rgba(5,9,11,.62); border: 2px solid rgba(232,236,234,.18); display: flex; align-items: center; justify-content: center; font-size: 24px; }
-      #bar .s.sel { border-color: #5fa49e; background: rgba(20,40,40,.75); } #bar .s.off { opacity: .25; filter: grayscale(1); }
-      #bar .s i { position: absolute; left: 3px; top: 1px; font: 10px ui-monospace, monospace; font-style: normal; color: #cfd6d4; }
-      #bar .s b { position: absolute; right: 3px; bottom: 1px; font: 700 11px ui-monospace, monospace; color: #fff; }
-      #bar .s .cd { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(192,69,58,.55); }
-      #bar .s .t { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 12px ui-monospace, monospace; color: #fff; text-shadow: 0 1px 2px #000; }
-      #barlabel { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); font: 12px ui-monospace, Menlo, monospace; color: rgba(232,236,234,.8); text-shadow: 0 1px 3px #000; pointer-events: none; z-index: 6; white-space: nowrap; }
-      #card { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); width: min(460px, 86vw); padding: 12px 16px; background: rgba(4,9,11,.86); border-left: 3px solid #5fa49e; color: #e8ecea; font: 13px/1.5 ui-monospace, Menlo, monospace; z-index: 7; pointer-events: none; }
-      #card[hidden], #toast[hidden], #banner[hidden], #ctx[hidden], #sub[hidden], #map[hidden] { display: none; }
-      #card h3 { margin: 0 0 4px; font: 700 15px ui-monospace, monospace; letter-spacing: 1px; }
-      #toast { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); font: 13px ui-monospace, Menlo, monospace; color: #e8ecea; text-shadow: 0 1px 3px #000; text-align: center; pointer-events: none; z-index: 7; }
-      #toast b { display: block; font-size: 15px; }
-      #banner { position: fixed; left: 0; right: 0; top: 22%; text-align: center; color: #f2f4f2; pointer-events: none; z-index: 7; text-shadow: 0 2px 6px #000; }
-      #banner h2 { margin: 0; font: 900 clamp(24px, 4vw, 46px) "Arial Black", Impact, sans-serif; letter-spacing: .1em; text-shadow: -3px 0 #ff2a2a, 3px 0 #22e0ff; }
-      #banner p { margin: 6px 0 0; font: 14px ui-monospace, Menlo, monospace; }
-      #ctx { position: fixed; inset: 0; z-index: 15; background: #000; color: #e8ecea; display: flex; flex-direction: column; justify-content: center; padding: 0 12vw; box-sizing: border-box; font: 18px/1.7 ui-monospace, Menlo, monospace; }
-      #ctx p { margin: 0 0 10px; animation: ctxin .6s ease-out; } #ctx p.big { font: 900 clamp(28px, 5vw, 56px) "Arial Black", Impact, sans-serif; letter-spacing: .08em; color: #f2f4f2; text-shadow: -3px 0 #ff2a2a, 3px 0 #22e0ff; margin-top: 14px; }
-      #ctx .skip { position: absolute; right: 24px; bottom: 20px; font-size: 12px; opacity: .55; }
-      @keyframes ctxin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-      #sub { position: fixed; left: 50%; bottom: 13vh; transform: translateX(-50%); max-width: 80vw; padding: 6px 14px; background: rgba(0,0,0,.6); color: #f2f4f2; font: 16px/1.5 ui-monospace, Menlo, monospace; text-align: center; z-index: 8; pointer-events: none; }
-      #sub b { color: #ff6a55; } body.cut #crosshair, body.cut #hud, body.cut #hint, body.cut #hearts, body.cut #bar, body.cut #barlabel, body.cut #obj, body.cut #map { display: none !important; }
-      #map { position: fixed; left: 14px; top: 62px; width: min(240px, 30vw); z-index: 6; pointer-events: none; border: 2px solid rgba(232,236,234,.22); background: rgba(5,9,11,.7); image-rendering: pixelated; }
-      #map.big { left: 50%; top: 50%; width: min(720px, 92vw); transform: translate(-50%, -50%); }
-      body.inmenu #obj, body.inmenu #bar, body.inmenu #barlabel, body.inmenu #map, body.inmenu #card, body.inmenu #toast, body.inmenu #banner, body.inmenu #sub { display: none !important; }`;
-    document.head.appendChild(css);
     const el = (id, html = '', tag = 'div') => { const e = document.createElement(tag); e.id = id; e.innerHTML = html; document.body.appendChild(e); return e; };
     this.objEl = el('obj'); this.barEl = el('bar'); this.barLabel = el('barlabel');
-    this.cardEl = el('card'); this.cardEl.hidden = true;
+    this.dlgEl = el('dlg', '<div class="face"></div><div class="body"><div class="who"></div><div class="say"></div></div><div class="more" hidden>▼</div>'); this.dlgEl.hidden = true;
     this.toastEl = el('toast'); this.toastEl.hidden = true;
     this.bannerEl = el('banner'); this.bannerEl.hidden = true;
-    this.contextEl = el('ctx', '<div class="lines"></div><div class="skip">Space — skip</div>'); this.contextEl.hidden = true;
-    this.subEl = el('sub'); this.subEl.hidden = true;
-    this.mapEl = el('map', '', 'canvas'); this.mapEl.hidden = true; this.mapEl.width = 240; this.mapEl.height = 160;
+    this.contextEl = el('ctx'); this.contextEl.hidden = true;
+    this.lbEl = el('lb'); this.fadeEl = el('fade');
+    this.mapEl = el('map', '', 'canvas'); this.mapEl.hidden = true; this.mapEl.width = 250; this.mapEl.height = 166;
   }
+  // a voice blip per letter or two (Undertale-style), pitched per speaker
+  blip(hz) {
+    const ctx = this.audio.ctx; if (!ctx || !this.audio.master) return;
+    const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime;
+    o.type = 'square'; o.frequency.value = hz * (0.94 + Math.random() * 0.12);
+    g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    o.connect(g); g.connect(this.audio.master); o.start(t); o.stop(t + 0.06);
+  }
+  // type text into an element. *shout* and _quiet_ are styled; one blip every other letter
+  typeInto(elm, text, cps = 30, blipHz = 0) {
+    clearInterval(elm._typing);
+    const segs = []; text.replace(/\*([^*]+)\*|_([^_]+)_|([^*_]+)/g, (m0, a, b, c) => { segs.push(a ? ['shout', a] : b ? ['quiet', b] : ['', c]); return m0; });
+    const total = segs.reduce((n, [, t]) => n + t.length, 0); let n = 0;
+    const draw = () => { let left = n; elm.innerHTML = segs.map(([cls, t]) => { const part = t.slice(0, Math.max(0, left)); left -= t.length; const esc = part.replace(/&/g, '&amp;').replace(/</g, '&lt;'); return cls ? `<span class="${cls}">${esc}</span>` : esc; }).join(''); };
+    draw();
+    return new Promise((res) => {
+      elm._typing = setInterval(() => {
+        n++; draw();
+        const ch = segs.map(([, t]) => t).join('')[n - 1];
+        if (blipHz && ch && /\S/.test(ch) && n % 2) this.blip(blipHz);
+        if (n >= total) { clearInterval(elm._typing); res(); }
+      }, 1000 / cps);
+    });
+  }
+  // the game speaking: name, portrait, typed line. opts: { face: 'manju' | item id, blip, speed, hold (ms), cls }
+  dialog(text, who = '', opts = {}) {
+    const D = this.dlgEl, face = D.querySelector('.face');
+    D.hidden = false; D.className = opts.cls || '';
+    D.querySelector('.who').textContent = who;
+    let url = null;
+    if (opts.face === 'manju') url = this.book?.portrait('manju');
+    else if (opts.face) url = icon(opts.face, 8);
+    face.style.backgroundImage = url ? `url(${url})` : ''; D.classList.toggle('noface', !url);
+    D.querySelector('.more').hidden = true;
+    clearTimeout(this._dlgT);
+    this.typeInto(D.querySelector('.say'), text, opts.speed || 30, opts.blip || 0).then(() => {
+      D.querySelector('.more').hidden = !opts.hold;
+      if (opts.hold) this._dlgT = setTimeout(() => this.dlgHide(), opts.hold);
+    });
+  }
+  dlgHide() { this.dlgEl.hidden = true; clearTimeout(this._dlgT); clearInterval(this.dlgEl.querySelector('.say')._typing); }
   card(def) {
-    this.cardEl.innerHTML = `<h3>${def.icon} ${def.name}</h3>${def.desc}`; this.cardEl.hidden = false;
-    clearTimeout(this._cardT); this._cardT = setTimeout(() => { this.cardEl.hidden = true; }, 9000);
+    const how = { laptop: 'The map is open in the top corner now.  [M] makes it big.', tablet: 'Manju, Mutty and Zoya show up on the map now.  Wherever they are.',
+      music: '[3], then click to throw it.  Whoever hears it goes to look.', mask: '[4], get right up to Zoya, click.  Masked, she can\'t call Manju.' }[def.id] || def.desc;
+    this.dialog(`Got my ${def.name.toLowerCase()} back.\n_${how}_`, def.name.toUpperCase(), { face: def.id, cls: 'item', blip: 520, speed: 40, hold: 5200 });
   }
-  toast(t, s) { this.toastEl.innerHTML = `<b>${t}</b>${s || ''}`; this.toastEl.hidden = false; clearTimeout(this._toastT); this._toastT = setTimeout(() => { this.toastEl.hidden = true; }, 2600); }
-  banner(t, s) { this.bannerEl.innerHTML = `<h2>${t}</h2><p>${s || ''}</p>`; this.bannerEl.hidden = false; clearTimeout(this._banT); this._banT = setTimeout(() => { this.bannerEl.hidden = true; }, 4200); }
+  toast(t, s) {
+    const T = this.toastEl; T.innerHTML = `${t}${s ? `<small>${s}</small>` : ''}`; T.hidden = false;
+    T.classList.remove('in'); void T.offsetWidth; T.classList.add('in');
+    clearTimeout(this._toastT); this._toastT = setTimeout(() => { T.hidden = true; }, 2400);
+  }
+  banner(k, t, s) {
+    const B = this.bannerEl; B.innerHTML = `<div class="k">${k}</div><div class="t">${t}</div>${s ? `<div class="s">${s}</div>` : ''}`;
+    B.hidden = false; B.className = ''; void B.offsetWidth; B.className = 'in';
+    clearTimeout(this._banT); clearTimeout(this._banT2);
+    this._banT = setTimeout(() => { B.className = 'out'; }, 4200); this._banT2 = setTimeout(() => { B.hidden = true; }, 5000);
+  }
 
   render() { this.renderObjectives(); this.renderBar(); }
+  // the to-do list: a torn notebook page taped to the corner of the screen, in pencil; done things struck through
   renderObjectives() {
     if (!this.objEl) return;
-    if (!this.playing) { this.objEl.innerHTML = ''; return; }
-    const got = ITEMS.filter((i) => this.have[i.id]).length, on = this.switches.filter((s) => s.on).length;
-    const itemsDone = got === ITEMS.length;
-    let h = '<h4>OBJECTIVES</h4>';
-    h += `<div class="o${itemsDone ? ' done' : ''}"><div class="t">${itemsDone ? '☑' : '▸'} Get your stuff back  ${got}/${ITEMS.length}</div>`;
-    if (!itemsDone) h += ITEMS.map((i) => `<div class="sub"><span class="${this.have[i.id] ? 'ok' : 'no'}">${this.have[i.id] ? '☑' : '☐'} ${i.name}</span></div>`).join('');
-    h += '</div>';
+    if (!this.playing) { this.objEl.innerHTML = ''; this._objKey = ''; return; }
+    const got = ITEMS.filter((i) => this.have[i.id]).length, on = this.switches.filter((s) => s.on).length, tot = this.switches.length;
+    const itemsDone = got === ITEMS.length, lightsDone = tot > 0 && on === tot;
+    const key = `${got}|${on}|${this.phase}`; if (key === this._objKey) return;
+    const bump = this._objKey && this._objKey !== key; this._objKey = key;
+    const it = (done, lbl, extra = '') => `<div class="item${done ? ' done' : ''}"><span class="box"></span><span class="lbl">${lbl}</span>${extra}</div>`;
+    const names = { laptop: 'laptop', tablet: 'tablet', music: 'music player', mask: 'face mask' };
+    let h = '<div class="page"><div class="tape"></div><h4>to do</h4>';
+    h += it(itemsDone, 'get my stuff back', itemsDone ? '' : `<span class="count">${got}/4</span>`);
+    if (!itemsDone) h += '<div class="sub">' + ITEMS.map((i) => it(this.have[i.id], names[i.id])).join('') + '</div>';
     if (itemsDone) {
-      const lightsDone = on === this.switches.length && on > 0;
-      h += `<div class="o${lightsDone ? ' done' : ''}"><div class="t">${lightsDone ? '☑' : '▸'} Turn on the corridor lights  ${on}/${this.switches.length}</div>`;
-      if (!lightsDone) for (let f = 0; f < 3; f++) { const n = this.switches.filter((s) => s.fl === f && s.on).length, t = this.switches.filter((s) => s.fl === f).length; h += `<div class="sub"><span class="${n === t ? 'ok' : 'no'}">${n === t ? '☑' : '☐'} ${FLOOR_NAME[f]}  ${n}/${t}</span></div>`; }
-      h += '</div>';
-      if (lightsDone) h += '<div class="o"><div class="t">▸ ??? </div><div class="sub"><span class="no">The finale comes later.</span></div></div>';
-    } else h += '<div class="o locked"><div class="t">▸ ???</div></div>';
-    this.objEl.innerHTML = h;
+      h += it(lightsDone, 'turn every corridor light on', lightsDone ? '' : `<span class="count">${on}/${tot}</span>`);
+      if (!lightsDone) h += '<div class="sub">' + ['ground floor', 'first floor', 'second floor'].map((n, f) => { const a = this.switches.filter((s) => s.fl === f), b = a.filter((s) => s.on).length; return it(b === a.length, n, `<span class="count">${b}/${a.length}</span>`); }).join('') + '</div>';
+      h += lightsDone ? '<div class="item"><span class="box"></span><span class="lbl">???</span></div>' : '<div class="later">then… ?</div>';
+    } else h += '<div class="later locked">then… ?</div>';
+    this.objEl.innerHTML = h + '</div>';
+    if (bump) this.objEl.querySelector('.page').classList.add('bump');
   }
   renderBar() {
     if (!this.barEl) return;
-    if (!this.playing) { this.barEl.innerHTML = ''; this.barLabel.textContent = ''; this.mapEl.hidden = true; return; }
+    if (!this.playing) { this.barEl.innerHTML = ''; this.barLabel.innerHTML = ''; this.mapEl.hidden = true; return; }
     this.barEl.innerHTML = SLOTS.map((s, i) => {
       const owned = s.id === 'food' ? this.food > 0 : this.have[s.id];
       const cd = this.cd[s.id] || 0, frac = cd > 0 ? cd / CD[s.id] : 0;
-      return `<div class="s${i === this.sel ? ' sel' : ''}${owned ? '' : ' off'}"><i>${i + 1}</i>${s.icon}${s.id === 'food' && this.food ? `<b>×${this.food}</b>` : ''}${frac > 0 ? `<div class="cd" style="height:${(frac * 100).toFixed(0)}%"></div><div class="t">${Math.ceil(cd)}</div>` : ''}</div>`;
+      return `<div class="s${i === this.sel ? ' sel' : ''}${owned ? '' : ' off'}"><span class="n">${i + 1}</span><img alt="" src="${icon(s.id)}">${s.id === 'food' && this.food ? `<span class="q">×${this.food}</span>` : ''}${frac > 0 ? `<div class="cd" style="background:conic-gradient(rgba(0,0,0,.72) ${(frac * 360).toFixed(0)}deg, transparent 0)"></div><div class="cdt">${Math.ceil(cd)}</div>` : ''}</div>`;
     }).join('');
     const s = SLOTS[this.sel];
-    const tips = { laptop: 'Laptop — the map  (click / M: big map)', tablet: 'Tablet — everyone on the map', music: 'Music player — click to throw', mask: 'Face mask — click on Zoya', food: 'Food — click: throw to Mutty   right-click: eat' };
-    this.barLabel.textContent = s && (s.id === 'food' ? this.food > 0 : this.have[s.id]) ? tips[s.id] : '';
+    const tips = { laptop: '<span class="k">[M]</span> big map', tablet: 'everyone, on the map', music: '<span class="k">[click]</span> throw it', mask: '<span class="k">[click]</span> on Zoya', food: '<span class="k">[click]</span> throw to Mutty   <span class="k">[right-click]</span> eat' };
+    this.barLabel.innerHTML = s && (s.id === 'food' ? this.food > 0 : this.have[s.id]) ? `${SLOTS[this.sel].name.toLowerCase()}  ·  ${tips[s.id]}` : '';
     this.mapEl.hidden = !(this.have.laptop || this.have.tablet);
     this.mapEl.classList.toggle('big', this.mapBig);
   }
@@ -639,8 +749,8 @@ export class Story {
       const fills = { corr: '#7c8a8a', room: '#2e3a3c', bath: '#3c4a5a', stair: '#4f8a5a', void: '#0a0d10' };
       for (const [x0, x1, z0, z1, k] of m.rects) { const [a, c] = P(x0, z0), [e, f] = P(x1, z1); g.fillStyle = fills[k] || '#333'; g.fillRect(a, c, e - a, f - c); if (k === 'room' || k === 'bath') { g.strokeStyle = '#0a0d10'; g.lineWidth = 1; g.strokeRect(a + 0.5, c + 0.5, e - a - 1, f - c - 1); } }
       if (this.phase === 'lights' || this.phase === 'done') for (const sw of this.switches) if (sw.fl === fl) { const [x, y] = P(sw.pos.x, sw.pos.z); g.fillStyle = sw.on ? '#3cff5a' : '#ffd23a'; g.fillRect(x - 2, y - 2, 4, 4); }
-      g.fillStyle = '#cfd6d4'; g.font = `${big ? 14 : 10}px ui-monospace, monospace`; g.fillText(FLOOR_NAME[fl], 6, big ? 18 : 12);
-    } else { g.fillStyle = '#cfd6d4'; g.font = '10px ui-monospace, monospace'; g.fillText('no map — find the laptop', 6, 12); }
+      g.fillStyle = '#efe9dc'; g.font = `${big ? 26 : 17}px VT323, monospace`; g.fillText(FLOOR_NAME[fl].toUpperCase(), 6, big ? 24 : 15);
+    } else { g.fillStyle = 'rgba(239,233,220,.6)'; g.font = '17px VT323, monospace'; g.fillText('NO MAP - FIND THE LAPTOP', 6, 15); }
     // characters (tablet)
     if (this.have.tablet) {
       const dots = [[this.manju, '#ff3b30', 'M'], [this.mutty, '#ff9a1a', 'm'], [this.zoya, '#c06bff', 'Z']];
@@ -648,7 +758,7 @@ export class Story {
         if (!n?.pos || n.state === 'off' || n.state === 'away' || n.state === 'cutscene') continue;
         const nf = floorOf(n.pos.y + 0.1), [x, y] = P(n.pos.x, n.pos.z);
         g.globalAlpha = nf === fl ? 1 : 0.4; g.fillStyle = c; g.beginPath(); g.arc(x, y, big ? 6 : 3.5, 0, 7); g.fill();
-        if (nf !== fl) { g.fillStyle = '#fff'; g.font = `${big ? 11 : 8}px ui-monospace`; g.fillText(`${lab}${nf}`, x + 4, y - 3); }
+        if (nf !== fl) { g.fillStyle = '#fff'; g.font = `${big ? 18 : 13}px VT323, monospace`; g.fillText(`${lab}${nf}`, x + 4, y - 3); }
         g.globalAlpha = 1;
       }
     }
