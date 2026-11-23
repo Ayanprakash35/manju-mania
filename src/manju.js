@@ -4,6 +4,7 @@
 //
 //   roam -> idle (smoking) -> roam ...          wandering corridors and stairs on every floor
 //   investigate                                  walks to a noise he heard (running, landing)
+//   lured                                        the music player: hurries over and stands there glaring at it while it plays
 //   stare                                        spotted you: stops, turns, eyes flare (~1.5 s)
 //   chase                                        runs at you; opens/bursts doors; loses you after ~6 s unseen
 //   search                                       looks round your last known spot, checks nearby, gives up
@@ -12,7 +13,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const SCALE = 1.23;                         // model is 1.40 m; ~1.72 m in game
 const EYE_H = 1.29 * SCALE;
-const SPEED = { roam: 1.25, investigate: 1.7, chase: 4.6, search: 1.5 };
+const SPEED = { roam: 1.25, investigate: 1.7, chase: 4.6, search: 1.5, lured: 2.7 };
 const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 22.8, zo1: 24.5 };   // south corridor moved 7.4 m (wing stretch)
 const STAIR_RECTS = [[-29.5, -26.15, 3.8, 9.3], [20.58, 23.6, 3.8, 9.35]];
 const inCorridor = (x, z) => {
@@ -142,10 +143,13 @@ export class Manju {
     }
     return false;
   }
-  // the music player (src/story.js): he goes to see what's making that noise and loses track of you
-  distract(p) {
-    if (['off', 'catch', 'cutscene'].includes(this.state)) return false;
-    this.lastKnown.copy(p); this.awareness = 0; this.lostT = 0; this.setState('investigate');
+  // the music player (src/story.js): he drops whatever he was doing (a chase too), hurries over and stands there
+  // glaring at it until it stops; then he searches round it. While he's at it he only notices you right next to him.
+  distract(p, secs = 20) {
+    if (['off', 'catch', 'cutscene'].includes(this.state) || !this.nav?.ready) return false;
+    if (this.state === 'lured' && this.lurePos?.distanceTo(p) < 0.5) { this.timer = Math.max(this.timer, secs); return true; }
+    this.lurePos = p.clone(); this.lastKnown.copy(p); this.awareness = 0; this.lostT = 0;
+    this.setState('lured'); this.timer = secs;
     return true;
   }
   place(p) {
@@ -157,6 +161,7 @@ export class Manju {
     if (s === 'idle') { this.play('Idle'); this.timer = rnd(8, 16); }                 // one or two full drags (the loop is 8 s)
     if (s === 'roam') { this.smokeBreak = rnd(14, 28); this.play('Walk'); const g = this.randomGoal(); if (g < 0 || !this.goTo(g)) this.path = []; }
     if (s === 'investigate') { this.play('Walk'); this.goTo(this.lastKnown); }
+    if (s === 'lured') { this.play('Walk'); if (!this.goTo(this.lurePos)) this.path = []; }
     if (s === 'stare') { this.play('Stare', 0.15); this.timer = 1.5; this.path = []; this.audio.stareSting?.(); }
     if (s === 'chase') { this.play('Chase', 0.15); this.repathT = 0; this.lostT = 0; }
     if (s === 'search') { this.play('Idle'); this.timer = rnd(3.5, 5); this.searchStops = 3; this.path = []; }
@@ -187,6 +192,11 @@ export class Manju {
         break;
       case 'investigate':
         if (!this.path.length) this.setState('search');
+        break;
+      case 'lured':
+        this.timer -= dt;
+        if (!this.path.length && !this.doorWait) { this.faceTowards(this.lurePos, dt, 4); if (this.cur !== this.actions.Idle) this.play('Idle', 0.3); }
+        if (this.timer <= 0) { this.lastKnown.copy(this.lurePos); this.setState('search'); }
         break;
       case 'stare': {
         this.timer -= dt;
@@ -250,12 +260,13 @@ export class Manju {
       const toHim = new THREE.Vector3().subVectors(this.chest(), P).normalize();
       if (toHim.dot(ctx.camDir) > 0.96 && !this.hitWall(P, this.chest(), this.closedDoorMeshes())) { blinded = true; this.seeing = true; }
     }
+    if (this.state === 'lured' && d > 3) this.seeing = false;          // busy with the music
     if (this.seeing) this.awareness += dt * (blinded ? 6 : 1.1 + (1 - d / range) * 2.8);
     else this.awareness = Math.max(0, this.awareness - dt * 0.35);
-    const calm = this.state === 'roam' || this.state === 'idle' || this.state === 'investigate' || this.state === 'search';
+    const calm = this.state === 'roam' || this.state === 'idle' || this.state === 'investigate' || this.state === 'search' || this.state === 'lured';
     if (calm && this.awareness >= 1) { this.awareness = 1; this.lastKnown.copy(ctx.feet); this.setState('stare'); return; }
     // hearing: running / landing nearby makes him come and look
-    if (calm && this.state !== 'investigate' && ctx.noise > 0) {
+    if (calm && this.state !== 'investigate' && this.state !== 'lured' && ctx.noise > 0) {
       const hd = Math.hypot(ctx.feet.x - this.pos.x, ctx.feet.z - this.pos.z) + Math.abs(ctx.feet.y - this.pos.y) * 3;
       if (hd < ctx.noise) { this.lastKnown.copy(ctx.feet); this.awareness = Math.max(this.awareness, 0.35); this.setState('investigate'); }
     }
@@ -352,10 +363,10 @@ export class Manju {
     // the player's torch
     if (ctx.torchI > 0.5) {
       const v = new THREE.Vector3().subVectors(C, ctx.eyePos), d = v.length();
-      if (d < 17) {
+      if (d < 23) {
         const cos = v.normalize().dot(ctx.camDir);
-        const edge = THREE.MathUtils.smoothstep(cos, Math.cos(0.42), Math.cos(0.24));
-        if (edge > 0 && !this.hitWall(ctx.eyePos, C)) L += edge * (1 - d / 17) * 1.4 * (ctx.torchI / 6);
+        const edge = THREE.MathUtils.smoothstep(cos, Math.cos(0.62), Math.cos(0.38));
+        if (edge > 0 && !this.hitWall(ctx.eyePos, C)) L += edge * (1 - d / 23) * 1.4 * (ctx.torchI / 6);
       }
     }
     // corridor tubes that are on

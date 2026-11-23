@@ -32,7 +32,7 @@ export const ENTRIES = [
     what: 'Walks the first floor. She won\'t touch you — she spots you, shouts "These boys!", points, and calls Manju, who turns up close by within seconds.',
     avoid: [
       'Her eyes are narrow but sharp: about 14 m straight ahead. Stay out of the line of the corridor she\'s facing.',
-      'Get close behind her and put the face mask on her: she can\'t call Manju for 60 seconds.',
+      'Get close and put the face mask on her: she never calls Manju or shouts again.',
       'The music player pulls her off her patrol.',
     ],
   },

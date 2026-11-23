@@ -69,11 +69,11 @@ scene.add(moon);
 
 // flashlight on the camera (L toggles), with a little lag and the odd flicker
 scene.add(camera);
-const torch = new THREE.SpotLight(0xffe2b8, 6, 16, 0.3, 0.75, 1.1);   // weak, yellowed old torch
+const torch = new THREE.SpotLight(0xffe2b8, 6.5, 22, 0.5, 0.7, 1.0);   // yellowed old torch, wide throw
 torch.position.set(0.1, -0.1, 0.05);
 const torchTarget = new THREE.Object3D(); torchTarget.position.set(0.1, -0.02, -6);
 camera.add(torch, torchTarget); torch.target = torchTarget;
-const beam = torchBeam(); beam.position.copy(torch.position); camera.add(beam);   // the beam shows in the haze
+const beam = torchBeam(7, 3.8); beam.position.copy(torch.position); camera.add(beam);   // the beam shows in the haze
 let torchOn = true, torchFlicker = 0;
 
 // a few corridor lights that flicker; some are dead (12 lights, 4 per floor)
@@ -321,6 +321,7 @@ function placeManjuNear(feet, urgent = false) {
 
 function reportToManju(feet, urgent = false) {
   if (!manju.ready || !nav?.ready || state !== 'play') return;
+  if (manju.state === 'lured') return;                  // he's at the music player and won't be pulled off it
   if (urgent) {
     // Mutty ran to him and told him exactly where you are: come from a nearby, hidden corridor
     // node and track you for ~8 s, even without line of sight. Nothing is mutated until a valid
@@ -353,7 +354,7 @@ function voiceTick(dt, ctx) {
   const L = listener();
   for (const k in voiceT) voiceT[k] -= dt;
   muttyChaseCool -= dt;
-  if (zoya.state !== 'off' && !['spot', 'point'].includes(zoya.state) && voiceT.zoya <= 0) {
+  if (zoya.state !== 'off' && !story.zoyaMuted && !['spot', 'point'].includes(zoya.state) && voiceT.zoya <= 0) {
     voiceT.zoya = rnd(18, 40);
     voices.play(voices.pick('zoya', ['zoya_4', 'zoya_5']), { getPos: () => zoya.pos }, { listener: L, gain: 1.2, ref: 4 });
   }

@@ -82,6 +82,8 @@
 #bar .s { position: relative; width: 52px; height: 52px; background: rgba(6, 8, 10, .72); border: 2px solid rgba(239,233,220,.22); border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: transform .15s, border-color .15s; }
 #bar .s img { width: 36px; height: 36px; image-rendering: pixelated; }
 #bar .s.off img { opacity: .18; filter: grayscale(1) brightness(.6); }
+#bar .s.used img { opacity: .4; filter: grayscale(1); }
+#bar .s.used::after { content: "\2713"; position: absolute; right: 5px; bottom: 2px; font: 16px/1 var(--pix); color: #3cff5a; }
 #bar .s.sel { border-color: var(--bone); transform: translateY(-5px); box-shadow: 0 6px 14px rgba(0,0,0,.5); }
 #bar .s .n { position: absolute; left: 4px; top: 1px; font: 16px/1 var(--pix); color: var(--dim); }
 #bar .s .q { position: absolute; right: 3px; bottom: 0; font: 18px/1 var(--pix); color: var(--bone); text-shadow: 0 1px 0 #000; }

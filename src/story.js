@@ -24,13 +24,14 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 export const ITEMS = [
   { id: 'laptop', name: 'Laptop', icon: '💻', desc: 'Your laptop. The hostel map is open in the corner now: you, every room, the stairs. Press M for the big map.' },
   { id: 'tablet', name: 'Tablet', icon: '📱', desc: 'Your tablet. It tracks everyone — Manju, Mutty and Zoya show up on the map, wherever they are.' },
-  { id: 'music', name: 'Music player', icon: '🎵', desc: 'Select it (3), aim, and click to throw it. It blasts music where it lands and pulls Manju, Mutty and Zoya over to it. Back in your pocket after 90 seconds.' },
-  { id: 'mask', name: 'Face mask', icon: '😷', desc: 'Select it (4), get close to Zoya and click on her. Masked, she can\'t call Manju for 60 seconds. Recharges in 2 minutes.' },
+  { id: 'music', name: 'Music player', icon: '🎵', desc: 'Select it (3), aim, and click to throw it. It blasts music where it lands and pulls Manju, Mutty and Zoya over to it. Plays for 25 seconds; back in your pocket after 90.' },
+  { id: 'mask', name: 'Face mask', icon: '😷', desc: 'Select it (4), get close to Zoya and click on her. Once it\'s on she can\'t call Manju or shout ever again.' },
 ];
 const FOOD = { id: 'food', name: 'Food', icon: '🍫', desc: 'Select it (5). Click to throw it: Mutty stops to eat it for 3 minutes. Right-click to eat it yourself (+1 heart).' };
 const SLOTS = [...ITEMS, FOOD];
-const CD = { music: 90, mask: 120, food: 15 };
-const MUSIC_TIME = 15, MASK_TIME = 60, MUTTY_EAT = 180, STALL_LIMIT = 10;
+const CD = { music: 90, mask: 0, food: 15 };
+const SEARCH_R = 10;                       // tablet: radius of the circle round each missing item (m)
+const MUSIC_TIME = 25, MUTTY_EAT = 180, STALL_LIMIT = 10;
 
 // ---------------------------------------------------------------------------------------------- textures / meshes
 function glowTex() {
@@ -82,7 +83,7 @@ export class Story {
     }
     for (const t of this.thrown) { this.scene.remove(t.mesh); t.sound?.stop(); }
     this.thrown = [];
-    this.zoyaMaskT = 0; this.removeZoyaMask();
+    if (full) { this.zoyaMasked = false; this.removeZoyaMask(); }
     this.hideT = 0; this.hidden = false; this.hideBroken = false; this.hunt = null;
     this.hold = null; this.noise = 0; this.cut = null; this.mapBig = false;
     this.render();
@@ -90,7 +91,7 @@ export class Story {
   get lit() { return this.switches.length ? this.switches.filter((s) => s.on).length / this.switches.length : 0; }
   get cutscene() { return !!this.cut; }
   get busy() { return this.phase === 'intro'; }         // context card + cutscene: no walking, no AI
-  get zoyaMuted() { return this.zoyaMaskT > 0; }
+  get zoyaMuted() { return !!this.zoyaMasked; }
   get playing() { return this.phase === 'items' || this.phase === 'lights' || this.phase === 'done'; }
 
   // called once the building and doors are loaded (raycasts need the collider)
@@ -433,9 +434,9 @@ export class Story {
         }
         if (!ok) continue;
         const m = this.items[it.id];
-        m.mesh.position.set(ok.x, ok.y + 0.012, ok.z); m.mesh.rotation.set(0, Math.random() * 6.28, 0); m.mesh.scale.setScalar(1.6);   // a bit bigger on the floor: findable
+        m.mesh.position.set(ok.x, ok.y + 0.012, ok.z); m.mesh.rotation.set(0, Math.random() * 6.28, 0); m.mesh.scale.setScalar(1.9);   // a bit bigger on the floor: findable
         m.mesh.visible = !m.taken; m.sprite.visible = !m.taken; m.sprite.position.set(ok.x, ok.y + 0.18, ok.z);
-        m.spot = { fl, room: d };
+        m.spot = { fl, room: d }; m.fuzz = null;
         break;
       }
     });
@@ -457,17 +458,41 @@ export class Story {
       const kp = K.root.position.clone().add(new THREE.Vector3(0.3, 0.2, 0)), to = kp.sub(this.camera.position), d = to.length(), f = new THREE.Vector3(); this.camera.getWorldDirection(f);
       if (d < 3.2 && to.normalize().dot(f) > 0.8) { const hs = rc.intersectObjects(targets, true); if (!hs.length || hs[0].distance > d) return { kind: 'komy' }; }   // food/items in front of him come first
     }
-    const hits = rc.intersectObjects(targets, true); if (!hits.length) return null;
+    const hits = rc.intersectObjects(targets, true); if (!hits.length) return this.lookItem();
     const h = hits[0];
     const isFood = h.object.userData.food || this.room15?.foods.includes(h.object);
-    const col = this.getCollider(); if (col) { const o = rc.intersectObject(col, false)[0]; if (o && o.distance < h.distance - (isFood ? 0.45 : 0.05)) return null; }   // the snacks sit inside the desk/bed collision boxes
+    const col = this.getCollider(); if (col) { const o = rc.intersectObject(col, false)[0]; if (o && o.distance < h.distance - (isFood ? 0.45 : 0.05)) return this.lookItem(); }   // the snacks sit inside the desk/bed collision boxes
     let o = h.object; while (o && !o.userData.item && !o.userData.food && !targets.includes(o)) o = o.parent;
     const sw = this.switches.find((s) => s.plate === h.object);
     if (sw) return { kind: 'switch', sw, dist: h.distance };
     if (h.object.userData.food || this.room15?.foods.includes(h.object)) return { kind: 'food', mesh: h.object };
     const th = this.thrown.find((t) => t.mesh === o || t.mesh === h.object); if (th) return { kind: 'thrownFood', t: th };
-    for (const id in this.items) if (this.items[id].mesh === o) return { kind: 'item', id };
-    return null;
+    for (const id in this.items) if (this.items[id].mesh === o) return this.doorBlocks(rc.ray.origin, rc.ray.direction, h.distance) ? this.lookItem() : { kind: 'item', id };
+    return this.lookItem();
+  }
+  // your stuff is small and lies on the floor: anything of yours roughly under the crosshair and within reach counts,
+  // not just a pixel-perfect hit (a cone about 0.5 m wide at the item), as long as no wall is in between
+  doorBlocks(from, dir, d) {     // a door leaf (open or shut) between you and it
+    const rc = this._drc ||= new THREE.Raycaster(); rc.set(from, dir); rc.far = d - 0.12;
+    const near = this.roomDoors.list.filter((x) => Math.abs(x.r.x - from.x) < 4 && Math.abs(x.r.z - from.z) < 4 && Math.abs(x.r.y - from.y) < 3);
+    return near.some((x) => rc.intersectObject(x.leaf, true).length > 0);
+  }
+  lookItem() {
+    if (this.phase === 'intro') return null;
+    const cp = this.camera.position, f = this._lf ||= new THREE.Vector3(), c = this._lc ||= new THREE.Vector3(); this.camera.getWorldDirection(f);
+    const col = this.getCollider(), rc = this._lrc ||= new THREE.Raycaster(); rc.firstHitOnly = true;
+    let best = null, bestA = Infinity;
+    for (const id in this.items) {
+      const it = this.items[id]; if (it.taken || !it.mesh.visible) continue;
+      c.copy(it.mesh.position); c.y += 0.04;
+      const to = c.clone().sub(cp), d = to.length(); if (d > 2.9 || d < 0.05) continue;
+      const a = Math.acos(THREE.MathUtils.clamp(to.divideScalar(d).dot(f), -1, 1));
+      if (a > Math.atan(0.5 / d) || a >= bestA) continue;
+      if (col) { rc.set(cp, to); rc.far = d; const o = rc.intersectObject(col, false)[0]; if (o && o.distance < d - 0.3) continue; }
+      if (this.doorBlocks(cp, to, d)) continue;
+      best = id; bestA = a;
+    }
+    return best ? { kind: 'item', id: best } : null;
   }
   hint() {
     if (this.cut) return null;
@@ -538,14 +563,16 @@ export class Story {
     if (button !== 0) return;
     if (s.id === 'music') { if (this.cd.music > 0) return this.toast('Music player recharging', `${Math.ceil(this.cd.music)} s`); this.cd.music = CD.music; this.throwThing('music'); this.render(); return; }
     if (s.id === 'mask') {
-      if (this.cd.mask > 0) return this.toast('Face mask recharging', `${Math.ceil(this.cd.mask)} s`);
+      if (this.zoyaMasked) return this.toast('She\'s already masked', 'Zoya can\'t call anyone any more.');
       const z = this.zoya;
-      if (!z?.root || z.state === 'off' || !z.ready) return this.toast('Nobody to put it on', 'Get close to Zoya and click on her.');
-      const zp = z.pos.clone(); zp.y += 1.45;                     // her face
+      if (!z?.root || z.state === 'off' || !z.ready) return this.toast('Nobody to put it on', 'Zoya is on the first floor.  Get close and click on her.');
+      const zp = z.pos.clone(); zp.y += 1.2;                      // aim anywhere at her, not just the face
       const cp = this.camera.position, to = zp.clone().sub(cp), d = to.length(), fwd = new THREE.Vector3(); this.camera.getWorldDirection(fwd);
-      if (d > 4.5 || to.normalize().dot(fwd) < 0.82) return this.toast('Too far', 'Get right up to Zoya and look at her.');
-      this.zoyaMaskT = MASK_TIME; this.cd.mask = CD.mask; this.putZoyaMask(); this.audio.tick?.();
-      this.toast('Masked', 'Zoya can\'t call Manju for 60 seconds.'); this.render(); return;
+      if (d > 5.5) return this.toast('Too far', 'Get closer to Zoya.');
+      if (to.normalize().dot(fwd) < 0.7) return this.toast('Look at her', 'Face Zoya and click.');
+      this.zoyaMasked = true; this.putZoyaMask(); this.audio.tick?.();
+      if (this.sel === SLOTS.findIndex((x) => x.id === 'mask')) this.sel = -1;
+      this.toast('Masked', 'Zoya can\'t call Manju or shout any more.  For good.'); this.render(); return;
     }
     if (s.id === 'laptop') { this.mapBig = !this.mapBig; this.render(); }
   }
@@ -574,6 +601,7 @@ export class Story {
         } else { t.mesh.position.add(step); t.mesh.rotation.x += dt * 8; }
       } else {
         t.life -= dt;
+        if (t.kind === 'music' && t.life > 4 && (t.relure -= dt) <= 0) { t.relure = 2; this.lure(t.mesh.position, 48, t.life + 4, t.lured); }   // anyone who wanders into earshot
         if (t.kind === 'music' && t.life <= 0) { t.sound?.stop(); this.scene.remove(t.mesh); this.thrown = this.thrown.filter((x) => x !== t); }
         if (t.kind === 'food' && t.eatenBy && (t.eatT -= dt) <= 0) { this.scene.remove(t.mesh); this.thrown = this.thrown.filter((x) => x !== t); }
       }
@@ -582,8 +610,10 @@ export class Story {
   landed(t) {
     const p = t.mesh.position.clone();
     if (t.kind === 'music') {
-      t.sound = this.musicAt(p, MUSIC_TIME);
-      this.lure(p, 32, MUSIC_TIME);
+      t.sound = this.musicAt(p, MUSIC_TIME); t.lured = new Set(); t.relure = 0;
+      const who = this.lure(p, 48, MUSIC_TIME + 4, t.lured);
+      const fl = floorOf(p.y);
+      this.toast('music playing', who.length ? `${who.join(' and ')} heard it.` : ['nobody down here to hear it.', 'nobody on this floor heard it.', 'nobody up here to hear it.'][fl] || 'nobody heard it.');
     } else if (t.kind === 'food') {
       const m = this.mutty;
       const active = m?.distract && m.ready && !['off', 'away'].includes(m.state);
@@ -593,14 +623,15 @@ export class Story {
       else this.toast('Mutty ignores it', 'he\'s too busy right now.  pick it back up.');
     }
   }
-  // the music player pulls everyone on that floor within range over to it
-  lure(p, range, secs) {
-    const fl = floorOf(p.y);
-    for (const n of [this.manju, this.mutty, this.zoya]) {
-      if (!n?.pos || !n.distract || n.state === 'off' || n.state === 'cutscene') continue;
+  // the music player pulls everyone on that floor within range over to it (once each; `done` remembers who); returns who came
+  lure(p, range, secs, done = null) {
+    const fl = floorOf(p.y), who = [];
+    for (const [n, name] of [[this.manju, 'Manju'], [this.mutty, 'Mutty'], [this.zoya, 'Zoya']]) {
+      if (!n?.pos || !n.distract || n.state === 'off' || n.state === 'cutscene' || done?.has(n)) continue;
       if (floorOf(n.pos.y + 0.1) !== fl || n.pos.distanceTo(p) > range) continue;
-      n.distract(p, secs);
+      if (n.distract(p, secs)) { done?.add(n); who.push(name); }
     }
+    return who;
   }
   musicAt(p, secs) {       // a tinny little loop through a panner where it landed
     const ctx = this.audio.ctx; if (!ctx) return null;
@@ -637,7 +668,7 @@ export class Story {
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     this.komyCd = Math.max(0, (this.komyCd || 0) - dt);
     this.mutter(dt, ctx);
-    if (this.zoyaMaskT > 0) { this.zoyaMaskT -= dt; if (this.zoyaMaskT <= 0) { this.removeZoyaMask(); this.toast('Zoya\'s mask is off', ''); } }
+    if (this.zoyaMasked && !this.zoyaMask && this.zoya?.root) this.putZoyaMask();      // keep it on her (retries reload her)
     this.updateThrown(dt);
     // glow pulse on the items still out there
     const s = 0.55 + Math.sin(performance.now() * 0.004) * 0.15;
@@ -774,7 +805,7 @@ export class Story {
   dlgHide() { this.dlgEl.hidden = true; clearTimeout(this._dlgT); clearInterval(this.dlgEl.querySelector('.say')._typing); }
   card(def) {
     const how = { laptop: 'The map is open in the top corner now.  [M] makes it big.', tablet: 'Manju, Mutty and Zoya show up on the map now.  Wherever they are.',
-      music: '[3], then click to throw it.  Whoever hears it goes to look.', mask: '[4], get right up to Zoya, click.  Masked, she can\'t call Manju.' }[def.id] || def.desc;
+      music: '[3], then click to throw it.  Whoever hears it goes to look.', mask: '[4], get close to Zoya, click on her.  Masked, she never calls Manju again.' }[def.id] || def.desc;
     this.dialog(`Got my ${def.name.toLowerCase()} back.\n_${how}_`, def.name.toUpperCase(), { face: def.id, cls: 'item', blip: 520, speed: 40, hold: 5200 });
   }
   toast(t, s) {
@@ -830,10 +861,10 @@ export class Story {
     this.barEl.innerHTML = SLOTS.map((s, i) => {
       const owned = s.id === 'food' ? this.food > 0 : this.have[s.id];
       const cd = this.cd[s.id] || 0, frac = cd > 0 ? cd / CD[s.id] : 0;
-      return `<div class="s${i === this.sel ? ' sel' : ''}${owned ? '' : ' off'}"><span class="n">${i + 1}</span><img alt="" src="${icon(s.id)}">${s.id === 'food' && this.food ? `<span class="q">×${this.food}</span>` : ''}${frac > 0 ? `<div class="cd" style="background:conic-gradient(rgba(0,0,0,.72) ${(frac * 360).toFixed(0)}deg, transparent 0)"></div><div class="cdt">${Math.ceil(cd)}</div>` : ''}</div>`;
+      return `<div class="s${i === this.sel ? ' sel' : ''}${owned ? '' : ' off'}${s.id === 'mask' && this.zoyaMasked ? ' used' : ''}"><span class="n">${i + 1}</span><img alt="" src="${icon(s.id)}">${s.id === 'food' && this.food ? `<span class="q">×${this.food}</span>` : ''}${frac > 0 ? `<div class="cd" style="background:conic-gradient(rgba(0,0,0,.72) ${(frac * 360).toFixed(0)}deg, transparent 0)"></div><div class="cdt">${Math.ceil(cd)}</div>` : ''}</div>`;
     }).join('');
     const s = SLOTS[this.sel];
-    const tips = { laptop: '<span class="k">[M]</span> big map', tablet: 'everyone, on the map', music: '<span class="k">[click]</span> throw it', mask: '<span class="k">[click]</span> on Zoya', food: '<span class="k">[click]</span> throw to Mutty   <span class="k">[right-click]</span> eat' };
+    const tips = { laptop: '<span class="k">[M]</span> big map', tablet: 'everyone, on the map', music: '<span class="k">[click]</span> throw it', mask: this.zoyaMasked ? 'on Zoya, for good' : '<span class="k">[click]</span> on Zoya', food: '<span class="k">[click]</span> throw to Mutty   <span class="k">[right-click]</span> eat' };
     this.barLabel.innerHTML = s && (s.id === 'food' ? this.food > 0 : this.have[s.id]) ? `${SLOTS[this.sel].name.toLowerCase()}  ·  ${tips[s.id]}` : '';
     this.tabEl.hidden = !(this.have.laptop || this.have.tablet);
     this.tabEl.classList.toggle('big', this.mapBig);
@@ -882,8 +913,8 @@ export class Story {
       const short = { laptop: 'LAPTOP', tablet: 'TABLET', music: 'MUSIC', mask: 'MASK' };
       for (const it of ITEMS) {
         const mm = this.items[it.id]; if (this.have[it.id] || !mm.spot || mm.spot.fl !== fl) continue;
-        if (!mm.fuzz) mm.fuzz = [(Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4];        // not the exact spot
-        const [cx, cz] = P(mm.mesh.position.x + mm.fuzz[0], mm.mesh.position.z + mm.fuzz[1]), rr = 4.2 * s;
+        if (!mm.fuzz) { const a = Math.random() * 6.283, r = 2.5 + Math.random() * 5; mm.fuzz = [Math.cos(a) * r, Math.sin(a) * r]; }   // somewhere in a 10 m circle, not the middle
+        const [cx, cz] = P(mm.mesh.position.x + mm.fuzz[0], mm.mesh.position.z + mm.fuzz[1]), rr = SEARCH_R * s;
         const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.005);
         g.fillStyle = `rgba(242,193,78,${0.08 * pulse})`; g.beginPath(); g.arc(cx, cz, rr, 0, 7); g.fill();
         g.strokeStyle = `rgba(242,193,78,${pulse})`; g.lineWidth = 1.5 * k; g.setLineDash([4 * k, 3 * k]); g.beginPath(); g.arc(cx, cz, rr, 0, 7); g.stroke(); g.setLineDash([]);

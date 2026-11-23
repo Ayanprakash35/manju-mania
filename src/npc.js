@@ -327,10 +327,10 @@ export class FloorNPC {
     const torchI = ctx.torchI || 0;
     if (torchI > 0.5) {
       const v = new THREE.Vector3().subVectors(C, ctx.eyePos), d = v.length();
-      if (d < 17) {
+      if (d < 23) {
         const cos = v.normalize().dot(ctx.camDir);
-        const edge = THREE.MathUtils.smoothstep(cos, Math.cos(0.42), Math.cos(0.24));
-        if (edge > 0 && !this.hitWall(ctx.eyePos, C)) L += edge * (1 - d / 17) * 1.4 * (torchI / 6);
+        const edge = THREE.MathUtils.smoothstep(cos, Math.cos(0.62), Math.cos(0.38));
+        if (edge > 0 && !this.hitWall(ctx.eyePos, C)) L += edge * (1 - d / 23) * 1.4 * (torchI / 6);
       }
     }
     for (const f of this.flickers || []) {

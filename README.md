@@ -22,9 +22,14 @@ noise, and every light that comes on lets Manju, Mutty and Zoya see you from fur
   during the lights objective. M or clicking it: the big map.
 - **Tablet**: the people on your floor as lettered dots (MA Manju, MU Mutty, ZO Zoya) and Find My circles round your
   missing stuff on that floor; a legend along the bottom. Only the floor you're on.
-- **Music player**: thrown, it plays a tune where it lands for 15 s and pulls everyone on that floor within ~32 m
-  over to it. 90 s cooldown.
-- **Face mask**: click it on Zoya from up close: she can't call Manju for 60 s. 2 min cooldown.
+- **Music player**: thrown, it plays a tune where it lands for 25 s and pulls everyone on that floor within ~48 m
+  over to it (anyone who comes into earshot while it plays too); a toast says who heard it. Manju drops whatever he's
+  doing, even a chase, hurries over and stands glaring at it until it stops, noticing you only within ~3 m, then
+  searches round it. 90 s cooldown.
+- **Face mask**: click it on Zoya (within ~5.5 m, looking at her): she never calls Manju or shouts again, for the rest
+  of the run (it stays on through retries). One use.
+- **Picking things up**: your stuff counts as under the crosshair if it's within ~2.9 m and the aim is within about
+  0.5 m of it, with no wall or door leaf in between.
 - **Food** (the Choco Pies and Lay's from room 15, up to 3): click to throw it — on the ground floor Mutty goes and
   eats it and leaves you alone for 3 minutes (if he doesn't, you can pick it back up); right-click to eat (+1 heart).
 
@@ -49,8 +54,8 @@ Patrick Hand (handwriting), VT323 (pixel), Special Elite (the printed notice).
 **Finding your stuff (clues):** CowShit Komynini (E, in room 15) saw where everything went: one clue per visit, the
 tablet first (floor, wing, which side of the corridor, the room number), then the rest (floor, wing, side, a landmark
 nearby). Creep close to Manju while he patrols without seeing you and he mutters where he dumped something (floor and
-wing). Every clue is written onto the to-do page under its item. Once you have the tablet, Find My circles roughly
-where each missing item is on the map, and lists the ones on other floors.
+wing). Every clue is written onto the to-do page under its item. Once you have the tablet, Find My draws a 10 m circle
+on the map round each missing item on your floor, with the item somewhere off-centre inside it.
 
 **The intro** is the warden's printed notice ("devices by 9:30 PM, or CONFISCATED") with the stamp coming down, then a
 red alarm clock reading 9:52 and two typed lines, then the cutscene behind letterbox bars. You hear him coming, the door
