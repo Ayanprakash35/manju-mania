@@ -220,9 +220,10 @@ function addCyl(c, r, len, axis, col, seg = 14) {
   }
 }
 if (process.env.DUMP_BODIES) fs.writeFileSync(process.env.DUMP_BODIES, JSON.stringify({ kept: kept.map(({ name, minX, maxX, minY, maxY, minZ, maxZ }) => ({ name, minX, maxX, minY, maxY, minZ, maxZ })), removed: removed.map(({ name, minX, maxX, minY, maxY, minZ, maxZ }) => ({ name, minX, maxX, minY, maxY, minZ, maxZ })) }));
-const { stats, doors } = buildInterior({ removed, solids, kept, ghosts, addBox, addQuad, addBeam, addCyl });
+const { stats, doors, map } = buildInterior({ removed, solids, kept, ghosts, addBox, addQuad, addBeam, addCyl });
 console.log('interior:', stats);
 fs.writeFileSync(outPath.replace(/[^/]*$/, 'doors.json'), JSON.stringify(doors));
+if (map) fs.writeFileSync(outPath.replace(/[^/]*$/, 'map.json'), JSON.stringify(map));
 
 // ---------- write glTF ----------
 const doc = new Document();

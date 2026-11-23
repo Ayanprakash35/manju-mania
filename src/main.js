@@ -19,6 +19,7 @@ import { inStair, inCorridor } from './npc.js';
 import { Health } from './health.js';
 import { buildRoom15, inSafe15 } from './room15.js';
 import { Komynini } from './komynini.js';
+import { Story, floorOf } from './story.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -75,15 +76,9 @@ const beam = torchBeam(); beam.position.copy(torch.position); camera.add(beam); 
 let torchOn = true, torchFlicker = 0;
 
 // a few corridor lights that flicker; some are dead (12 lights, 4 per floor)
+// corridor lights: 6 per floor, each worked by a wall switch (src/story.js creates them once the building is loaded;
+// they're off until you switch them on during the lights objective)
 const flickers = [];
-for (const [fi, Lc] of [[0, 4.03 - 0.25], [1, 7.17 - 0.25], [2, 10.92 - 0.3]]) {
-  for (const [x, z, ax] of [[-14, -7.9, 'x'], [9, 23.65, 'x'], [-30.35, 6.5, 'z'], [24.45, -2, 'z']]) {
-    const pl = new THREE.PointLight(0xdfe6ff, 0, 10, 1.6);
-    pl.position.set(x + (ax === 'x' ? fi * 3.7 : 0), Lc, z + (ax === 'z' ? fi * 3.1 : 0));   // stagger along the corridor
-    scene.add(pl);
-    flickers.push({ pl, base: 3.2, dead: Math.random() < 0.25, t: Math.random() * 10 });
-  }
-}
 const audio = new HorrorAudio();
 const sky = skyDome(new THREE.Vector3(30, 40, -20)); scene.add(sky);
 
@@ -130,13 +125,20 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyR') respawn();
   if (e.code === 'KeyV') retro.setEnabled(!retro.enabled);
   if (e.code === 'KeyF') torchOn = !torchOn;                 // flashlight (fly/no-clip is console-only: `fly`)
+  if ((e.code === 'Space' || e.code === 'Enter') && story.skip()) return;       // skip the intro
+  if (story.busy) return;
   if (e.code === 'KeyE') {
-    const f = pickFood();
-    if (f) { eatFood(f); return; }
+    if (story.interact()) return;                             // items, food, light switches
     const d = roomDoors.pick(camera); if (d) { if (roomDoors.toggle(d, player.position)) audio.door(); else audio.rattle(); }
   }
+  if (/^Digit[1-5]$/.test(e.code)) story.select(+e.code.slice(5) - 1);
+  if (e.code === 'KeyM' && story.have.laptop) { story.mapBig = !story.mapBig; story.render(); }
 });
-addEventListener('keyup', (e) => { keys[e.code] = false; });
+addEventListener('keyup', (e) => { keys[e.code] = false; if (e.code === 'KeyE') story.release(); });
+// items: click uses the selected one (right-click: eat food), the wheel picks another
+addEventListener('mousedown', (e) => { if (state === 'play' && controls.isLocked && !devcon?.open) story.use(e.button); });
+addEventListener('contextmenu', (e) => { if (state === 'play') e.preventDefault(); });
+addEventListener('wheel', (e) => { if (state === 'play' && controls.isLocked) story.cycle(Math.sign(e.deltaY)); }, { passive: true });
 
 // ---------------- title / pause menu ----------------
 // state: 'menu' (title screen, live attract camera), 'play', 'pause' (Esc)
@@ -150,7 +152,7 @@ applySaturation();
 const menu = new Menu({
   newGame: () => { if (!ready) return; audio.start(); controls.lock(); fresh = true; },   // play starts once the pointer is locked
   resume: () => { audio.start(); controls.lock(); },
-  quit: () => { state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; health.reset(); },
+  quit: () => { story.quit(); state = 'menu'; menu.open('title'); document.body.classList.add('inmenu'); flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; health.reset(); },
   setRetro: (v) => retro.setEnabled(v), retro: () => retro.enabled,
   setSound: (v) => audio.setMuted(!v), sound: () => !audio.muted,
   saturation: () => saturation,
@@ -160,7 +162,7 @@ const menu = new Menu({
 // first interaction anywhere on the title screen starts the ambience (browsers block audio before that)
 addEventListener('pointerdown', () => audio.start(), { once: true });
 controls.addEventListener('lock', () => {
-  if (fresh) { respawn(); torchOn = true; fresh = false; stamina = 1; exhausted = false; manju.state = 'off'; manju.alert = 0; manjuGrace = 20; health.reset(); room15?.reset(); mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; }
+  if (fresh) { respawn(); torchOn = true; fresh = false; stamina = 1; exhausted = false; manju.state = 'off'; manju.alert = 0; manjuGrace = 40; health.reset(); mutty.reset(); zoya.reset(); charGrace = 34; charSpawnT = 0; story.newGame(); }
   menu.close(); document.body.classList.remove('inmenu'); state = 'play';
 });
 document.addEventListener('pointerlockerror', () => {
@@ -240,6 +242,12 @@ const listener = () => ({ pos: camera.position, dir: camera.getWorldDirection(ne
 // CowShit Komynini: harmless, on the right-hand bed in room 15, scrolling reels; yells at you to close the door
 const komynini = new Komynini({ scene, audio, voices });
 let room15Door = null;
+// the story: intro cutscene, items, objectives, light switches, stall hiding, minimap (src/story.js)
+const story = new Story({
+  scene, camera, player, roomDoors, audio, voices, health: null, getCollider: () => collider, room15: null,
+  manju: null, mutty: null, zoya: null, damage: (n, src) => damagePlayer(n, src), heal: (n) => healPlayer(n), listener: () => listener(),
+  respawn: () => respawn(),
+});
 const mutty = new Mutty({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
   onBite: () => { voices.play('mutty_2', { getPos: () => mutty.pos }, { listener: listener(), gain: 1.5, ref: 4 }); return damagePlayer(1, 'mutty'); },
@@ -248,8 +256,9 @@ const mutty = new Mutty({
 });
 const zoya = new Zoya({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
-  onAlert: (feet) => reportToManju(feet),
+  onAlert: (feet) => { if (!story.zoyaMuted) reportToManju(feet); },             // masked (face mask): she can't call him
   onShout: () => {                // "These boys!", then usually the attitude line while she points at you
+    if (story.zoyaMuted) return true;
     if (['zoya_1', 'zoya_2', 'zoya_3'].some((n) => voices.isPlaying(n))) return true;
     const v = voices.play(voices.pick('zoya', ['zoya_1', 'zoya_2', 'zoya_3']), { getPos: () => zoya.pos }, { listener: listener(), gain: 1.5, ref: 6 });
     if (v && Math.random() < 0.7) setTimeout(() => { if (state === 'play' && ['spot', 'point'].includes(zoya.state)) voices.play('zoya_5', { getPos: () => zoya.pos }, { listener: listener(), gain: 1.4, ref: 6 }); }, (v.src.buffer.duration + 0.5) * 1000);
@@ -269,7 +278,7 @@ function placeManjuNear(feet, urgent = false) {
   const behind = [], front = [];
   for (let i = 0; i < nav.x.length; i++) {
     if (!nav.reach[i] || Math.abs(nav.y[i] - feet.y) > (urgent ? 1.2 : 0.6)) continue;
-    if (inSafe15(nav.x[i], nav.y[i], nav.z[i])) continue;                             // never inside room 15
+    if (inSafe15(nav.x[i], nav.y[i], nav.z[i]) || nav.y[i] > 6.5) continue;          // never inside room 15, never the 2nd floor
     if (urgent && !inCorridor(nav.x[i], nav.z[i])) continue;
     const dx = nav.x[i] - feet.x, dz = nav.z[i] - feet.z, d = Math.hypot(dx, dz);
     if (d < min || d > max) continue;
@@ -330,20 +339,6 @@ const camDir = new THREE.Vector3();
 const feetPos = () => player.position.clone().setY(player.position.y - PLAYER.radius - PLAYER.segment);
 // room 15 is safe: nobody sees, hears, catches or hurts you in there, and the guards' nav grids leave it out
 const playerSafe = () => { const p = player.position, fy = p.y - PLAYER.radius - PLAYER.segment; return inSafe15(p.x, fy, p.z); };
-// food in room 15 (2 Choco Pies, 1 Lay's): look at one and press E, +1 heart each; not when your hearts are full
-const foodRay = new THREE.Raycaster(); foodRay.far = 2.3;
-function pickFood() {
-  if (!room15) return null;
-  foodRay.setFromCamera({ x: 0, y: 0 }, camera);
-  const hit = foodRay.intersectObjects(room15.foods.filter((f) => f.visible), false)[0];
-  return hit ? hit.object : null;
-}
-function eatFood(f) {
-  if (health.hearts >= health.max) { audio.tick?.(); return false; }
-  if (!health.heal(1)) return false;
-  f.visible = false; audio.eat();
-  return true;
-}
 const staminaEl = document.getElementById('stamina');
 
 // ---- recorded voices: random lines from far off, Zoya's spot line, Mutty when he runs at you ----
@@ -444,6 +439,7 @@ const health = new Health({
   onDeath: () => caught('health'),
 });
 renderHearts(health);
+Object.assign(story, { manju, mutty, zoya, health });
 function damagePlayer(amount = 1, source = 'mutty', force = false) { return health.damage(amount, source, force); }
 function healPlayer(amount = 1) { return health.heal(amount); }
 
@@ -497,13 +493,13 @@ function tryAgain() {
   catchLight.intensity = 0;
   deadEl.hidden = true; document.body.classList.remove('inmenu');
   respawn(); stamina = 1; exhausted = false; torchOn = true;
-  health.reset(); room15?.reset(); hurtEl.classList.remove('on'); lowBeatT = 0;
+  health.reset(); story.retry(); hurtEl.classList.remove('on'); lowBeatT = 0;
   manju.spawnFar(feetPos()); manju.alert = 0; manju.state = 'off'; manjuGrace = 12; director.reset();
   mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0;
   state = 'play'; controls.lock();
 }
 document.getElementById('again').addEventListener('click', () => tryAgain());
-document.getElementById('giveup').addEventListener('click', () => { deadEl.hidden = true; catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; state = 'menu'; flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); health.reset(); hurtEl.classList.remove('on'); mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; menu.open('title'); document.body.classList.add('inmenu'); });
+document.getElementById('giveup').addEventListener('click', () => { story.quit(); deadEl.hidden = true; catchLight.intensity = 0; manju.state = 'off'; manju.alert = 0; manju.speedBoost = 1; manjuReinforceT = 0; state = 'menu'; flying = false; inStudentRoom = false; director.reset(); audio.setHum(0); health.reset(); hurtEl.classList.remove('on'); mutty.reset(); zoya.reset(); charGrace = 8; charSpawnT = 0; menu.open('title'); document.body.classList.add('inmenu'); });
 addEventListener('keydown', (e) => { if (!deadEl.hidden && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); tryAgain(); } });
 const doorsLoaded = roomDoors.load('./public/doors.json').catch((e) => console.warn('doors.json', e));
 
@@ -545,15 +541,17 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   room15 = buildRoom15(scene);                                       // the spawn/safe room, from the owner's video
   komynini.load('./public/models/komynini.glb', room15.bed2).then((root) => retro.apply(root)).catch((e) => console.warn('komynini', e));
   room15Door = roomDoors.list.find((d) => d.r.kind === 'room' && d.r.y < 1 && Math.abs(d.r.x - 25.3) < 0.05 && Math.abs(d.r.z - 17.77) < 0.1) || null;
+  story.room15 = room15; story.room15Door = room15Door;
   for (const m of room15.colliderMeshes) staticGeoms.push(toWorldPositions(m));
   const merged = mergePositions(staticGeoms);
   merged.boundsTree = new MeshBVH(merged);
   collider = new THREE.Mesh(merged);   // never added to the scene
   collider.updateMatrixWorld();
+  story.setup(flickers);               // light switches + their corridor lights, stall doors, the map
   roomDoors.occluder = collider;
   nav = new NavGrid(collider, { x0: -37.8, x1: 31.6, z0: -15.5, z1: 30.4 });   // incl. the rooms pushed out into the exterior
   nav.build().then(() => {
-    manju.nav = nav.slice((g, i) => !inSafe15(g.x[i], g.y[i], g.z[i]));          // he never paths into room 15
+    manju.nav = nav.slice((g, i) => !inSafe15(g.x[i], g.y[i], g.z[i]) && g.y[i] < 6.5);   // never into room 15; the 2nd floor is already done
     // Mutty is ground-floor only; Zoya is first-floor only. Both stair flights are cut out of the
     // slices so neither can follow the player up/down.
     mutty.setNav(nav.slice((g, i) => g.y[i] < 2.0 && !inStair(g.x[i], g.z[i]) && !inSafe15(g.x[i], g.y[i], g.z[i])));
@@ -660,7 +658,7 @@ function step(dt) {
 // ---------------- loop ----------------
 const floorEl = document.getElementById('floor'), modeEl = document.getElementById('mode'), hintEl = document.getElementById('hint');
 const clock = new THREE.Clock();
-let bobT = 0, bobAmp = 0, pickFrame = 0, looked = null, lookedFood = null;
+let bobT = 0, bobAmp = 0, pickFrame = 0, looked = null;
 // walking motion state
 let stepSide = 0, runK = 0, airVy = 0, landDip = 0, landV = 0, lagX = 0, lagY = 0, lastYaw = 0, lastPitch = 0, camRoll = 0, camPitch = 0, idleT = 0;
 const bobRight = new THREE.Vector3(), bobEuler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -672,7 +670,7 @@ function frame() {
     const before = player.position.clone();
     const beforeFeet = before.clone().setY(before.y - PLAYER.radius - PLAYER.segment);
     const wasGround = onGround;
-    if (controls.isLocked && state === 'play') for (let i = 0; i < SUBSTEPS; i++) { step(dt / SUBSTEPS); if (!onGround) airVy = Math.min(airVy, vel.y); }
+    if (controls.isLocked && state === 'play' && !story.busy) for (let i = 0; i < SUBSTEPS; i++) { step(dt / SUBSTEPS); if (!onGround) airVy = Math.min(airVy, vel.y); }
     if (state === 'play' && controls.isLocked && !flying) updateRoomState(beforeFeet, feetPos());   // no-clip: flying clears the flag itself
     if (onGround && !wasGround && !flying) {                 // landing: knees give a little, then spring back
       landV -= Math.min(2.2, Math.max(0, -airVy - 2) * 0.35); airVy = 0;
@@ -727,7 +725,7 @@ function frame() {
     for (const f of flickers) {
       if (wdt > 0) {
         f.t += wdt;
-        const on = cheat.lights === 'on' || (cheat.lights === 'flicker' && !f.dead && (Math.sin(f.t * 1.3) > -0.7 || Math.random() < 0.3) && Math.random() > 0.04);
+        const on = cheat.lights === 'on' || (cheat.lights === 'flicker' && !f.dead && (f.sw ? f.on && Math.random() > 0.015 : (Math.sin(f.t * 1.3) > -0.7 || Math.random() < 0.3) && Math.random() > 0.04));
         f.pl.intensity = on ? f.base * (cheat.lights === 'on' ? 1 : 0.85 + Math.random() * 0.15) : 0;
       }
       const on = f.pl.intensity > 0;
@@ -753,7 +751,10 @@ function frame() {
       if (manju.state === 'off' && manju.ready && nav?.ready && manju.enabled) { manjuGrace -= wdt; if (manjuGrace <= 0) manju.spawnFar(feetPos()); }
       camera.getWorldDirection(camDir);
       const safe = playerSafe();
-      const ctx = { feet: feetPos(), eyePos: camera.position, camDir, torchOn, torchI: torch.intensity, noise: safe ? 0 : noise, crouch: crouching, hidden: safe, inRoom: inStudentRoom || safe, safe };
+      story.update(wdt, { feet: feetPos(), safe });
+      document.body.classList.toggle('cut', story.busy);
+      const hiddenNow = safe || story.hidden || story.busy;     // room 15, a shut rest-room cubicle, or the intro
+      const ctx = { feet: feetPos(), eyePos: camera.position, camDir, torchOn, torchI: torch.intensity, noise: safe ? 0 : Math.max(noise, story.noise), crouch: crouching, hidden: hiddenNow, inRoom: inStudentRoom || safe, safe, lit: story.lit };
       if (manjuReinforceT > 0 && safe) { manjuReinforceT = 0; manju.speedBoost = 1; }   // nobody tells him where you are in room 15
       if (manjuReinforceT > 0) {
         manjuReinforceT -= wdt;
@@ -765,7 +766,7 @@ function frame() {
       if (state === 'play') mutty.update(wdt, ctx);
       if (state === 'play') zoya.update(wdt, ctx);
       if (state === 'play') voiceTick(wdt, ctx);
-      if (state === 'play') komynini.update(wdt, { inRoom: safe, doorOpen: !!room15Door && room15Door.open > 0.15, listener: listener() });
+      if (state === 'play') komynini.update(wdt, { inRoom: safe, doorOpen: !story.busy && !!room15Door && room15Door.open > 0.15, listener: listener() });
       // bring the two floor-bound characters in after the grace period
       charSpawnT -= wdt;
       if (charGrace > 0) charGrace -= wdt;
@@ -782,7 +783,7 @@ function frame() {
     if (state !== 'play') audio.updateThreat(rawDt);          // audio.update only runs in play; keep the music fading out on the death screen, pause and menu
     retro.setChase(state === 'caught' ? 1 : threat);
     if (threat > 0.15 && director.fig) director.vanish(false);
-    if (state === 'play' && wdt > 0 && !devcon?.open && threat < 0.15 && !playerSafe()) director.update(wdt, { moving, torchOn });   // no scares in room 15
+    if (state === 'play' && wdt > 0 && !devcon?.open && threat < 0.15 && !playerSafe() && !story.busy && !story.hidden) director.update(wdt, { moving, torchOn });   // no scares in room 15 / the intro
     // fog follows you in and out of the building
     if ((pickFrame & 7) === 0) indoorK += ((director.indoors() ? 1 : 0) - indoorK) * 0.25;
     scene.fog.color.lerpColors(FOG_OUT, FOG_IN, indoorK); scene.background.copy(scene.fog.color);
@@ -800,9 +801,11 @@ function frame() {
     }
 
     roomDoors.update(wdt);
-    if (++pickFrame % 4 === 0) { lookedFood = controls.isLocked ? pickFood() : null; looked = controls.isLocked && !lookedFood ? roomDoors.pick(camera) : null; }
-    hintEl.style.display = looked || lookedFood ? 'block' : 'none';
-    if (lookedFood) hintEl.textContent = health.hearts >= health.max ? `${lookedFood.userData.food.name} — hearts full` : `E  eat ${lookedFood.userData.food.name}  (+1 heart)`;
+    const storyHint = state === 'play' ? story.hint() : null;
+    if (++pickFrame % 4 === 0) looked = controls.isLocked && !storyHint ? roomDoors.pick(camera) : null;
+    if (pickFrame % 15 === 0) story.tickUi();
+    hintEl.style.display = storyHint || looked ? 'block' : 'none';
+    if (storyHint) hintEl.textContent = storyHint;
     else if (looked) hintEl.textContent = looked.r.locked ? 'Locked' : (looked.target ? 'E  close' : 'E  open') + (looked.r.kind === 'glass' ? ' — stairs' : '');
     const feet = player.position.y - PLAYER.segment - PLAYER.radius;
     let label = FLOORS[0][1];
@@ -858,4 +861,4 @@ var devcon = new DevConsole({
 });
 
 // debug hooks for automated testing
-window.__game = { komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, pickFood, eatFood, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { story, komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };

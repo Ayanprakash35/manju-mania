@@ -116,6 +116,14 @@ export class Zoya extends FloorNPC {
     this.play('LookAround', 0.25);
   }
 
+  // the music player (src/story.js): she walks over to see what the noise is
+  distract(p) {
+    if (!['patrol', 'scan'].includes(this.state)) return false;
+    if (!this.goTo(p)) return false;
+    this.state = 'patrol'; this.patrolT = Math.max(this.patrolT, 12); this.play?.('Walk', 0.2);
+    return true;
+  }
+
   spot(ctx) {
     if (this.alerted) return;
     this.state = 'spot';
@@ -230,7 +238,7 @@ export class Zoya extends FloorNPC {
     if (P.y < this.floorRange[0] || P.y > this.floorRange[1]) return;
     const dx = P.x - this.pos.x, dz = P.z - this.pos.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > SIGHT) return;
+    if (dist > SIGHT * (1 + 0.5 * (ctx.lit || 0))) return;          // more corridor lights on: she spots you further off
     if (dist > 3) {
       const off = Math.abs(angDiff(Math.atan2(dx, dz), this.yaw));
       if (off > CONE) return;

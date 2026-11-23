@@ -48,6 +48,11 @@ export const FCOL = {
   floorGrey: '0.588,0.600,0.608',    // washroom floor tiles
   glass: '0.780,0.851,0.878',        // clear glass (transparent in convert.mjs)
   cushion: '0.204,0.247,0.231',
+  // horror: filth, grime, blood, the dead (2nd floor)
+  filth: '0.231,0.141,0.063', filthDark: '0.149,0.090,0.039', grime: '0.329,0.278,0.165', urine: '0.620,0.553,0.259',
+  rust: '0.400,0.200,0.098', blood: '0.478,0.031,0.031', bloodDry: '0.310,0.035,0.027', tissue: '0.902,0.894,0.863',
+  skinDead: '0.573,0.494,0.431', skinDead2: '0.420,0.333,0.275', hair: '0.075,0.059,0.051', shirtW: '0.835,0.835,0.800',
+  shorts: '0.337,0.361,0.408', adultTop: '0.239,0.282,0.361', adultLegs: '0.137,0.137,0.157', shoe: '0.090,0.078,0.071',
   paint: ['0.776,0.329,0.482', '0.243,0.557,0.643', '0.894,0.584,0.290', '0.302,0.459,0.255'],
 };
 
@@ -88,17 +93,18 @@ const hash = (...v) => { let h = 2166136261; for (const x of v) { h ^= Math.roun
 
 export function furnishAll({ addBox, addCyl, rooms, plan, levels, ceilAt, windows, inRoom }) {
   let n = 0;
+  furnishAll.stalls = [];                                  // cubicle doors: real door leaves at runtime (kind 'stall')
   for (const room of rooms) {
     if (!room.door) { (furnishAll.skipped ||= []).push(`${room.id} no door`); continue; }
     for (const Lv of levels) {
       const type = typeAt(plan, room.id, Lv, levels[0]);
-      n += furnishRoom({ addBox, addCyl, room, Lv, ceil: ceilAt(Lv), type, windows, inRoom });
+      n += furnishRoom({ addBox, addCyl, room, Lv, ceil: ceilAt(Lv), type, windows, inRoom, gore: Lv === levels[levels.length - 1] });
     }
   }
   return n;
 }
 
-function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) {
+function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom, gore = false }) {
   const d = room.door, into = d.into;
   // local frame: a along the door wall, b = depth from the door wall's room-side face toward the far wall
   const along = d.axis === 'x' ? [room.ax0 ?? room.x0, room.x1] : [room.z0, room.z1];   // ax0: lay out from here (the lobby's model sliver stays an alcove)
@@ -327,8 +333,14 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
         const c0 = b0 + i * cw, c1 = c0 + cw, cm = (c0 + c1) / 2, dw = Math.min(0.68, cw - 0.24);
         BS(q1 - front * 0.035, q1, 0.12, 2.05, c0, cm - dw / 2, FCOL.laminate);
         BS(q1 - front * 0.035, q1, 0.12, 2.05, cm + dw / 2, c1, FCOL.laminate);
-        BS(q1 - front * 0.03, q1 - front * 0.005, 0.17, 2.0, cm - dw / 2 + 0.01, cm + dw / 2 - 0.01, FCOL.tileW);   // door
-        BS(q1, q1 + front * 0.03, 0.95, 1.08, cm + dw / 2 - 0.12, cm + dw / 2 - 0.08, FCOL.steelGrey);
+        // the door: a real leaf at runtime (src/doors.js 'stall'), a gap under it; record the cubicle for hiding
+        {
+          const aD = U(q1 - front * 0.0175), qa = U(q0), qb = U(q1), wb = (bb) => toW(bb);
+          const rect = d.axis === 'x' ? [Math.min(qa, qb), Math.max(qa, qb), Math.min(wb(c0), wb(c1)), Math.max(wb(c0), wb(c1))]
+            : [Math.min(wb(c0), wb(c1)), Math.max(wb(c0), wb(c1)), Math.min(qa, qb), Math.max(qa, qb)];
+          const rec = d.axis === 'x' ? { x: aD, z: wb(cm), axis: 'z' } : { x: wb(cm), z: aD, axis: 'x' };
+          furnishAll.stalls.push({ ...rec, y: Lv + 0.17, w: dw - 0.02, h: 1.83, kind: 'stall', stall: rect.map((v) => +v.toFixed(3)), wc: wcFirst !== null && (i % 2 === 0) === wcFirst });
+        }
         const back = q0 + front * 0.01;
         if (wcFirst !== null && (i % 2 === 0) === wcFirst) {                                      // wall-hung WC, white seat, flush plate
           BS(back, back + front * 0.55, 0.36, 0.44, cm - 0.18, cm + 0.18, FCOL.tileW);
@@ -336,6 +348,14 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
           BS(back, back + front * 0.08, 0.3, 0.9, cm - 0.2, cm + 0.2, FCOL.tileW);
           BS(back, back + front * 0.015, 1.0, 1.15, cm - 0.1, cm + 0.1, FCOL.steelGrey);
           CS(back + front * 0.08, 0.7, cm + 0.32, 0.05, 0.1, 'b', FCOL.sheet);         // tissue roll
+          // filth (horror): shit in the bowl and on the seat, smeared up the wall, on the floor, wet tissue everywhere
+          const hh = hash(cm, q0, Lv);
+          for (let k = 0; k < 3; k++) BS(back + front * (0.18 + k * 0.08), back + front * (0.26 + k * 0.08), 0.47, 0.5 + hash(k, cm) * 0.05, cm - 0.06 + k * 0.04, cm + 0.02 + k * 0.03, k % 2 ? FCOL.filthDark : FCOL.filth);
+          BS(back + front * 0.005, back + front * 0.012, 0.95, 1.5 + hh * 0.3, cm - 0.18, cm - 0.02, FCOL.filth);
+          BS(back + front * 0.005, back + front * 0.012, 1.1, 1.35, cm + 0.05, cm + 0.2, FCOL.filthDark);
+          BS(back + front * 0.6, back + front * 0.95, 0.012, 0.018, cm - 0.25 + hh * 0.1, cm + 0.1 + hh * 0.1, FCOL.filth);
+          BS(back + front * 0.4, back + front * 0.9, 0.012, 0.016, cm - 0.3, cm + 0.3, FCOL.urine);
+          for (let k = 0; k < 4; k++) { const q = back + front * (0.3 + hash(k, cm, 2) * 0.6), bq = cm - 0.3 + hash(cm, k) * 0.6; BS(q, q + front * 0.12, 0.012, 0.02, bq, bq + 0.25, FCOL.tissue); }
         } else {                                                               // shower head and mixer
           CS(back + front * 0.12, 2.0, cm, 0.07, 0.03, 'y', FCOL.steelGrey);
           BS(back, back + front * 0.14, 1.98, 2.0, cm - 0.015, cm + 0.015, FCOL.steelGrey);
@@ -380,6 +400,19 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     if (nq - 0.35 > cD + 0.2) { BS(nq - 0.35, nq + 0.35, 1.45, 1.9, -0.01, 0.0, FCOL.sheet); BS(nq - 0.3, nq + 0.3, 1.5, 1.56, 0.0, 0.004, FCOL.paint[0]); BS(nq - 0.3, nq + 0.1, 1.62, 1.66, 0.0, 0.004, FCOL.screen); BS(nq - 0.3, nq + 0.3, 1.78, 1.81, 0.0, 0.004, FCOL.paint[1]); }
     const wq = sDoor + d.w / 2 + 0.35;
     if (wq + 0.35 < sR - 0.1 || bS0 > 0.5) BS(wq, wq + 0.35, 1.2, 1.45, -0.01, 0.01, FCOL.sheet);
+    // horror: the rest rooms are filthy — grime and urine puddles on the floor, rust and filth running down the tiles,
+    // filth trodden out of the cubicles, a bloody handprint on a mirror, wet tissue
+    for (let k = 0; k < 16; k++) {
+      const q = sf + 0.3 + hash(k, Lv, 1) * (Wf - 2 * sf - 0.9), bq = 0.3 + hash(k, Lv, 2) * (fb - 0.9), sz = 0.25 + hash(k, 3) * 0.6;
+      BS(q, q + sz, 0.013, 0.016 + (k % 3) * 0.001, bq, bq + sz * (0.6 + hash(k, 4)), [FCOL.grime, FCOL.urine, FCOL.filthDark, FCOL.grime][k % 4]);
+    }
+    for (let k = 0; k < 10; k++) {                             // streaks down the tiled walls
+      const t = 0.3 + hash(k, Lv, 5) * (fb - 0.6), w = 0.04 + hash(k, 6) * 0.1, y1 = 1.2 + hash(k, 7) * 0.85, col = k % 3 ? FCOL.rust : FCOL.filth;
+      if (k % 2) BS(Wf - sf - 0.012, Wf - sf - 0.008, 0.1, y1, t, t + w, col); else BS(sf + 0.008, sf + 0.012, 0.1, y1, t, t + w, col);
+    }
+    for (let k = 0; k < 6; k++) { const bq = 0.3 + hash(k, Lv, 8) * (fb - 0.6); BS(cD + 0.05 + k * 0.1, cD + 0.35 + k * 0.1, 0.012, 0.017, bq, bq + 0.12, FCOL.filth); }   // footprints out of the stalls
+    if (bI1 - bI0 > 1.1) { const bq = bI0 + 0.5; BS(sI - 0.02, sI - 0.018, 1.35, 1.52, bq - 0.08, bq + 0.06, FCOL.blood); BS(sI - 0.02, sI - 0.018, 1.2, 1.36, bq - 0.04, bq + 0.0, FCOL.blood); }
+    for (let k = 0; k < 8; k++) { const q = sf + 0.4 + hash(k, Lv, 9) * (Wf - 2 * sf - 0.8), bq = 0.4 + hash(k, 10) * (fb - 0.8); BS(q, q + 0.1, 0.012, 0.02, bq, bq + 0.22, FCOL.tissue); }
   } else if (type === 'study') {
     curtains(FCOL.curtainRed);
     paintFar(FCOL.mint);                                   // mint walls (video 58 s)
@@ -596,7 +629,50 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom }) 
     if (clearOfDoor(a1 - 0.9, a1)) almirah(a1 - 0.9, a1, 0.05, 0.5, FCOL.steel);
     for (let k = 0; k < 3; k++) { const u = a0 + 0.1 + k * 0.33; B(u, u + 0.3, 0.12 + 0.02, 0.12 + 0.3, D - 0.4, D - 0.08, FCOL.carton); }
   }
+  if (gore) goreRoom();
   return n;
+
+  // 2nd floor (grades 5-8 and the adults): Manju has already been through. A body on the floor of every room (a kid in
+  // uniform, or an adult), sometimes a second, blood pooled under them and dragged toward the door, sprayed up a wall,
+  // a handprint by the door.
+  function goreRoom() {
+    const hh = hash(room.x0, room.z0, Lv, 7);
+    const nB = W > 4.2 && D > 3 ? 2 : 1;
+    for (let k = 0; k < nB; k++) {
+      const kid = (k === 0) === (hh < 0.65), sc = kid ? 0.78 : 1, len = 1.72 * sc;
+      const u = Math.max(a0 + 0.5, Math.min(a1 - 0.5, (a0 + a1) / 2 + (k ? 0.9 : -0.2) * (hash(k, hh) - 0.3)));
+      const b0 = Math.max(0.55, Math.min(D - len - 0.15, 0.6 + hash(hh, k, 2) * Math.max(0, D - len - 0.9)));
+      if (D - 0.2 < len || W < 1.3) break;
+      const fl = hash(k, hh, 3) < 0.5 ? 1 : -1;                    // which way the limbs are flung
+      const top = kid ? FCOL.shirtW : FCOL.adultTop, legs = kid ? FCOL.shorts : FCOL.adultLegs, skin = hash(k, 4) < 0.5 ? FCOL.skinDead : FCOL.skinDead2;
+      // blood first (under), pooled at the chest and head, dragged toward the door
+      B(u - 0.45 * sc, u + 0.5 * sc, 0.008, 0.011, b0 + 0.55 * sc, b0 + 1.45 * sc, FCOL.blood);
+      B(u - 0.3 * sc, u + 0.62 * sc, 0.008, 0.012, b0 + 0.8 * sc, b0 + 1.2 * sc, FCOL.bloodDry);
+      for (let t = b0 + 0.3; t > 0.25; t -= 0.28) B(u - 0.12 + Math.sin(t * 3) * 0.06, u + 0.12 + Math.sin(t * 3) * 0.06, 0.008, 0.01, t - 0.24, t, FCOL.bloodDry);
+      // the body, lying along the room, head away from the door
+      B(u - 0.17 * sc, u + 0.17 * sc, 0.02, 0.2 * sc, b0 + 0.82 * sc, b0 + 1.42 * sc, top);                              // torso
+      B(u - 0.1 * sc, u + 0.12 * sc, 0.1 * sc, 0.205 * sc, b0 + 1.0 * sc, b0 + 1.3 * sc, FCOL.blood);                     // soaked shirt
+      B(u - 0.095 * sc, u + 0.095 * sc, 0.02, 0.2 * sc, b0 + 1.44 * sc, b0 + 1.66 * sc, skin);                           // head
+      B(u - 0.1 * sc, u + 0.1 * sc, 0.12 * sc, 0.21 * sc, b0 + 1.52 * sc, b0 + 1.7 * sc, FCOL.hair);
+      B(u - 0.16 * sc, u - 0.02 * sc, 0.02, 0.15 * sc, b0 + 0.38 * sc, b0 + 0.84 * sc, legs);                           // thighs
+      B(u + 0.02 * sc, u + 0.16 * sc, 0.02, 0.15 * sc, b0 + 0.38 * sc, b0 + 0.84 * sc, legs);
+      B(u - 0.16 * sc - 0.08 * fl, u - 0.04 * sc - 0.08 * fl, 0.02, 0.12 * sc, b0 + 0.02, b0 + 0.4 * sc, skin);        // shins, one bent out
+      B(u + 0.04 * sc, u + 0.15 * sc, 0.02, 0.12 * sc, b0 + 0.02, b0 + 0.4 * sc, skin);
+      B(u - 0.17 * sc - 0.08 * fl, u - 0.03 * sc - 0.08 * fl, 0.02, 0.13 * sc, b0 - 0.08, b0 + 0.04, FCOL.shoe);
+      B(u + 0.03 * sc, u + 0.16 * sc, 0.02, 0.13 * sc, b0 - 0.08, b0 + 0.04, FCOL.shoe);
+      B(u + fl * 0.17 * sc, u + fl * 0.62 * sc, 0.02, 0.11 * sc, b0 + 1.28 * sc, b0 + 1.38 * sc, skin);                  // one arm flung out
+      B(u - fl * 0.27 * sc, u - fl * 0.17 * sc, 0.02, 0.11 * sc, b0 + 0.85 * sc, b0 + 1.35 * sc, skin);                  // the other at the side
+    }
+    // sprayed up the far wall and a side wall; a handprint by the door
+    for (let k = 0; k < 5; k++) {
+      const u = a0 + 0.3 + hash(k, hh, 5) * (W - 0.6), y0 = 0.5 + hash(k, 6) * 0.9, w = 0.08 + hash(hh, k) * 0.35;
+      B(u, u + w, y0, y0 + 0.1 + hash(k, 7) * 0.6, faceB - 0.009, faceB - 0.006, k % 2 ? FCOL.blood : FCOL.bloodDry);
+    }
+    const sideU = hh < 0.5 ? along[0] + 0.066 : along[1] - 0.066, sg = hh < 0.5 ? 1 : -1;
+    for (let k = 0; k < 4; k++) { const bq = 0.5 + hash(k, hh, 8) * Math.max(0.2, D - 1), y0 = 0.4 + hash(k, 9) * 1.0; B(sideU, sideU + sg * 0.004, y0, y0 + 0.15 + hash(k, 10) * 0.5, bq, bq + 0.06 + hash(k, 11) * 0.3, FCOL.blood); }
+    const hu = doorU + (doorU - a0 > a1 - doorU ? -1 : 1) * (d.w / 2 + 0.25);
+    if (hu > a0 && hu < a1) { B(hu - 0.07, hu + 0.07, 1.05, 1.22, 0.004, 0.008, FCOL.blood); for (let k = 0; k < 3; k++) B(hu - 0.06 + k * 0.05, hu - 0.035 + k * 0.05, 0.75, 1.05, 0.004, 0.008, FCOL.bloodDry); }
+  }
 
   function plasticChairSide(u, b, wallSide) {               // chair facing a side wall (wallSide -1: a0 wall)
     B(u - 0.2, u + 0.2, 0.42, 0.46, b - 0.22, b + 0.22, FCOL.plastic);

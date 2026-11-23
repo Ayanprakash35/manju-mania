@@ -669,12 +669,21 @@ export function buildInterior({ removed, solids = [], kept, ghosts = [], addBox,
   stats.furniture = furnishAll({ addBox, addCyl, rooms: roomList, plan: roomPlan, levels: LEVELS, windows: winRects, inRoom,
     ceilAt: (Lv) => { const i = LEVELS.indexOf(Lv); return i + 1 < LEVELS.length ? LEVELS[i + 1] - SLAB : TOP_TALL - 0.25; } });
   for (const n of NOOK_RECTS) for (const Lv of LEVELS) furnishNook({ addBox, addCyl, rect: n.rect, end: n.end, Lv });
+  doors.push(...(furnishAll.stalls || []));                 // rest-room cubicle doors (openable, hide inside)
+  stats.stalls = (furnishAll.stalls || []).length;
+  goreCorridors(addBox, LEVELS[2]);                         // 2nd floor: blood trails, sprays, a few bodies in the corridors
+  // floor plan for the in-game minimap (the laptop): merged cell rectangles by kind, same on every floor
+  const mapRects = [];
+  const addMap = (kind, pred) => { for (const [a, b, c, e] of cellRects((i, k) => pred(L(i, k)))) mapRects.push([+a.toFixed(2), +b.toFixed(2), +c.toFixed(2), +e.toFixed(2), kind]); };
+  addMap('corr', (l) => l === 'corr'); addMap('stair', (l) => isStair(l)); addMap('void', (l) => l === 'void');
+  for (const id of Object.keys(roomRect)) addMap(roomPlan[id]?.type === 'bath' ? 'bath' : 'room', (l) => l === id);   // one entry per room so the walls show
+  CTX.map = { bounds: [OUTER.xw - 3.2, OUTER.xe + 3.2, OUTER.zn - 3.2, OUTER.zs + 3.2], levels: LEVELS, rects: mapRects };
   stats.skipped = [...new Set(furnishAll.skipped || [])];
   if (process.env.DEBUG_AT) for (const pt of process.env.DEBUG_AT.split(';')) { const [x, z] = pt.split(',').map(Number); console.log('AT', x, z, CTX.labelAt(x, z)); }
   stats.roomTypes = Object.fromEntries(Object.entries(roomPlan).map(([id, p]) => [id, p.type + (p.ground ? ' (ground)' : ' (all floors)') + ` ${(roomRect[id].x1 - roomRect[id].x0).toFixed(1)}x${(roomRect[id].z1 - roomRect[id].z0).toFixed(1)} at x ${roomRect[id].x0.toFixed(1)}..${roomRect[id].x1.toFixed(1)} z ${roomRect[id].z0.toFixed(1)}..${roomRect[id].z1.toFixed(1)}`]));
   if (process.env.DUMP_ROOMS) stats.allRooms = roomList.filter((r) => /^i/.test(r.id)).map((r) => `${r.id} x ${r.x0.toFixed(1)}..${r.x1.toFixed(1)} z ${r.z0.toFixed(1)}..${r.z1.toFixed(1)}${r.door ? '' : ' (no door)'}`);
   stats.doors = doors.length;
-  return { stats, doors };
+  return { stats, doors, map: CTX.map };
 }
 
 const CTX = {};
@@ -1207,4 +1216,37 @@ function findWindowPanes(kept) {
       u0: axis === 'x' ? b.minX : b.minZ, u1: axis === 'x' ? b.maxX : b.maxZ, y0: b.minY, y1: b.maxY });
   }
   return out;
+}
+
+// 2nd floor corridors (Manju has been through): blood dragged along the floor, pools, sprays up the walls, a few bodies
+function goreCorridors(addBox, Lv) {
+  const H = (...v) => { let h = 2166136261; for (const x of v) { h ^= Math.round(x * 1000); h = Math.imul(h, 16777619); } return ((h >>> 0) % 10000) / 10000; };
+  const BLOOD = '0.478,0.031,0.031', DRY = '0.310,0.035,0.027', SKIN = '0.573,0.494,0.431', TOP = '0.835,0.835,0.800', LEGS = '0.337,0.361,0.408', HAIR = '0.075,0.059,0.051';
+  const y = Lv + 0.008;
+  // each corridor: [axis of travel, fixed coordinate (centre line), half width, from, to]
+  const runs = [['x', (CORR.zo0 + CORR.zi0) / 2, (CORR.zi0 - CORR.zo0) / 2, CORR.xo0, CORR.xo1], ['x', (CORR.zi1 + CORR.zo1) / 2, (CORR.zo1 - CORR.zi1) / 2, CORR.xo0, CORR.xo1],
+    ['z', (CORR.xo0 + CORR.xi0) / 2, (CORR.xi0 - CORR.xo0) / 2, CORR.zo0, CORR.zo1], ['z', (CORR.xi1 + CORR.xo1) / 2, (CORR.xo1 - CORR.xi1) / 2, CORR.zo0, CORR.zo1]];
+  const box = (ax, u0, u1, y0, y1, c0, c1, col) => (ax === 'x' ? addBox(Math.min(u0, u1), Math.max(u0, u1), y0, y1, Math.min(c0, c1), Math.max(c0, c1), col) : addBox(Math.min(c0, c1), Math.max(c0, c1), y0, y1, Math.min(u0, u1), Math.max(u0, u1), col));
+  runs.forEach(([ax, c, hw, from, to], ri) => {
+    for (let u = from + 2; u < to - 2; u += 3.2) {
+      const h = H(u, ri, 11), off = (H(u, ri, 12) - 0.5) * hw;
+      if (h < 0.35) {                                           // a drag trail
+        const len = 1.5 + H(u, 13) * 3;
+        for (let t = 0; t < len; t += 0.3) box(ax, u + t, u + t + 0.32, y, y + 0.003, c + off + Math.sin(t * 2) * 0.12 - 0.1, c + off + Math.sin(t * 2) * 0.12 + 0.12, t % 0.9 < 0.3 ? BLOOD : DRY);
+      } else if (h < 0.55) {                                     // a pool
+        box(ax, u, u + 0.6 + H(u, 14) * 0.6, y, y + 0.003, c + off - 0.3, c + off + 0.25, BLOOD);
+        box(ax, u + 0.15, u + 0.5, y, y + 0.004, c + off - 0.45, c + off - 0.2, DRY);
+      } else if (h < 0.75) {                                     // sprayed up a wall
+        const side = H(u, 15) < 0.5 ? -1 : 1, wc = c + side * (hw - 0.012);
+        for (let k = 0; k < 4; k++) { const uu = u + H(u, k, 16) * 0.8, y0 = Lv + 0.4 + H(k, u, 17) * 1.1; box(ax, uu, uu + 0.06 + H(k, u) * 0.3, y0, y0 + 0.1 + H(u, k, 18) * 0.5, wc, wc + side * 0.004, k % 2 ? BLOOD : DRY); }
+      } else if (h < 0.8) {                                      // a body against the wall
+        const side = H(u, 19) < 0.5 ? -1 : 1, cc = c + side * (hw - 0.3);
+        box(ax, u - 0.4, u + 0.9, y, y + 0.003, cc - 0.4, cc + 0.4, BLOOD);
+        box(ax, u, u + 0.6, Lv + 0.02, Lv + 0.2, cc - 0.17, cc + 0.17, TOP); box(ax, u + 0.62, u + 0.84, Lv + 0.02, Lv + 0.2, cc - 0.1, cc + 0.1, SKIN);
+        box(ax, u + 0.66, u + 0.86, Lv + 0.12, Lv + 0.21, cc - 0.1, cc + 0.1, HAIR);
+        box(ax, u - 0.45, u, Lv + 0.02, Lv + 0.15, cc - 0.16, cc - 0.02, LEGS); box(ax, u - 0.45, u, Lv + 0.02, Lv + 0.15, cc + 0.02, cc + 0.16, LEGS);
+        box(ax, u + 0.4, u + 0.5, Lv + 0.02, Lv + 0.11, cc + 0.17, cc + 0.6, SKIN);
+      }
+    }
+  });
 }

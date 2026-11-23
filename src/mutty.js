@@ -8,7 +8,7 @@
 import * as THREE from 'three';
 import { FloorNPC } from './npc.js';
 
-const SPEED = { roam: 1.05, investigate: 2.9, chase: 6.8, retreat: 4.6 };
+const SPEED = { roam: 1.05, investigate: 2.9, chase: 6.8, retreat: 4.6, distracted: 3.2 };
 const SENSE_HZ = 10;
 const LOSE_T = 4.0;
 const POUNCE_MIN = 1.2, POUNCE_MAX = 2.3;
@@ -96,7 +96,7 @@ export class Mutty extends FloorNPC {
 
     const E = this.eye(this._eye), EP = ctx.eyePos;
     const to = new THREE.Vector3().subVectors(EP, E), d = to.length();
-    let range = ctx.torchOn ? 18 : 10;
+    let range = (ctx.torchOn ? 18 : 10) * (1 + 0.6 * (ctx.lit || 0));
     if (ctx.crouch) range *= 0.7;
     const flat = Math.atan2(P.x - this.pos.x, P.z - this.pos.z);
     const off = Math.abs(angDiff(flat, this.yaw));
@@ -119,6 +119,16 @@ export class Mutty extends FloorNPC {
       const hd = Math.hypot(P.x - this.pos.x, P.z - this.pos.z) + Math.abs(P.y - this.pos.y) * 3;
       if (hd < ctx.noise) { this.lastKnown.copy(P); this.heard = true; }
     }
+  }
+
+  // the player's food or music player (src/story.js): go to it and stay there secs, ignoring the player
+  distract(p, secs) {
+    if (['off', 'away', 'attack', 'report', 'scripted'].includes(this.state) || !this.nav?.ready) return false;
+    this.distractPos = p.clone(); this.distractT = secs;
+    this.state = 'distracted'; this.attack = null; this.alert = 0;
+    this.play('Crawl', 0.2);
+    if (!this.goTo(p)) { const id = this.nearestAllowed(p); if (id < 0 || !this.goTo(id)) this.path = []; }
+    return true;
   }
 
   // ------------------------------------------------------------------ pounce
@@ -220,6 +230,8 @@ export class Mutty extends FloorNPC {
 
   // ------------------------------------------------------------------ per frame
   update(dt, ctx) {
+    if (this.state === 'scripted') return;                 // the stall attack drives him (src/story.js)
+    this.lit = ctx.lit || 0;
     if (!this.ready || !this.nav?.ready || this.state === 'off') {
       if (this.root) this.root.visible = false;
       return;
@@ -251,6 +263,14 @@ export class Mutty extends FloorNPC {
     }
 
     switch (this.state) {
+      case 'distracted':                        // food (3 min) or the music player: go there and stay, ignoring you
+        if (!this.path.length) {
+          if (this.cur !== this.actions.Idle) this.play('Idle');
+          this.faceTowards(this.distractPos, dt, 3);
+          this.distractT -= dt;
+          if (this.distractT <= 0) this.setState('roam');
+        }
+        break;
       case 'roam':
         if (this.seeing) {
           this.lastKnown.copy(P);
@@ -352,7 +372,8 @@ export class Mutty extends FloorNPC {
     let sp = 0;
     if (this.state === 'roam') sp = this.path.length ? SPEED.roam : 0;
     else if (this.state === 'investigate') sp = SPEED.investigate;
-    else if (this.state === 'chase') sp = SPEED.chase;
+    else if (this.state === 'chase') sp = SPEED.chase * (1 + 0.2 * (this.lit || 0));
+    else if (this.state === 'distracted') sp = SPEED.distracted;
     else if (this.state === 'report') sp = 5.2;
     else if (this.state === 'retreat') sp = SPEED.retreat;
 

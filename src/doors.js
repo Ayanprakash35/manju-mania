@@ -33,6 +33,10 @@ function makeLeaf(kind, w, h) {
     parts.push(part(w, f, T, C.wood, w / 2, h - f / 2, 0), part(w, 0.2, T, C.wood, w / 2, 0.1, 0));
     parts.push(part(0.03, 0.3, 0.06, C.metal, w - 0.12, 1.0, 0));
     g.add(new THREE.Mesh(new THREE.BoxGeometry(w - 2 * f, h - f - 0.2, 0.01).translate(w / 2, 0.2 + (h - f - 0.2) / 2, 0), glassMat));
+  } else if (kind === 'stall') {
+    // rest-room cubicle door: white laminate, a steel bolt; hung 0.17 m off the floor (the gap Mutty crawls under)
+    parts.push(part(w, h, 0.03, C.white, w / 2, h / 2, 0));
+    parts.push(part(0.1, 0.03, 0.05, C.metal, w - 0.1, 1.0, 0), part(0.025, 0.12, 0.05, C.metal, w - 0.05, 1.0, 0));
   } else if (kind === 'main' || kind === 'french') {
     // video: dark wooden leaves with small glass panes; the exit door is glazed above a solid panel, the
     // courtyard French doors nearly full height

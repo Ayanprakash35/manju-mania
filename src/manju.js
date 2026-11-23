@@ -142,6 +142,12 @@ export class Manju {
     }
     return false;
   }
+  // the music player (src/story.js): he goes to see what's making that noise and loses track of you
+  distract(p) {
+    if (['off', 'catch', 'cutscene'].includes(this.state)) return false;
+    this.lastKnown.copy(p); this.awareness = 0; this.lostT = 0; this.setState('investigate');
+    return true;
+  }
   place(p) {
     this.pos.copy(p); this.path = []; this.awareness = 0; this.lostT = 0; this.doorWait = null;
     this.setState('roam');
@@ -159,7 +165,9 @@ export class Manju {
   // ------------------------------------------------------------------ per frame
   // ctx: { feet, eyePos, camDir, torchOn, torchI, noise, hidden }
   update(dt, ctx) {
+    if (this.state === 'cutscene') return;                 // the intro drives him (src/story.js)
     if (!this.ready || !this.nav?.ready || this.state === 'off' || !this.enabled) { if (this.root) this.root.visible = false; return; }
+    this.lit = ctx.lit || 0;                               // corridor lights on (0..1): he sees further and runs faster
     const P = ctx.feet;
     // ---------- senses (10 Hz)
     this.senseT -= dt;
@@ -209,7 +217,7 @@ export class Manju {
       case 'catch': return;
     }
     // ---------- movement along the path (stops for doors)
-    const sp = this.state === 'chase' ? SPEED.chase * this.speedBoost * (dist > 18 ? 1.15 : 1) : SPEED[this.state] || 0;
+    const sp = this.state === 'chase' ? SPEED.chase * this.speedBoost * (dist > 18 ? 1.15 : 1) * (1 + 0.22 * this.lit) : SPEED[this.state] || 0;
     if (this.path.length && sp > 0 && this.state !== 'stare') this.follow(dt, sp, ctx);
     // ---------- animation speed, footsteps
     if (this.cur === this.actions.Walk) this.cur.timeScale = sp / 1.25;
@@ -232,7 +240,7 @@ export class Manju {
     const P = ctx.eyePos, E = this.eye();
     const to = new THREE.Vector3().subVectors(P, E), d = to.length();
     const flat = Math.atan2(to.x, to.z), off = Math.abs(angDiff(flat, this.yaw));
-    let range = ctx.torchOn ? 22 : 8; if (ctx.crouch) range *= 0.7;
+    let range = (ctx.torchOn ? 22 : 8) * (1 + 0.8 * (ctx.lit || 0)); if (ctx.crouch) range *= 0.7;
     const inCone = off < 1.05 || d < 2.5 || this.state === 'chase' || this.state === 'stare';
     this.seeing = false;
     if (d < range && inCone && !ctx.hidden && !this.hitWall(E, P, this.closedDoorMeshes())) this.seeing = true;

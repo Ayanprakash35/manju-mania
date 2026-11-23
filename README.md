@@ -6,10 +6,38 @@ First-person horror game (work in progress) set in a hostel building, built from
 ./run.sh
 ```
 
+## The story (src/story.js)
+**New game:** a short context card (room 15, 9:52 PM, laptop submission closed at 9:30), then the cutscene: you're
+sitting on your bed, Manju bursts in furious and your laptop, tablet, music player and face mask are sucked out of the
+room into him. They land in random rooms across all three floors (at least one per floor). Space skips.
+
+**Objectives** (top right): 1. get your stuff back (a sub-list of the four items); 2. once you have all four, turn on
+the corridor lights: 6 wall switches per floor, 18 in all (hold E; each one takes longer than the last, holding makes
+noise, and every light that comes on lets Manju, Mutty and Zoya see you from further off and move a little faster);
+3. the finale (not built yet).
+
+**Items** (1-5 to pick, click to use; each explains itself when you pick it up):
+- **Laptop**: the minimap (top left: rooms, corridors, stairs, you; the switches during the lights objective). M or
+  clicking it: the big map.
+- **Tablet**: Manju, Mutty and Zoya on the map, wherever they are (faded with their floor number when not on yours).
+- **Music player**: thrown, it plays a tune where it lands for 15 s and pulls everyone on that floor within ~32 m
+  over to it. 90 s cooldown.
+- **Face mask**: click it on Zoya from up close: she can't call Manju for 60 s. 2 min cooldown.
+- **Food** (the Choco Pies and Lay's from room 15, up to 3): click to throw it — on the ground floor Mutty goes and
+  eats it and leaves you alone for 3 minutes (if he doesn't, you can pick it back up); right-click to eat (+1 heart).
+
+**Rest-room cubicles**: every cubicle door opens (E) and hangs off the floor. Shut yourself in and nobody can see you,
+but after 10 s Mutty comes in under the door, bites, flings it open, and (on the ground floor) keeps hunting you. The
+rest rooms are filthy: shit in the bowls and up the walls, grime and urine on the floor, rust down the tiles, wet
+tissue, a bloody handprint on a mirror.
+
+**2nd floor** (grades 5-8 and the adults): Manju has already been through — no characters up here (his nav grid
+stops at the first floor), a body in every room (kids in uniform, adults), blood pooled, dragged and sprayed, more in
+the corridors, and figures that stand far down a corridor for a heartbeat and are gone.
+
 **Room 15 (src/room15.js)** is where you start and the one safe place: inside it nobody can see, hear, catch or hurt
 you (Manju and Mutty's nav grids leave it out, so they stop at the door), its tube light never goes out, and there's
-food: two Choco Pies and a Lay's packet. Look at one and press E to eat it for +1 heart (not when your hearts are
-full); the food comes back on a new game or a retry. The room is a recreation of the owner's video (IMG_2567): two
+food: two Choco Pies and a Lay's packet (E takes them; see the items below); the food comes back on a new game. The room is a recreation of the owner's video (IMG_2567): two
 almirahs, laundry baskets and a guitar case on the door wall, a floral bed and a geometric-print bed, two teak desks
 with hutches under the mint window wall, grey satin curtains, a wall fan, the runner, mats, bags and slippers.
 

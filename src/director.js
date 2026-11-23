@@ -70,7 +70,7 @@ export class Director {
     if (!this.paused) this.next -= dt * (0.6 + this.tension * 1.4);
     if (!this.paused && this.next <= 0 && !this.fig) {
       this.fire(inside);
-      this.next = rnd(22, 45);
+      this.next = this.onTopFloor() ? rnd(7, 14) : rnd(22, 45);
     }
     this.lastPos.copy(cam); this.wasMoving = moving;
   }
@@ -88,7 +88,23 @@ export class Director {
     if (v) { clearTimeout(this.blackoutTimer); this.blackoutTimer = null; }
   }
 
+  // 2nd floor (Manju has already been through, nobody alive up there): only far-off figures that are there for a
+  // heartbeat, and whispers
+  heartbeatFigure() {
+    if (this.fig) return false;
+    const p = this.figureSpot(15, 30); if (!p) return false;
+    this.figure_place(p);
+    this.fig.life = 0.3; this.fig.hb = true;
+    this.audio.heartbeat?.(2, 1.4);
+    return true;
+  }
+  onTopFloor() { return this.camera.position.y > 7.0; }
+
   fire(inside, forced) {
+    if (!forced && this.onTopFloor()) {
+      for (const e of ['heartbeatFigure', 'heartbeatFigure', 'whisper']) if (this[e]?.()) return e;
+      return null;
+    }
     const pool = forced ? [forced] : (inside
       ? ['follower', 'figure', 'figure', 'lightDies', 'doorCreak', 'doorSlam', 'knock', 'whisper', this.tension > 0.5 ? 'blackout' : 'whisper']
       : ['figure', 'figure', 'whisper', 'follower']);
@@ -175,6 +191,7 @@ export class Director {
     if (look > 0.8 && !s.beat) { s.beat = true; this.audio.heartbeat(5, 1.25); }
     // owner: a glimpse, not a visitor. Gone the moment you are within 4 m, after a second in the torch,
     // as soon as you look away, and never more than ~3 s however you play it
+    if (s.hb) { if (s.t > s.life) this.vanish(false); return; }               // 2nd floor: there for a heartbeat, then not
     if (d < 4) { this.audio.pop(); return this.vanish(); }
     if (look > 0.97 && d < 10 && this.torchOn && this.torchOut <= 0) { s.seen += dt; if (s.seen > 0.6) return this.vanish(); }   // lit by the torch
     if (s.t > 1.2 && look < 0.5) return this.vanish(false);                   // gone when you look back

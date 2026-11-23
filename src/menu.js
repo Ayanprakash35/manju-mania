@@ -73,7 +73,7 @@ export class Menu {
     if (which === 'controls') {
       this.panel.innerHTML = `<h3>Controls</h3><table>${[
         ['W A S D', 'Walk'], ['Mouse', 'Look'], ['Shift', 'Run'], ['E', 'Open / close door'], ['F', 'Flashlight'],
-        ['Ctrl / C', 'Crouch'], ['R', 'Back to start'], ['V', 'Retro filter'], ['Esc', 'Pause'],
+        ['Ctrl / C', 'Crouch'], ['1 – 5', 'Pick an item'], ['Click', 'Use item'], ['Right-click', 'Eat food'], ['Hold E', 'Light switch'], ['M', 'Big map (laptop)'], ['R', 'Back to start'], ['V', 'Retro filter'], ['Esc', 'Pause'],
       ].map(([k, v]) => `<tr><td>${k.split(' ').map((x) => `<kbd>${x}</kbd>`).join('')}</td><td>${v}</td></tr>`).join('')}</table>`;
     } else if (which === 'settings') {
       const row = (label, on, fn) => {
