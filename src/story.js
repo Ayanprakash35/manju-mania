@@ -449,17 +449,18 @@ export class Story {
     const targets = [];
     for (const id in this.items) { const it = this.items[id]; if (it.mesh.visible && !it.taken && this.phase !== 'intro') targets.push(it.mesh); }
     for (const f of this.room15?.foods || []) if (f.visible) targets.push(f);
-    for (const t of this.thrown) if (t.landed && t.kind === 'food' && !t.eaten) targets.push(t.mesh);
+    for (const t of this.thrown) if (t.landed && t.kind === 'food' && !t.eatenBy) targets.push(t.mesh);   // not while Mutty is eating it
     for (const s of this.switches) targets.push(s.plate);
     // Komynini on his bed in room 15: talk to him
     const K = this.komynini;
     if (K?.root && this.inRoom15()) {
       const kp = K.root.position.clone().add(new THREE.Vector3(0.3, 0.2, 0)), to = kp.sub(this.camera.position), d = to.length(), f = new THREE.Vector3(); this.camera.getWorldDirection(f);
-      if (d < 3.2 && to.normalize().dot(f) > 0.72) { const hs = rc.intersectObjects(targets, true); if (!hs.length || hs[0].distance > d - 0.4) return { kind: 'komy' }; }
+      if (d < 3.2 && to.normalize().dot(f) > 0.8) { const hs = rc.intersectObjects(targets, true); if (!hs.length || hs[0].distance > d) return { kind: 'komy' }; }   // food/items in front of him come first
     }
     const hits = rc.intersectObjects(targets, true); if (!hits.length) return null;
     const h = hits[0];
-    const col = this.getCollider(); if (col) { const o = rc.intersectObject(col, false)[0]; if (o && o.distance < h.distance - 0.05) return null; }
+    const isFood = h.object.userData.food || this.room15?.foods.includes(h.object);
+    const col = this.getCollider(); if (col) { const o = rc.intersectObject(col, false)[0]; if (o && o.distance < h.distance - (isFood ? 0.45 : 0.05)) return null; }   // the snacks sit inside the desk/bed collision boxes
     let o = h.object; while (o && !o.userData.item && !o.userData.food && !targets.includes(o)) o = o.parent;
     const sw = this.switches.find((s) => s.plate === h.object);
     if (sw) return { kind: 'switch', sw, dist: h.distance };
@@ -492,7 +493,13 @@ export class Story {
     const L = this.lookAt || this.look(); if (!L) return false;
     if (L.kind === 'komy') { this.komyTalk(); return true; }
     if (L.kind === 'item') { this.collect(L.id); return true; }
-    if (L.kind === 'food') { if (this.food < 3) { this.food++; L.mesh.visible = false; this.toast('Food +1', 'Select it with 5.'); this.audio.tick?.(); this.render(); } return true; }
+    if (L.kind === 'food') {
+      if (this.food < 3) {
+        this.food++; L.mesh.visible = false; if (this.sel < 0 || !this.ownsSlot(this.sel)) this.sel = 4;
+        this.toast(`food ×${this.food}`, '[5] then [click]: throw it to Mutty   [right-click]: eat it'); this.audio.tick?.(); this.render();
+      }
+      return true;
+    }
     if (L.kind === 'thrownFood') { if (this.food < 3) { this.food++; this.scene.remove(L.t.mesh); this.thrown = this.thrown.filter((t) => t !== L.t); this.render(); } return true; }
     if (L.kind === 'switch') { if (!L.sw.on && (this.phase === 'lights' || this.phase === 'done')) this.hold = { sw: L.sw, t: 0 }; else this.audio.tick?.(); return true; }
     return false;
@@ -514,6 +521,7 @@ export class Story {
     this.render();
   }
 
+  ownsSlot(i) { const s = SLOTS[i]; return !!s && (s.id === 'food' ? this.food > 0 : this.have[s.id]); }
   select(i) { const s = SLOTS[i]; if (!s) return; if (s.id === 'food' ? this.food > 0 : this.have[s.id]) { this.sel = i; this.render(); } }
   cycle(dir) { for (let k = 1; k <= SLOTS.length; k++) { const i = (this.sel + dir * k + SLOTS.length * 2) % SLOTS.length; const s = SLOTS[i]; if (s.id === 'food' ? this.food > 0 : this.have[s.id]) { this.sel = i; this.render(); return; } } }
 
@@ -578,10 +586,11 @@ export class Story {
       this.lure(p, 32, MUSIC_TIME);
     } else if (t.kind === 'food') {
       const m = this.mutty;
-      if (m?.distract && floorOf(p.y) === 0 && m.state !== 'off' && m.state !== 'away' && Math.hypot(m.pos.x - p.x, m.pos.z - p.z) < 40 && m.distract(p, MUTTY_EAT)) {
-        t.eatenBy = 'mutty'; t.eatT = 6;
-        this.toast('Mutty smells food', 'He\'ll be busy eating for 3 minutes.');
-      }
+      const active = m?.distract && m.ready && !['off', 'away'].includes(m.state);
+      if (floorOf(p.y) !== 0) this.toast('only Mutty eats off the floor', 'and he\'s down on the ground floor.  pick it back up.');
+      else if (!active) this.toast('Mutty isn\'t around yet', 'it\'s on the floor.  pick it back up, or wait for him.');
+      else if (m.distract(p, MUTTY_EAT)) { t.eatenBy = 'mutty'; t.eatT = MUTTY_EAT; this.toast('Mutty smells food', 'he\'ll be busy eating it for 3 minutes.'); }
+      else this.toast('Mutty ignores it', 'he\'s too busy right now.  pick it back up.');
     }
   }
   // the music player pulls everyone on that floor within range over to it

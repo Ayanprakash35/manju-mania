@@ -171,7 +171,12 @@ export class Doors {
         // swing away from the player: which side of the wall are they on?
         const dirAt = (s) => { const a = e.base + s * Math.PI / 2; return [Math.cos(a), -Math.sin(a)]; };
         const [dx, dz] = dirAt(1);
-        if (e.r.into) {
+        if (e.r.kind === 'stall' && e.r.stall) {
+          // rest-room cubicle doors open outward, into the room, so the cubicle stays free to step into
+          const [x0, x1, z0, z1] = e.r.stall, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+          const nx = e.axis === 'z' ? Math.sign(e.r.x - cx) : 0, nz = e.axis === 'x' ? Math.sign(e.r.z - cz) : 0;
+          e.swing = dx * nx + dz * nz > 0 ? 1 : -1;
+        } else if (e.r.into) {
           // swing into the room
           const nx = e.axis === 'z' ? e.r.into : 0, nz = e.axis === 'x' ? e.r.into : 0;
           e.swing = dx * nx + dz * nz > 0 ? 1 : -1;

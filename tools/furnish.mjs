@@ -330,7 +330,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom, go
       for (let i = 0; i <= n; i++) { const bb = b0 + i * cw; BS(q0, q1, 0.12, 2.05, bb - 0.02, bb + 0.02, FCOL.laminate); }
       BS(q1 - front * 0.035, q1, 2.06, 2.09, b0, b1, FCOL.steelGrey);                           // rail along the top
       for (let i = 0; i < n; i++) {
-        const c0 = b0 + i * cw, c1 = c0 + cw, cm = (c0 + c1) / 2, dw = Math.min(0.68, cw - 0.24);
+        const c0 = b0 + i * cw, c1 = c0 + cw, cm = (c0 + c1) / 2, dw = Math.min(0.82, cw - 0.2);
         BS(q1 - front * 0.035, q1, 0.12, 2.05, c0, cm - dw / 2, FCOL.laminate);
         BS(q1 - front * 0.035, q1, 0.12, 2.05, cm + dw / 2, c1, FCOL.laminate);
         // the door: a real leaf at runtime (src/doors.js 'stall'), a gap under it; record the cubicle for hiding
@@ -343,8 +343,8 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom, go
         }
         const back = q0 + front * 0.01;
         if (wcFirst !== null && (i % 2 === 0) === wcFirst) {                                      // wall-hung WC, white seat, flush plate
-          BS(back, back + front * 0.55, 0.36, 0.44, cm - 0.18, cm + 0.18, FCOL.tileW);
-          BS(back + front * 0.02, back + front * 0.56, 0.44, 0.47, cm - 0.19, cm + 0.19, FCOL.sheet);
+          BS(back, back + front * 0.5, 0.36, 0.44, cm - 0.18, cm + 0.18, FCOL.tileW);
+          BS(back + front * 0.02, back + front * 0.51, 0.44, 0.47, cm - 0.19, cm + 0.19, FCOL.sheet);
           BS(back, back + front * 0.08, 0.3, 0.9, cm - 0.2, cm + 0.2, FCOL.tileW);
           BS(back, back + front * 0.015, 1.0, 1.15, cm - 0.1, cm + 0.1, FCOL.steelGrey);
           CS(back + front * 0.08, 0.7, cm + 0.32, 0.05, 0.1, 'b', FCOL.sheet);         // tissue roll
@@ -364,7 +364,7 @@ function furnishRoom({ addBox, addCyl, room, Lv, ceil, type, windows, inRoom, go
         }
       }
     };
-    const cD = Math.min(1.45, Wf * 0.18);
+    const cD = Math.min(1.9, Wf * 0.24);                    // deep enough to step in past the WC (player is 0.6 m wide)
     cubicles(sf, cD, 0.15, fb, true);                                       // WC row (alternating with showers)
     // the island: counter and mirrors facing the cubicle row
     const sI = cD + 1.3 + 0.55, bI0 = Math.max(1.5, d.w + 0.5), bI1 = fb - 1.35;
