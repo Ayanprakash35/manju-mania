@@ -13,6 +13,12 @@ full); the food comes back on a new game or a retry. The room is a recreation of
 almirahs, laundry baskets and a guitar case on the door wall, a floral bed and a geometric-print bed, two teak desks
 with hutches under the mint window wall, grey satin curtains, a wall fan, the runner, mats, bags and slippers.
 
+**CowShit Komynini (src/komynini.js, public/models/komynini.glb)** lies on the bed on your right as you come into room
+15, curled on his side under a grey duvet facing the wall, scrolling reels on his tablet (the screen swipes between
+reels) and glancing back at the door now and then. Walk in with the door open and he twists round and yells "Close the
+door!", and keeps at it every few seconds until you shut it. He does no harm. His two lines (public/audio/komynini_*.m4a)
+are generated with macOS `say` (voice Rishi), stand-ins until there's a recording.
+
 The title menu starts on "New game" (Enter). WASD walk, mouse look, Shift run, E open/close doors, F flashlight, Ctrl or C crouch, R back to start, V retro look on/off, Esc pause.
 
 ## Manju (src/manju.js, src/navmesh.js)

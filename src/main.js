@@ -18,6 +18,7 @@ import { Voices, farPoint } from './voices.js';
 import { inStair, inCorridor } from './npc.js';
 import { Health } from './health.js';
 import { buildRoom15, inSafe15 } from './room15.js';
+import { Komynini } from './komynini.js';
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -236,6 +237,9 @@ const director = new Director({ scene, camera, player, getCollider: () => collid
 const manju = new Manju({ scene, camera, getCollider: () => collider, roomDoors, audio, flickers, onCatch: () => caught() });
 const voices = new Voices(audio);
 const listener = () => ({ pos: camera.position, dir: camera.getWorldDirection(new THREE.Vector3()), feetY: feetPos().y });
+// CowShit Komynini: harmless, on the right-hand bed in room 15, scrolling reels; yells at you to close the door
+const komynini = new Komynini({ scene, audio, voices });
+let room15Door = null;
 const mutty = new Mutty({
   scene, camera, getCollider: () => collider, roomDoors, audio, flickers,
   onBite: () => { voices.play('mutty_2', { getPos: () => mutty.pos }, { listener: listener(), gain: 1.5, ref: 4 }); return damagePlayer(1, 'mutty'); },
@@ -539,6 +543,8 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
     slab.position.set(r.x, r.y + r.h / 2, r.z); slab.updateMatrixWorld(); staticGeoms.push(toWorldPositions(slab));
   }
   room15 = buildRoom15(scene);                                       // the spawn/safe room, from the owner's video
+  komynini.load('./public/models/komynini.glb', room15.bed2).then((root) => retro.apply(root)).catch((e) => console.warn('komynini', e));
+  room15Door = roomDoors.list.find((d) => d.r.kind === 'room' && d.r.y < 1 && Math.abs(d.r.x - 25.3) < 0.05 && Math.abs(d.r.z - 17.77) < 0.1) || null;
   for (const m of room15.colliderMeshes) staticGeoms.push(toWorldPositions(m));
   const merged = mergePositions(staticGeoms);
   merged.boundsTree = new MeshBVH(merged);
@@ -759,6 +765,7 @@ function frame() {
       if (state === 'play') mutty.update(wdt, ctx);
       if (state === 'play') zoya.update(wdt, ctx);
       if (state === 'play') voiceTick(wdt, ctx);
+      if (state === 'play') komynini.update(wdt, { inRoom: safe, doorOpen: !!room15Door && room15Door.open > 0.15, listener: listener() });
       // bring the two floor-bound characters in after the grace period
       charSpawnT -= wdt;
       if (charGrace > 0) charGrace -= wdt;
@@ -851,4 +858,4 @@ var devcon = new DevConsole({
 });
 
 // debug hooks for automated testing
-window.__game = { get room15() { return room15; }, playerSafe, pickFood, eatFood, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };
+window.__game = { komynini, get room15Door() { return room15Door; }, get room15() { return room15; }, playerSafe, pickFood, eatFood, retro, roomDoors, controls, menu, director, sky, devcon, cheat, manju, mutty, zoya, voices, voiceT, health, damagePlayer, healPlayer, tryAgain, caught: (by = 'manju') => caught(by), caughtUpdate: (dt) => caughtUpdate(dt), reportToManju, updateRoomState, get inRoom() { return inStudentRoom; }, get manjuReinforceT() { return manjuReinforceT; }, get nav() { return nav; }, get state() { return state; }, get collider() { return collider; }, renderer, scene, player, camera, keys, respawn, step: (n = 60) => { for (let i = 0; i < n * SUBSTEPS; i++) step(1 / 60 / SUBSTEPS); camera.position.copy(player.position).y += PLAYER.eye; }, setFly: (v) => { flying = v; } };

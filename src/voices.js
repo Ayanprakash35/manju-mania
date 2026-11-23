@@ -14,12 +14,14 @@
 //   mutty_6    "So jao, so jao" (go to sleep, go to sleep)       -> when he starts running at you
 //   mutty_7    "Sir, mere ... maarega" (sir, he'll hit me)       -> random
 //   ravi_1-2   "MOVE!" (two takes)                               -> random, from somewhere far off (no body in the game)
+//   komynini_1-2  "Close the door!" / "Arre, close the door!"     -> room 15, when you come in and leave the door open
 import * as THREE from 'three';
 
 export const VOICE_FILES = {
   zoya: ['zoya_1', 'zoya_2', 'zoya_3', 'zoya_4', 'zoya_5'],
   mutty: ['mutty_1', 'mutty_2', 'mutty_3', 'mutty_4', 'mutty_5', 'mutty_6', 'mutty_7'],
   ravi: ['ravi_1', 'ravi_2'],
+  komynini: ['komynini_1', 'komynini_2'],   // generated with macOS say (voice Rishi): "Close the door!", "Arre, close the door!"
 };
 
 export class Voices {

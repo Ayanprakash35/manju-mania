@@ -137,8 +137,11 @@ export function buildRoom15(scene) {
   const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.2, 8), tubeMat); tube.rotation.x = Math.PI / 2;
   tube.position.set(R.x0 + 1.15, R.y1 - 0.06, (R.z0 + R.z1) / 2); group.add(tube);
   B(R.x0 + 1.12, R.x0 + 1.18, R.y1 - 0.04, R.y1 - 0.004, (R.z0 + R.z1) / 2 - 0.62, (R.z0 + R.z1) / 2 + 0.62, 0xe8e8e4);
-  const light = new THREE.PointLight(0xf1f5ff, 3.4, 5.2, 1.3);
-  light.position.set(R.x0 + 1.5, R.y1 - 0.35, (R.z0 + R.z1) / 2); group.add(light);
+  // a tube-lit room reads evenly bright: two lights, one over each half (the bed-2 corner by the south wall too)
+  const light = new THREE.PointLight(0xf1f5ff, 5.5, 5.5, 1.2);
+  light.position.set(R.x0 + 1.4, R.y1 - 0.4, R.z0 + 1.0); group.add(light);
+  const light2 = new THREE.PointLight(0xf1f5ff, 5.5, 5.5, 1.2);
+  light2.position.set(R.x0 + 1.9, R.y1 - 0.4, R.z1 - 0.9); group.add(light2);
 
   // ---------------- beds (black metal, head at the window wall) ----------------
   const BLK = 0x16181a;
@@ -168,10 +171,7 @@ export function buildRoom15(scene) {
   B(b1.xh - 1.05, b1.xh - 0.72, b1.top, b1.top + 0.018, R.z0 + 0.5, R.z0 + 0.84, 0x9a9da0);
   C(b1.xh - 1.22, b1.top, R.z0 + 0.62, 0.04, 0.04, 0.075, 0xf07a14, 10);
   C(b1.xh - 1.05, b1.top, R.z0 + 0.32, 0.035, 0.035, 0.03, 0x111111, 10);
-  // bed 2: printed pillow, grey-green blanket and a maroon cloth heaped at the foot end
-  B(b2.xh - 0.45, b2.xh - 0.08, b2.top, b2.top + 0.13, R.z1 - 0.82, R.z1 - 0.1, 0xf4f2ee);
-  for (const [a, b, c, d, h] of [[0.35, 0.8, 0.5, 0.85, 0.13], [0.55, 0.95, 0.15, 0.55, 0.1], [0.3, 0.6, 0.2, 0.45, 0.07]]) B(b2.xf + a, b2.xf + b, b2.top, b2.top + h, R.z1 - d, R.z1 - c, 0x7c8577);   // grey-green blanket
-  for (const [a, b, c, d, h] of [[0.6, 1.0, 0.25, 0.6, 0.16], [0.85, 1.12, 0.35, 0.55, 0.12]]) B(b2.xf + a, b2.xf + b, b2.top + 0.05, b2.top + h, R.z1 - d, R.z1 - c, 0x4a1a24);           // maroon cloth
+  // bed 2: CowShit Komynini lies here under his own grey duvet and pillow (src/komynini.js)
 
   // ---------------- desks with hutches, between the bed heads under the window ----------------
   const TEAK = 0xbd6c32, TEAK_D = 0x92502a, PIN = 0x1b4434;
@@ -328,5 +328,5 @@ export function buildRoom15(scene) {
   // collision proxies (world-space boxes), for the player's collider and the nav grid
   const colliderMeshes = colliders.map(([x0, x1, y0, y1, z0, z1]) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0)); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.updateMatrixWorld(); return m; });
   const reset = () => { for (const f of foods) f.visible = true; };
-  return { group, light, foods, colliderMeshes, reset };
+  return { group, light, light2, foods, colliderMeshes, reset, bed2: { x: (b2.xf + b2.xh) / 2, y: b2.top, z: R.z1 - 0.46 } };
 }
