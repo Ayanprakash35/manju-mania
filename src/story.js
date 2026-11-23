@@ -114,9 +114,11 @@ export class Story {
       N: { ax: 'x', c: (CORR.zo0 + CORR.zi0) / 2, dirs: [[0, 0, -1], [0, 0, 1]] }, S: { ax: 'x', c: (CORR.zi1 + CORR.zo1) / 2, dirs: [[0, 0, 1], [0, 0, -1]] },
       W: { ax: 'z', c: (CORR.xo0 + CORR.xi0) / 2, dirs: [[-1, 0, 0], [1, 0, 0]] }, E: { ax: 'z', c: (CORR.xi1 + CORR.xo1) / 2, dirs: [[1, 0, 0], [-1, 0, 0]] },
     };
-    const plateGeo = new THREE.BoxGeometry(0.14, 0.2, 0.02), ledGeo = new THREE.BoxGeometry(0.03, 0.03, 0.012), togGeo = new THREE.BoxGeometry(0.04, 0.06, 0.02);
+    const plateGeo = new THREE.BoxGeometry(0.2, 0.28, 0.02), ledGeo = new THREE.BoxGeometry(0.045, 0.045, 0.012), togGeo = new THREE.BoxGeometry(0.06, 0.09, 0.025);
     this.switches = [];
-    for (let fl = 0; fl < 3; fl++) for (const [k, u0] of plan) {
+    // all six on the ground floor (near the start, no trekking floor to floor); each one lights its stretch of the
+    // corridor on every floor at once, like the hostel's real switchboard by the stairs
+    for (let fl = 0; fl < 1; fl++) for (const [k, u0] of plan) {
       const R = run[k], y = FLOOR_Y[fl] + 1.3;
       let placed = null;
       for (let tries = 0; tries < 12 && !placed; tries++) {
@@ -135,24 +137,27 @@ export class Story {
       if (!placed) continue;
       const g = new THREE.Group();
       const plate = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: 0xeeeeea }));
-      const tog = new THREE.Mesh(togGeo, new THREE.MeshLambertMaterial({ color: 0xd8d8d2 })); tog.position.set(0, 0.02, 0.015);
-      const led = new THREE.Mesh(ledGeo, new THREE.MeshBasicMaterial({ color: 0xff2a1a })); led.position.set(0, -0.06, 0.012);
+      const tog = new THREE.Mesh(togGeo, new THREE.MeshLambertMaterial({ color: 0xd8d8d2 })); tog.position.set(0, 0.03, 0.018);
+      const led = new THREE.Mesh(ledGeo, new THREE.MeshBasicMaterial({ color: 0xff2a1a })); led.position.set(0, -0.09, 0.012);
       g.add(plate, tog, led);
       g.position.copy(placed.p).addScaledVector(placed.n, 0.011);
       g.lookAt(g.position.clone().add(placed.n));
       g.userData.noRetro = true;
       this.scene.add(g);
-      // its corridor light, on the ceiling above the switch, part of the game's flicker set (off until switched)
-      const pl = new THREE.PointLight(0xdfe6ff, 0, 15, 1.2);
-      pl.position.set(placed.R.ax === 'x' ? placed.u : placed.R.c, CEIL_Y[fl] - 0.3, placed.R.ax === 'x' ? placed.R.c : placed.u);
-      this.scene.add(pl);
-      const f = { pl, base: 16, dead: false, t: Math.random() * 10, sw: true, on: false };
-      this.flickers.push(f);
-      this.switches.push({ fl, g, plate, led, tog, f, on: false, pos: g.position.clone() });
+      // its corridor lights, on the ceiling above the switch on every floor, part of the game's flicker set (off until switched)
+      const fs = [0, 1, 2].map((ff) => {
+        const pl = new THREE.PointLight(0xdfe6ff, 0, 15, 1.2);
+        pl.position.set(placed.R.ax === 'x' ? placed.u : placed.R.c, CEIL_Y[ff] - 0.3, placed.R.ax === 'x' ? placed.R.c : placed.u);
+        this.scene.add(pl);
+        const f = { pl, base: 16, dead: false, t: Math.random() * 10, sw: true, on: false };
+        this.flickers.push(f);
+        return f;
+      });
+      this.switches.push({ fl, g, plate, led, tog, fs, on: false, pos: g.position.clone(), name: k === 'N' || k === 'S' ? `${k === 'N' ? 'north' : 'south'} corridor (${u0 < 0 ? 'west' : 'east'} end)` : `${k === 'W' ? 'west' : 'east'} corridor` });
     }
   }
   setSwitch(s, on) {
-    s.on = on; s.f.on = on; s.f.dead = false;
+    s.on = on; for (const f of s.fs) { f.on = on; f.dead = false; }
     s.led.material.color.set(on ? 0x2aff4a : 0xff2a1a);
     s.tog.position.y = on ? -0.02 : 0.02;
   }
@@ -484,6 +489,24 @@ export class Story {
   }
   // your stuff is small and lies on the floor: anything of yours roughly under the crosshair and within reach counts,
   // not just a pixel-perfect hit (a cone about 0.5 m wide at the item), as long as no wall is in between
+  lookSwitch() {     // a switch within 2.6 m and within ~0.4 m of the crosshair, nothing in between
+    const cp = this.camera.position, f = new THREE.Vector3(); this.camera.getWorldDirection(f);
+    const col = this.getCollider(), rc = this._src ||= new THREE.Raycaster(); rc.firstHitOnly = true;
+    let best = null, bestA = Infinity;
+    for (const s of this.switches) {
+      const to = s.pos.clone().sub(cp), d = to.length(); if (d > 2.6) continue;
+      const a = Math.acos(THREE.MathUtils.clamp(to.divideScalar(d).dot(f), -1, 1));
+      if (a > Math.atan(0.4 / d) || a >= bestA) continue;
+      if (col) { rc.set(cp, to); rc.far = d; const o = rc.intersectObject(col, false)[0]; if (o && o.distance < d - 0.08) continue; }
+      best = s; bestA = a;
+    }
+    return best ? { kind: 'switch', sw: best } : null;
+  }
+  // still at the switch you're working: close by and roughly facing it (no pixel-perfect aim needed)
+  atSwitch(sw) {
+    const cp = this.camera.position, to = sw.pos.clone().sub(cp), d = to.length(), f = new THREE.Vector3(); this.camera.getWorldDirection(f);
+    return d < 2.4 && to.divideScalar(d).dot(f) > 0.55;
+  }
   doorBlocks(from, dir, d) {     // a door leaf (open or shut) between you and it
     const rc = this._drc ||= new THREE.Raycaster(); rc.set(from, dir); rc.far = d - 0.12;
     const near = this.roomDoors.list.filter((x) => Math.abs(x.r.x - from.x) < 4 && Math.abs(x.r.z - from.z) < 4 && Math.abs(x.r.y - from.y) < 3);
@@ -491,6 +514,7 @@ export class Story {
   }
   lookItem() {
     if (this.phase === 'intro') return null;
+    const sw = this.lookSwitch(); if (sw) return sw;
     const cp = this.camera.position, f = this._lf ||= new THREE.Vector3(), c = this._lc ||= new THREE.Vector3(); this.camera.getWorldDirection(f);
     const col = this.getCollider(), rc = this._lrc ||= new THREE.Raycaster(); rc.firstHitOnly = true;
     let best = null, bestA = Infinity;
@@ -508,6 +532,7 @@ export class Story {
   }
   hint() {
     if (this.cut) return null;
+    if (this.hold) return `switching on…  stay here<span class="bar"><i style="width:${Math.min(100, this.hold.t / this.holdNeed() * 100).toFixed(0)}%"></i></span>`;
     const L = this.lookAt;
     if (!L) return null;
     const K = (k, t) => `<span class="key">${k}</span>${t}`;
@@ -517,12 +542,12 @@ export class Story {
     if (L.kind === 'switch') {
       if (L.sw.on) return 'it\'s on';
       if (this.phase !== 'lights' && this.phase !== 'done') return 'no power yet.  get all your stuff back first (notepad, top right).';
-      if (this.hold?.sw === L.sw) return `${K('E', 'keep holding…')}<span class="bar"><i style="width:${Math.min(100, this.hold.t / this.holdNeed() * 100).toFixed(0)}%"></i></span>`;
-      return K('E', `hold to switch the lights on  (${this.holdNeed().toFixed(1)}s)`);
+      if (this.hold?.sw === L.sw) return `switching on…  stay here<span class="bar"><i style="width:${Math.min(100, this.hold.t / this.holdNeed() * 100).toFixed(0)}%"></i></span>`;
+      return K('E', `lights on: ${L.sw.name}, every floor`);
     }
     return null;
   }
-  holdNeed() { return 1.5 + 0.45 * this.switches.filter((s) => s.on).length; }
+  holdNeed() { return 1.2 + 0.4 * this.switches.filter((s) => s.on).length; }   // the old switches stick more each time
 
   // E pressed (true if the story used it)
   interact() {
@@ -541,7 +566,7 @@ export class Story {
     if (L.kind === 'switch') { if (!L.sw.on && (this.phase === 'lights' || this.phase === 'done')) this.hold = { sw: L.sw, t: 0 }; else this.audio.tick?.(); return true; }
     return false;
   }
-  release() { this.hold = null; }
+  release() { /* switches don't need E held down */ }
 
   collect(id) {
     const it = this.items[id]; if (!it || it.taken) return;
@@ -554,7 +579,7 @@ export class Story {
     if (this.found === 1 && this.phase === 'items') setTimeout(() => this.banner('ONE BACK', 'three to go', 'cowshit (room 15) knows more now.  and manju mutters where he dumped things, if you get close without him seeing you.'), 5600);
     if (ITEMS.every((i) => this.have[i.id]) && this.phase === 'items') {
       this.phase = 'lights';
-      setTimeout(() => this.banner('NEW OBJECTIVE', 'turn every corridor light on', 'six switches on each floor.  they won\'t like it.'), 5600);
+      setTimeout(() => this.banner('NEW OBJECTIVE', 'turn every corridor light on', 'six switches, all on the ground floor.  each one lights its corridor on every floor.  they won\'t like it.'), 5600);
     }
     this.render();
   }
@@ -700,15 +725,13 @@ export class Story {
     // holding a switch
     this.noise = 0;
     if (this.hold) {
-      const L = this.lookAt;
-      if (!L || L.kind !== 'switch' || L.sw !== this.hold.sw) this.hold = null;
+      if (!this.atSwitch(this.hold.sw)) { this.hold = null; this.toast('stopped', 'stay at the switch until it clicks'); }
       else {
         this.hold.t += dt; this.noise = 7;                              // fiddling with it makes noise
         if (this.hold.t >= this.holdNeed()) {
           const sw = this.hold.sw; this.hold = null;
           this.setSwitch(sw, true); this.audio.rattle?.(); this.audio.pop?.();
-          { const n = this.switches.filter((x) => x.on).length, fl = this.switches.filter((x) => x.fl === sw.fl), fn = fl.filter((x) => x.on).length;
-            this.toast(`lights on  ${n}/${this.switches.length}`, `${fn}/${fl.length} on this floor`); }
+          this.toast(`lights on  ${this.switches.filter((x) => x.on).length}/${this.switches.length}`, `${sw.name}, every floor`);
           this.noise = 16;                                               // the clunk carries
           this.alarm(sw.pos, 18 + 10 * this.lit);                         // and they come to see who turned the lights on
           if (this.switches.every((x) => x.on)) { this.phase = 'done'; this.banner('ALL THE LIGHTS ARE ON', 'something is waiting', 'the finale comes later'); }
@@ -873,7 +896,7 @@ export class Story {
     }
     if (itemsDone) {
       h += it(lightsDone, 'turn every corridor light on', lightsDone ? '' : `<span class="count">${on}/${tot}</span>`);
-      if (!lightsDone) h += '<div class="sub">' + ['ground floor', 'first floor', 'second floor'].map((n, f) => { const a = this.switches.filter((s) => s.fl === f), b = a.filter((s) => s.on).length; return it(b === a.length, n, `<span class="count">${b}/${a.length}</span>`); }).join('') + '</div>';
+      if (!lightsDone) h += '<div class="sub">' + this.switches.map((s) => it(s.on, s.name)).join('') + '</div><div class="tip">switches: ground floor, on the map. E once, stay till it clicks</div>';
       h += lightsDone ? '<div class="item"><span class="box"></span><span class="lbl">???</span></div>' : '<div class="later">then… ?</div>';
     } else h += '<div class="later locked">then… ?</div>';
     this.objEl.innerHTML = h + '</div>';

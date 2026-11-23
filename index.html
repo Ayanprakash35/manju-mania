@@ -69,7 +69,16 @@
   #dead button { all: unset; cursor: pointer; padding: 6px 26px; font-size: 22px; text-transform: uppercase; letter-spacing: .5px; }
   #dead button:hover, #dead button:focus { background: #5fa49e; color: #071012; }
   body.inmenu #crosshair, body.inmenu #hud, body.inmenu #hint { display: none !important; }
-  #crosshair { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255,255,255,.85); box-shadow: 0 0 2px #000; pointer-events: none; }
+  /* crosshair: a small plus with a gap and a dot; over something you can use it opens out into an amber ring */
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 7; pointer-events: none;
+    background:
+      linear-gradient(#f2efe6, #f2efe6) 50% 0 / 2px 6px no-repeat, linear-gradient(#f2efe6, #f2efe6) 50% 100% / 2px 6px no-repeat,
+      linear-gradient(#f2efe6, #f2efe6) 0 50% / 6px 2px no-repeat, linear-gradient(#f2efe6, #f2efe6) 100% 50% / 6px 2px no-repeat;
+    filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); transition: transform .12s, opacity .12s; opacity: .9; }
+  #crosshair::after { content: ''; position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; margin: -1px 0 0 -1px; background: #f2efe6; }
+  #crosshair::before { content: ''; position: absolute; inset: 2px; border: 2px solid #f2c14e; border-radius: 50%; opacity: 0; transform: scale(.4); transition: transform .12s, opacity .12s; }
+  #crosshair.on { transform: rotate(45deg) scale(1.15); opacity: 1; }
+  #crosshair.on::before { opacity: 1; transform: scale(1); }
   #hud { position: fixed; left: 14px; top: 12px; color: #fff; font: bold 14px 'Courier New', monospace; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; line-height: 1.5; }
   #hud b { font-size: 17px; }
   #hearts { position: fixed; left: 50%; bottom: 38px; transform: translateX(-50%); display: flex; gap: 5px; z-index: 5; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); }

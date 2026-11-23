@@ -11,9 +11,16 @@ First-person horror game (work in progress) set in a hostel building, built from
 sitting on your bed, Manju bursts in furious and your laptop, tablet, music player and face mask are sucked out of the
 room into him. They land in random rooms across all three floors (at least one per floor). Space skips.
 
+**Crosshair:** a small plus with a centre dot; over anything you can use (items, food, switches, doors, Komynini) it
+turns 45° and opens into an amber ring.
+
 **Objectives** (top right): 1. get your stuff back (a sub-list of the four items); 2. once you have all four, turn on
-the corridor lights: 6 wall switches per floor, 18 in all (each lights a bright tube over it; a toast counts them; hold E; each one takes longer than the last, holding makes
-noise, and every light that comes on lets Manju, Mutty and Zoya see you from further off and move a little faster);
+the corridor lights: 6 wall switches, all on the ground floor (north corridor west and east ends, south corridor west
+and east ends, west and east corridors). Each one lights a bright tube over its stretch of corridor on all three floors.
+Press E once and stay close, roughly facing it, until it clicks (1.2 s, 0.4 s longer for each one already on; walking
+away cancels). Aiming counts within ~0.4 m of the plate. Switching makes noise, the clunk brings whoever's near to
+look, a toast counts them, and every light that comes on lets Manju, Mutty and Zoya see you from further off and move a
+little faster);
 3. the finale (not built yet).
 
 **Items** (1-5 to pick, click to use; each explains itself when you pick it up):

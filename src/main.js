@@ -687,6 +687,7 @@ function step(dt) {
 }
 
 // ---------------- loop ----------------
+const crossEl = document.getElementById('crosshair');
 const floorEl = document.getElementById('floor'), modeEl = document.getElementById('mode'), hintEl = document.getElementById('hint');
 const clock = new THREE.Clock();
 let bobT = 0, bobAmp = 0, pickFrame = 0, looked = null;
@@ -841,6 +842,7 @@ function frame() {
     if (++pickFrame % 4 === 0) looked = controls.isLocked && !storyHint ? roomDoors.pick(camera) : null;
     if (pickFrame % 15 === 0) story.tickUi();
     hintEl.style.display = storyHint || looked ? 'block' : 'none';
+    crossEl.classList.toggle('on', !!(story.lookAt || looked));          // something you can use is under it
     if (storyHint) hintEl.innerHTML = storyHint;
     else if (looked) hintEl.innerHTML = looked.r.locked ? 'locked.' : `<span class="key">E</span>${looked.target ? 'close' : 'open'}${looked.r.kind === 'glass' ? '  · stairs' : looked.r.kind === 'stall' ? (looked.target ? '' : '  · hide inside') : ''}`;
     const feet = player.position.y - PLAYER.segment - PLAYER.radius;
