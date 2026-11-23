@@ -12,7 +12,7 @@ sitting on your bed, Manju bursts in furious and your laptop, tablet, music play
 room into him. They land in random rooms across all three floors (at least one per floor). Space skips.
 
 **Objectives** (top right): 1. get your stuff back (a sub-list of the four items); 2. once you have all four, turn on
-the corridor lights: 6 wall switches per floor, 18 in all (hold E; each one takes longer than the last, holding makes
+the corridor lights: 6 wall switches per floor, 18 in all (each lights a bright tube over it; a toast counts them; hold E; each one takes longer than the last, holding makes
 noise, and every light that comes on lets Manju, Mutty and Zoya see you from further off and move a little faster);
 3. the finale (not built yet).
 
@@ -38,8 +38,8 @@ but after 10 s Mutty comes in under the door, bites, flings it open, and (on the
 rest rooms are filthy: shit in the bowls and up the walls, grime and urine on the floor, rust down the tiles, wet
 tissue, a bloody handprint on a mirror.
 
-**2nd floor** (grades 5-8 and the adults): Manju has already been through — no characters up here (his nav grid
-stops at the first floor), a body in every room (kids in uniform, adults), blood pooled, dragged and sprayed, more in
+**2nd floor** (grades 5-8 and the adults): Manju has already been through, and he still comes up here on his rounds
+(Mutty and Zoya don't), a body in every room (kids in uniform, adults), blood pooled, dragged and sprayed, more in
 the corridors, and figures that stand far down a corridor for a heartbeat and are gone.
 
 ## Look and feel of the UI (src/ui.css, src/icons.js)
@@ -53,8 +53,11 @@ Patrick Hand (handwriting), VT323 (pixel), Special Elite (the printed notice).
 
 **Finding your stuff (clues):** CowShit Komynini (E, in room 15) saw where everything went: one clue per visit, the
 tablet first (floor, wing, which side of the corridor, the room number), then the rest (floor, wing, side, a landmark
-nearby). Creep close to Manju while he patrols without seeing you and he mutters where he dumped something (floor and
-wing). Every clue is written onto the to-do page under its item. Once you have the tablet, Find My draws a 10 m circle
+nearby). Once you've got your first item back, Komynini has more to tell (before that he only repeats the tablet), and Manju
+starts muttering: creep close while he patrols without seeing you and he mutters where he dumped something (floor and
+wing; never while you're in room 15, at most once a minute). Every clue is written onto the to-do page (top right)
+under its item; Komynini tells you to check it, a note says so a few seconds into the game, and the page wiggles each
+time it's pointed out. Once you have the tablet, Find My draws a 10 m circle
 on the map round each missing item on your floor, with the item somewhere off-centre inside it.
 
 **The intro** is the warden's printed notice ("devices by 9:30 PM, or CONFISCATED") with the stamp coming down, then a
@@ -71,7 +74,8 @@ or when one of them gets you. Unlocks are saved in the browser. Open the book fr
 the death screen, which also shows the card of whoever caught you (Manju) or bit you to death (Mutty).
 
 **Room 15 (src/room15.js)** is where you start and the one safe place: inside it nobody can see, hear, catch or hurt
-you (Manju and Mutty's nav grids leave it out, so they stop at the door), its tube light never goes out, and there's
+you (Manju and Mutty's nav grids leave it out, so they stop at the door; when you go in, Manju gives up whatever he
+was doing and his wandering keeps 14 m away from the room until you come out), its tube light never goes out, and there's
 food: two Choco Pies and a Lay's packet (E takes them; see the items below); the food comes back on a new game. The room is a recreation of the owner's video (IMG_2567): two
 almirahs, laundry baskets and a guitar case on the door wall, a floral bed and a geometric-print bed, two teak desks
 with hutches under the mint window wall, grey satin curtains, a wall fan, the runner, mats, bags and slippers.
@@ -105,7 +109,8 @@ The hostel guard (`public/models/manju.glb`, built by `tools/manju.py` from the 
 ## Mutty (src/mutty.js)
 The crawler (`public/models/crawler.glb`), **ground floor only** (stairs are his border; he never follows you up).
 - Scuttles on all fours at speed, elbows and knees splayed; pounces up to face height and bites once for **one heart**.
-- After a bite he runs to Manju and tells him where you are; Manju then tracks you at speed for ~8 seconds.
+- After a bite he runs to Manju and tells him where you were; Manju sets off from wherever he is and walks there
+  briskly (2.6 m/s), without appearing near you or tracking you on the way. A toast warns you.
 - **Student rooms are safe:** once you cross a room door (not a stair/lobby opening), Mutty loses you and clears out
   for a while, letting you continue.
 - Body is only drawn when light is on him; his eyes catch the torch in the dark.

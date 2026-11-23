@@ -210,3 +210,6 @@ body.cut #dlg { bottom: calc(11vh + 14px); }
 #dlg.mutter .who { color: var(--blood); font-size: 18px; }
 .card, .card * { font-family: var(--pix); }
 .card { color: #fff; font-size: 25px; line-height: 1.15; }
+/* the to-do page wiggles when something new is written on it, or when you're told to look at it */
+#obj.ping { animation: objPing 1.6s ease-out; }
+@keyframes objPing { 0% { transform: rotate(1.2deg) scale(1); } 12% { transform: rotate(-2.5deg) scale(1.08); } 24% { transform: rotate(3deg) scale(1.08); } 36% { transform: rotate(-1.5deg) scale(1.04); } 55% { transform: rotate(1.8deg) scale(1.02); } 100% { transform: rotate(1.2deg) scale(1); } }

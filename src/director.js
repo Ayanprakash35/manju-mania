@@ -218,7 +218,7 @@ export class Director {
     const cam = this.camera.position;
     let best = null, bd = 12;
     for (const f of this.flickers) {
-      if (f.dead) continue;
+      if (f.dead || (f.sw && !f.on)) continue;            // a switch's tube only pops once it's lit (switching it on again fixes it)
       const d = f.pl.position.distanceTo(cam);
       if (d < bd) { bd = d; best = f; }
     }

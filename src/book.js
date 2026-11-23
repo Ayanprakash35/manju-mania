@@ -7,19 +7,19 @@ import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 export const ENTRIES = [
   {
-    id: 'manju', name: 'Manju', short: 'manju', role: 'The warden', threat: 5, floors: 'Ground · First', sees: 'torch 22 m · dark 8 m', hears: 'running, landing', chk: 'Smokes. Stares. Charges.',
-    what: 'Patrols the ground and first floors, stopping for a smoke. If he notices you he stares for a moment, then charges — and if he reaches you, you\'re caught. Zoya and Mutty both report to him, and he comes running.',
+    id: 'manju', name: 'Manju', short: 'manju', role: 'The warden', threat: 5, floors: 'All three', sees: 'torch 22 m · dark 8 m', hears: 'running, landing', chk: 'Smokes. Stares. Charges.',
+    what: 'Patrols all three floors, stopping for a smoke. If he notices you he stares for a moment, then charges — and if he reaches you, you\'re caught. Zoya and Mutty both report to him.',
     avoid: [
       'He sees a torch from about 22 m, but only about 8 m without one — switch it off when you hear him.',
       'Crouch: slower, and silent. Running and landing carry a long way.',
       'Break his line of sight; he loses you after a few seconds without it.',
-      'Throw the music player and he goes to see what the noise is.',
-      'Room 15 is safe — he never comes in. The second floor too: he\'s already done with it.',
+      'Throw the music player: he drops everything, even a chase, and stands glaring at it while it plays.',
+      'Room 15 is safe — he never comes in, and he gives up on you the moment you\'re inside.',
     ],
   },
   {
     id: 'mutty', name: 'Mutty', short: 'mutty', role: 'The crawler', threat: 3, floors: 'Ground', sees: 'torch 18 m · dark 10 m', hears: 'running, from far off', chk: 'Crawls. Listens. Bites. Tells.',
-    what: 'Crawls the ground floor. He hears running from far off, closes in fast and pounces from a metre or two — every bite takes a heart. After biting he scuttles off to tell Manju exactly where you are.',
+    what: 'Crawls the ground floor. He hears running from far off, closes in fast and pounces from a metre or two — every bite takes a heart. After biting he scuttles off to tell Manju where you were — and Manju starts walking over.',
     avoid: [
       'Walk or crouch on the ground floor; never run near him.',
       'Step into any student room: he loses you at the door.',

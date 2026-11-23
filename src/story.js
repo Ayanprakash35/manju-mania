@@ -91,6 +91,7 @@ export class Story {
   get lit() { return this.switches.length ? this.switches.filter((s) => s.on).length / this.switches.length : 0; }
   get cutscene() { return !!this.cut; }
   get busy() { return this.phase === 'intro'; }         // context card + cutscene: no walking, no AI
+  get found() { return ITEMS.filter((i) => this.have[i.id]).length; }
   get zoyaMuted() { return !!this.zoyaMasked; }
   get playing() { return this.phase === 'items' || this.phase === 'lights' || this.phase === 'done'; }
 
@@ -142,16 +143,16 @@ export class Story {
       g.userData.noRetro = true;
       this.scene.add(g);
       // its corridor light, on the ceiling above the switch, part of the game's flicker set (off until switched)
-      const pl = new THREE.PointLight(0xdfe6ff, 0, 11, 1.5);
+      const pl = new THREE.PointLight(0xdfe6ff, 0, 15, 1.2);
       pl.position.set(placed.R.ax === 'x' ? placed.u : placed.R.c, CEIL_Y[fl] - 0.3, placed.R.ax === 'x' ? placed.R.c : placed.u);
       this.scene.add(pl);
-      const f = { pl, base: 3.2, dead: false, t: Math.random() * 10, sw: true, on: false };
+      const f = { pl, base: 16, dead: false, t: Math.random() * 10, sw: true, on: false };
       this.flickers.push(f);
       this.switches.push({ fl, g, plate, led, tog, f, on: false, pos: g.position.clone() });
     }
   }
   setSwitch(s, on) {
-    s.on = on; s.f.on = on;
+    s.on = on; s.f.on = on; s.f.dead = false;
     s.led.material.color.set(on ? 0x2aff4a : 0xff2a1a);
     s.tog.position.y = on ? -0.02 : 0.02;
   }
@@ -238,6 +239,7 @@ export class Story {
     this.respawn();
     this.banner('NEW OBJECTIVE', 'get my stuff back', 'ask cowshit komynini (right behind you). he saw where it went.');
     this.render();
+    clearTimeout(this._npT); this._npT = setTimeout(() => this.pointToNotepad(), 6500);
   }
 
   updateCutscene(dt) {
@@ -382,15 +384,18 @@ export class Story {
     const opts = { blip: 210, speed: 34, face: 'komynini' }, who = 'COWSHIT KOMYNINI';
     const missing = ITEMS.filter((i) => !this.have[i.id]);
     if (!missing.length) { this.dialogSeq(['you got it all back?', 'nice. now the lights, i guess.', 'and _close the door._'], who, opts); this.komyCd = 8; return; }
-    const pick = !this.have.tablet ? 'tablet' : (missing.find((i) => !this.notes[i.id]) || missing[0]).id;
+    const pick = this.found === 0 ? 'tablet' : (missing.find((i) => !this.notes[i.id]) || missing[0]).id;
     const w = this.where(pick), name = ITEMS.find((i) => i.id === pick).name.toLowerCase();
     if (!w) return;
     const at = `${w.floor}. ${w.wing}, ${w.side}${w.lm ? `, near ${w.lm}` : ''}`;
     if (!this.askedKomy) {
       this.askedKomy = true;
       const line = `your tablet's on the ${w.floor}. ${w.wing}, ${w.side}${w.room ? `. room ${w.room} i think` : ''}.`;
-      this.dialogSeq(['bro.', 'he took *everything.*  i saw him chuck it all over the place.', line, 'get that first. it’s got _find my_ on it.', 'now let me watch my reels.'], who, opts);
+      this.dialogSeq(['bro.', 'he took *everything.*  i saw him chuck it all over the place.', line, 'get that first. it’s got _find my_ on it.', 'i wrote it in your notepad. *top right.*  everything you find out goes in there.', 'come back once you’ve got something. now let me watch my reels.'], who, opts)
+        .then(() => this.pointToNotepad());
       this.addNote('tablet', `${w.floor}, ${w.wing}, ${w.side}${w.room ? ` · room ${w.room}` : ''}`, 'komynini');
+    } else if (this.found === 0) {
+      this.dialogSeq(['i told you. your tablet.', `${w.floor}. ${w.wing}${w.room ? `, room ${w.room}` : ''}.`, 'it’s in your notepad. top right. *go.*'], who, opts).then(() => this.pointToNotepad());
     } else {
       const extra = pick === 'tablet' && w.room ? ` room ${w.room}.` : '';
       this.dialogSeq([`your ${name}? …`, `${at}.${extra}`, ['go away now.', 'that’s all i know. shh.', 'i’m on a streak here.'][Math.floor(Math.random() * 3)]], who, opts);
@@ -401,7 +406,7 @@ export class Story {
   // Manju, patrolling, mutters to himself where he dumped things — if you're close and he hasn't seen you
   mutter(dt, ctx) {
     this.mutterCd -= dt;
-    const m = this.manju; if (this.mutterCd > 0 || !m?.pos || this.phase !== 'items') return;
+    const m = this.manju; if (this.mutterCd > 0 || !m?.pos || this.phase !== 'items' || this.found === 0 || ctx.safe || this.inRoom15()) return;
     if (!['roam', 'idle', 'search'].includes(m.state) || m.seeing) return;
     const fp = ctx.feet; if (Math.abs(m.pos.y - fp.y) > 1.5 || Math.hypot(m.pos.x - fp.x, m.pos.z - fp.z) > 10) return;
     const pool = ITEMS.filter((i) => !this.have[i.id] && this.notes[i.id]?.from !== 'manju' && this.notes[i.id]?.from !== 'komynini');
@@ -412,7 +417,14 @@ export class Story {
     const lines = [`…threw that ${n} in some room on the ${w.floor}… ${w.wing}…  let him cry about it…`, `…${n}… ${w.floor}, ${w.wing}… nobody\'s getting it back…`, `…nine-thirty, i said… ${n} is on the ${w.floor} now… ${w.wing}… hm.`];
     this.dialog(lines[Math.floor(Math.random() * lines.length)], 'MANJU (muttering)', { cls: 'mutter', face: 'manju', blip: 70, speed: 22, hold: 3800 });
     if (!this.notes[pickI.id] || this.notes[pickI.id].from === 'manju') this.addNote(pickI.id, `${w.floor}, ${w.wing}`, 'manju');
-    this.mutterCd = 35;
+    this.mutterCd = 60;
+    setTimeout(() => this.toast('written in your notepad', 'top right'), 4200);
+  }
+  // a nudge at the to-do page: it wiggles and a note says what's on it
+  pointToNotepad() {
+    if (!this.playing) return;
+    this.objEl.classList.remove('ping'); void this.objEl.offsetWidth; this.objEl.classList.add('ping');
+    this.toast('your notepad  ↗', 'top right: what to do, where things are, every clue you get');
   }
 
   // ------------------------------------------------------------------------------------------ scatter
@@ -504,7 +516,7 @@ export class Story {
     if (L.kind === 'food' || L.kind === 'thrownFood') return this.food >= 3 ? 'my pockets are full of food' : K('E', 'take it');
     if (L.kind === 'switch') {
       if (L.sw.on) return 'it\'s on';
-      if (this.phase !== 'lights' && this.phase !== 'done') return 'dead. find your stuff first.';
+      if (this.phase !== 'lights' && this.phase !== 'done') return 'no power yet.  get all your stuff back first (notepad, top right).';
       if (this.hold?.sw === L.sw) return `${K('E', 'keep holding…')}<span class="bar"><i style="width:${Math.min(100, this.hold.t / this.holdNeed() * 100).toFixed(0)}%"></i></span>`;
       return K('E', `hold to switch the lights on  (${this.holdNeed().toFixed(1)}s)`);
     }
@@ -539,6 +551,7 @@ export class Story {
     const def = ITEMS.find((i) => i.id === id);
     this.card(def);
     this.audio.pickup?.() ?? this.audio.tick?.();
+    if (this.found === 1 && this.phase === 'items') setTimeout(() => this.banner('ONE BACK', 'three to go', 'cowshit (room 15) knows more now.  and manju mutters where he dumped things, if you get close without him seeing you.'), 5600);
     if (ITEMS.every((i) => this.have[i.id]) && this.phase === 'items') {
       this.phase = 'lights';
       setTimeout(() => this.banner('NEW OBJECTIVE', 'turn every corridor light on', 'six switches on each floor.  they won\'t like it.'), 5600);
@@ -633,6 +646,14 @@ export class Story {
     }
     return who;
   }
+  // a noise they come to check, watching out for you as they go (not the music player's spell)
+  alarm(p, range) {
+    const fl = floorOf(p.y);
+    for (const n of [this.manju, this.mutty, this.zoya]) {
+      if (!n?.pos || n.state === 'off' || n.state === 'cutscene' || floorOf(n.pos.y + 0.1) !== fl || n.pos.distanceTo(p) > range) continue;
+      if (n === this.manju) n.summon?.(p); else n.distract?.(p, 6);
+    }
+  }
   musicAt(p, secs) {       // a tinny little loop through a panner where it landed
     const ctx = this.audio.ctx; if (!ctx) return null;
     const pan = ctx.createPanner(); Object.assign(pan, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 2, rolloffFactor: 1.2, maxDistance: 60 });
@@ -686,8 +707,10 @@ export class Story {
         if (this.hold.t >= this.holdNeed()) {
           const sw = this.hold.sw; this.hold = null;
           this.setSwitch(sw, true); this.audio.rattle?.(); this.audio.pop?.();
+          { const n = this.switches.filter((x) => x.on).length, fl = this.switches.filter((x) => x.fl === sw.fl), fn = fl.filter((x) => x.on).length;
+            this.toast(`lights on  ${n}/${this.switches.length}`, `${fn}/${fl.length} on this floor`); }
           this.noise = 16;                                               // the clunk carries
-          this.lure(sw.pos, 18 + 10 * this.lit, 6);                       // and they come to see who turned the lights on
+          this.alarm(sw.pos, 18 + 10 * this.lit);                         // and they come to see who turned the lights on
           if (this.switches.every((x) => x.on)) { this.phase = 'done'; this.banner('ALL THE LIGHTS ARE ON', 'something is waiting', 'the finale comes later'); }
           this.render();
         }
@@ -844,7 +867,8 @@ export class Story {
       }
       h += '</div>';
       const unknown = ITEMS.some((i) => !this.have[i.id] && !this.notes?.[i.id]);
-      if (this.askedKomy && unknown) h += '<div class="tip">no clue yet? ask cowshit again, or sneak close to manju — he mutters</div>';
+      if (this.askedKomy && got === 0) h += '<div class="tip">tablet first. it\'s written above.</div>';
+      else if (this.askedKomy && unknown) h += '<div class="tip">no clue yet? ask cowshit again, or sneak close to manju — he mutters</div>';
       if (this.have.tablet) h += '<div class="tip">tablet: my stuff is circled on the map</div>';
     }
     if (itemsDone) {

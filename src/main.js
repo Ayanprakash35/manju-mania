@@ -233,6 +233,7 @@ function menuCamera(dt) {
 // ---------------- load building ----------------
 let collider = null, nav = null;
 let manjuGrace = 20;                    // seconds after New Game before Manju starts roaming
+let wasSafe = false; const ROOM15_C = new THREE.Vector3(26.9, 0.78, 19);   // room 15's middle (src/room15.js)
 let manjuReinforceT = 0;                // after Mutty reports: Manju tracks you at speed for ~8 s
 let charGrace = 8, charSpawnT = 0;      // delay before Mutty/Zoya arrive on their floors
 const doors = [];   // the model's entrance doors (auto-open): { pivot, open, dir, centre }
@@ -282,7 +283,7 @@ function placeManjuNear(feet, urgent = false) {
   const behind = [], front = [];
   for (let i = 0; i < nav.x.length; i++) {
     if (!nav.reach[i] || Math.abs(nav.y[i] - feet.y) > (urgent ? 1.2 : 0.6)) continue;
-    if (inSafe15(nav.x[i], nav.y[i], nav.z[i]) || nav.y[i] > 6.5) continue;          // never inside room 15, never the 2nd floor
+    if (inSafe15(nav.x[i], nav.y[i], nav.z[i])) continue;          // never inside room 15
     if (urgent && !inCorridor(nav.x[i], nav.z[i])) continue;
     const dx = nav.x[i] - feet.x, dz = nav.z[i] - feet.z, d = Math.hypot(dx, dz);
     if (d < min || d > max) continue;
@@ -323,14 +324,11 @@ function reportToManju(feet, urgent = false) {
   if (!manju.ready || !nav?.ready || state !== 'play') return;
   if (manju.state === 'lured') return;                  // he's at the music player and won't be pulled off it
   if (urgent) {
-    // Mutty ran to him and told him exactly where you are: come from a nearby, hidden corridor
-    // node and track you for ~8 s, even without line of sight. Nothing is mutated until a valid
-    // node is found — a failed placement must not end the opening grace or summon him elsewhere.
-    if (!placeManjuNear(feet, true)) return;
-    manju.lastKnown.copy(feet);
-    manju.awareness = 1; manjuGrace = 0;
-    manju.speedBoost = 1.6; manjuReinforceT = 8; manju.lostT = 0;
-    if (!['stare', 'chase', 'catch'].includes(manju.state)) manju.setState('chase');
+    // Mutty ran to him and told him where you were: he sets off from wherever he is and walks there
+    // (briskly, but he doesn't appear next to you and doesn't track you on the way). Not yet on duty:
+    // he starts somewhere far off.
+    if (manju.state === 'off' && (!manju.enabled || !manju.spawnFar(feet))) return;
+    if (manju.summon(feet)) { manjuGrace = 0; story.toast('Mutty told Manju where you were', 'he\'s on his way.  move.'); }
   } else {
     // Zoya has called him: he is suddenly ~5 m from you, on your floor, somewhere you aren't looking
     if (manju.enabled && !['stare', 'chase', 'catch'].includes(manju.state)) placeManjuNear(feet);
@@ -561,7 +559,7 @@ new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('./public/building.glb?v
   roomDoors.occluder = collider;
   nav = new NavGrid(collider, { x0: -37.8, x1: 31.6, z0: -15.5, z1: 30.4 });   // incl. the rooms pushed out into the exterior
   nav.build().then(() => {
-    manju.nav = nav.slice((g, i) => !inSafe15(g.x[i], g.y[i], g.z[i]) && g.y[i] < 6.5);   // never into room 15; the 2nd floor is already done
+    manju.nav = nav.slice((g, i) => !inSafe15(g.x[i], g.y[i], g.z[i]));   // every floor, never into room 15
     // Mutty is ground-floor only; Zoya is first-floor only. Both stair flights are cut out of the
     // slices so neither can follow the player up/down.
     mutty.setNav(nav.slice((g, i) => g.y[i] < 2.0 && !inStair(g.x[i], g.z[i]) && !inSafe15(g.x[i], g.y[i], g.z[i])));
@@ -767,6 +765,10 @@ function frame() {
       const hiddenNow = safe || story.hidden || story.busy;     // room 15, a shut rest-room cubicle, or the intro
       const ctx = { feet: feetPos(), eyePos: camera.position, camDir, torchOn, torchI: torch.intensity, noise: safe ? 0 : Math.max(noise, story.noise), crouch: crouching, hidden: hiddenNow, inRoom: inStudentRoom || safe, safe, lit: story.lit };
       if (manjuReinforceT > 0 && safe) { manjuReinforceT = 0; manju.speedBoost = 1; }   // nobody tells him where you are in room 15
+      // ducking into room 15 ends it: he gives up and his wandering keeps well away from the room while you're in there
+      if (safe && !wasSafe) manju.giveUp(ROOM15_C);
+      if (!safe && wasSafe) manju.avoid = null;
+      wasSafe = safe;
       if (manjuReinforceT > 0) {
         manjuReinforceT -= wdt;
         manju.lastKnown.copy(ctx.feet);          // he was told where you are: no losing you during the response

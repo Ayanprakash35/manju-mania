@@ -13,7 +13,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const SCALE = 1.23;                         // model is 1.40 m; ~1.72 m in game
 const EYE_H = 1.29 * SCALE;
-const SPEED = { roam: 1.25, investigate: 1.7, chase: 4.6, search: 1.5, lured: 2.7 };
+const SPEED = { roam: 1.25, investigate: 1.7, chase: 4.6, search: 1.5, lured: 2.7, hurry: 2.6 };
 const CORR = { xo0: -31.2, xi0: -29.5, xi1: 23.6, xo1: 25.3, zo0: -8.75, zi0: -7.05, zi1: 22.8, zo1: 24.5 };   // south corridor moved 7.4 m (wing stretch)
 const STAIR_RECTS = [[-29.5, -26.15, 3.8, 9.3], [20.58, 23.6, 3.8, 9.35]];
 const inCorridor = (x, z) => {
@@ -113,6 +113,7 @@ export class Manju {
       const id = Math.floor(Math.random() * N);
       if (!n.reach[id]) continue;
       const x = n.x[id], z = n.z[id];
+      if (this.avoid && Math.abs(n.y[id] - this.avoid.y) < 2 && Math.hypot(x - this.avoid.x, z - this.avoid.z) < this.avoidR) continue;
       if (near) { if (Math.hypot(x - near.x, z - near.z) > radius || Math.abs(n.y[id] - near.y) > 1) continue; }
       else {
         if (!inCorridor(x, z) && Math.random() > 0.12) continue;
@@ -152,12 +153,24 @@ export class Manju {
     this.setState('lured'); this.timer = secs;
     return true;
   }
+  // Mutty told him where you were: he walks there from wherever he is (faster than a stroll, no tracking you on the way)
+  summon(p) {
+    if (['off', 'catch', 'cutscene', 'chase', 'stare', 'lured'].includes(this.state) || !this.nav?.ready) return false;
+    this.lastKnown.copy(p); this.awareness = Math.max(this.awareness, 0.4); this.setState('investigate'); this.hurry = true;
+    return true;
+  }
+  // you went into room 15: whatever he was after, he gives up and wanders off somewhere else
+  giveUp(away) {
+    if (['off', 'catch', 'cutscene', 'lured'].includes(this.state)) return;
+    this.awareness = 0; this.lostT = 0; this.avoid = away.clone(); this.avoidR = 14;
+    this.setState('roam');
+  }
   place(p) {
     this.pos.copy(p); this.path = []; this.awareness = 0; this.lostT = 0; this.doorWait = null;
     this.setState('roam');
   }
   setState(s) {
-    this.state = s; this.timer = 0;
+    this.state = s; this.timer = 0; this.hurry = false;
     if (s === 'idle') { this.play('Idle'); this.timer = rnd(8, 16); }                 // one or two full drags (the loop is 8 s)
     if (s === 'roam') { this.smokeBreak = rnd(14, 28); this.play('Walk'); const g = this.randomGoal(); if (g < 0 || !this.goTo(g)) this.path = []; }
     if (s === 'investigate') { this.play('Walk'); this.goTo(this.lastKnown); }
@@ -227,7 +240,7 @@ export class Manju {
       case 'catch': return;
     }
     // ---------- movement along the path (stops for doors)
-    const sp = this.state === 'chase' ? SPEED.chase * this.speedBoost * (dist > 18 ? 1.15 : 1) * (1 + 0.22 * this.lit) : SPEED[this.state] || 0;
+    const sp = this.state === 'chase' ? SPEED.chase * this.speedBoost * (dist > 18 ? 1.15 : 1) * (1 + 0.22 * this.lit) : this.hurry ? SPEED.hurry : SPEED[this.state] || 0;
     if (this.path.length && sp > 0 && this.state !== 'stare') this.follow(dt, sp, ctx);
     // ---------- animation speed, footsteps
     if (this.cur === this.actions.Walk) this.cur.timeScale = sp / 1.25;
